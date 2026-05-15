@@ -18,6 +18,13 @@ async function reval(id: string) {
   if (data?.slug) revalidatePath(`/artista/${data.slug}`)
 }
 
+// ── Secciones ──────────────────────────────────────────────────────────────────
+export async function updateArtistSections(id: string, sections: { key: string; visible: boolean }[]) {
+  await requireAdmin()
+  await supabaseAdmin.from('artists').update({ page_sections: sections, updated_at: new Date().toISOString() }).eq('id', id)
+  await reval(id)
+}
+
 // ── Perfil ─────────────────────────────────────────────────────────────────────
 export async function updateArtistProfile(id: string, formData: FormData) {
   await requireAdmin()

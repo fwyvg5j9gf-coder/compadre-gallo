@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { Artist } from '@/lib/data';
+import { Artist, DEFAULT_SECTIONS } from '@/lib/data';
 import { usePlayer } from '@/context/PlayerContext';
 import Countdown from '@/components/Countdown';
-import type { Product, ProductVariant } from '@/lib/supabase';
+import type { Product } from '@/lib/supabase';
 import { totalStock } from '@/lib/supabase';
 
 const tagStyles: Record<string, { bg: string; color: string }> = {
@@ -116,180 +116,111 @@ export default function ArtistDetailClient({ artist, products = [] }: { artist: 
         </div>
       </section>
 
-      {/* Tracks */}
-      <section className="section">
-        <h2 style={{ marginBottom: 'var(--space-5)' }}>canciones</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {artist.tracks.map((track, i) => {
-            const active = isPlaying(track.title);
-            return (
-              <div
-                key={track.id}
-                onClick={() => handlePlay(track.title)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-4)',
-                  padding: '12px var(--space-4)',
-                  borderRadius: 'var(--r-sm)',
-                  cursor: 'pointer',
-                  background: active ? 'var(--ink-100)' : 'transparent',
-                  transition: 'background var(--dur-fast) var(--ease-out)',
-                }}
-                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--ink-100)'; }}
-                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-              >
-                <div style={{
-                  width: 28,
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 13,
-                  color: active ? 'var(--gallo-red)' : 'var(--fg-muted)',
-                  textAlign: 'center',
-                  fontWeight: active ? 700 : 400,
-                }}>
-                  {active ? '♪' : i + 1}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 15 }}>{track.title}</div>
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--fg-muted)', fontFamily: 'var(--font-mono)' }}>
-                  {track.plays}
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--fg-muted)', fontFamily: 'var(--font-mono)', minWidth: 36, textAlign: 'right' }}>
-                  {track.duration}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      {(artist.page_sections ?? DEFAULT_SECTIONS).filter(s => s.visible).map(s => {
 
-      {/* Shows */}
-      <section className="section section-alt">
-        <h2 style={{ marginBottom: 'var(--space-5)' }}>fechas</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          {artist.shows.map((show, i) => {
-            const soldOut   = show.tag === 'agotado' || show.available === 0;
-            const isPreventa = show.tag === 'preventa';
-            return (
-              <div
-                key={i}
-                style={{
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--r-md)',
-                  padding: 'var(--space-5)',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: 'var(--space-4)',
-                  flexWrap: 'wrap',
-                  background: '#fff',
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{show.venue}</div>
-                  <div style={{ fontSize: 14, color: 'var(--fg-muted)' }}>{show.city} · {show.date}</div>
-                  {isPreventa && (
-                    <div style={{ marginTop: 8 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 'var(--track-wide)', textTransform: 'uppercase', color: 'var(--fg-muted)', marginBottom: 6 }}>
-                        preventa termina en
+        if (s.key === 'canciones') {
+          if (!artist.tracks.length) return null
+          return (
+            <section key="canciones" className="section">
+              <h2 style={{ marginBottom: 'var(--space-5)' }}>canciones</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {artist.tracks.map((track, i) => {
+                  const active = isPlaying(track.title);
+                  return (
+                    <div key={track.id} onClick={() => handlePlay(track.title)} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', padding: '12px var(--space-4)', borderRadius: 'var(--r-sm)', cursor: 'pointer', background: active ? 'var(--ink-100)' : 'transparent', transition: 'background var(--dur-fast) var(--ease-out)' }}
+                      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--ink-100)'; }}
+                      onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                      <div style={{ width: 28, fontFamily: 'var(--font-mono)', fontSize: 13, color: active ? 'var(--gallo-red)' : 'var(--fg-muted)', textAlign: 'center', fontWeight: active ? 700 : 400 }}>
+                        {active ? '♪' : i + 1}
                       </div>
-                      <Countdown target={artist.previewTimestamp} />
+                      <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 15 }}>{track.title}</div></div>
+                      <div style={{ fontSize: 13, color: 'var(--fg-muted)', fontFamily: 'var(--font-mono)' }}>{track.plays}</div>
+                      <div style={{ fontSize: 13, color: 'var(--fg-muted)', fontFamily: 'var(--font-mono)', minWidth: 36, textAlign: 'right' }}>{track.duration}</div>
                     </div>
-                  )}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-                  <div style={{ fontWeight: 700, fontSize: 18 }}>${show.price} MXN</div>
-                  {!soldOut && (
-                    <div style={{ fontSize: 12, color: 'var(--fg-muted)' }}>
-                      {show.available} disponibles
-                    </div>
-                  )}
-                  {soldOut ? (
-                    <button className="btn btn-md" disabled>agotado</button>
-                  ) : (
-                    <Link href={`/checkout/${artist.slug}`} className="btn btn-accent btn-md">
-                      comprar
-                    </Link>
-                  )}
-                </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-      </section>
+            </section>
+          )
+        }
 
-      {/* Merch */}
-      {products.length > 0 && (
-        <section className="section">
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 'var(--space-5)' }}>
-            <h2>merch</h2>
-            <Link href="/tienda" style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-muted)', textDecoration: 'none' }}>
-              ver todo →
-            </Link>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--space-5)' }}>
-            {products.map(product => {
-              const stock   = totalStock(product.product_variants)
-              const soldOut = stock === 0
-              return (
-                <article key={product.id} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <Link href={`/tienda/${product.id}`} style={{ textDecoration: 'none', display: 'block' }}>
-                    <div style={{
-                      aspectRatio: '4/5', borderRadius: 'var(--r-md)',
-                      background: '#0a0a0a', position: 'relative', overflow: 'hidden',
-                      border: '1px solid var(--border)',
-                    }}>
-                      {product.image_url ? (
-                        <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        <>
-                          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 10, background: 'var(--gallo-red)' }} />
-                          <div style={{
-                            position: 'absolute', bottom: 16, left: 20, right: 12,
-                            fontFamily: 'var(--font-display)', fontWeight: 800,
-                            fontSize: 'clamp(14px, 2vw, 18px)', letterSpacing: 'var(--track-snug)',
-                            lineHeight: 1.1, textTransform: 'lowercase', color: '#fff',
-                          }}>
-                            {product.name}
+        if (s.key === 'fechas') {
+          if (!artist.shows.length) return null
+          return (
+            <section key="fechas" className="section section-alt">
+              <h2 style={{ marginBottom: 'var(--space-5)' }}>fechas</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                {artist.shows.map((show, i) => {
+                  const soldOut    = show.tag === 'agotado' || show.available === 0;
+                  const isPreventa = show.tag === 'preventa';
+                  return (
+                    <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: 'var(--space-5)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap', background: '#fff' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 16 }}>{show.venue}</div>
+                        <div style={{ fontSize: 14, color: 'var(--fg-muted)' }}>{show.city} · {show.date}</div>
+                        {isPreventa && (
+                          <div style={{ marginTop: 8 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 'var(--track-wide)', textTransform: 'uppercase', color: 'var(--fg-muted)', marginBottom: 6 }}>preventa termina en</div>
+                            <Countdown target={artist.previewTimestamp} />
                           </div>
-                        </>
-                      )}
-                      {product.category && (
-                        <span style={{
-                          position: 'absolute', top: 10, right: 10,
-                          background: '#0a0a0a', color: '#fff',
-                          fontSize: 9, fontWeight: 800, letterSpacing: '0.07em',
-                          textTransform: 'uppercase', padding: '3px 7px',
-                        }}>
-                          {product.category}
-                        </span>
-                      )}
-                      {soldOut && (
-                        <div style={{
-                          position: 'absolute', inset: 0, background: 'rgba(10,10,10,0.6)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#fff', background: '#0a0a0a', padding: '5px 10px' }}>agotado</span>
-                        </div>
-                      )}
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                        <div style={{ fontWeight: 700, fontSize: 18 }}>${show.price} MXN</div>
+                        {!soldOut && <div style={{ fontSize: 12, color: 'var(--fg-muted)' }}>{show.available} disponibles</div>}
+                        {soldOut ? <button className="btn btn-md" disabled>agotado</button> : <Link href={`/checkout/${artist.slug}`} className="btn btn-accent btn-md">comprar</Link>}
+                      </div>
                     </div>
-                  </Link>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{product.name}</div>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{fmt(product.price_mxn)}</div>
-                  </div>
-                  {!soldOut && (
-                    <Link href={`/tienda/${product.id}`} className="btn btn-primary btn-sm" style={{ textAlign: 'center', justifyContent: 'center' }}>
-                      comprar
-                    </Link>
-                  )}
-                </article>
-              )
-            })}
-          </div>
-        </section>
-      )}
+                  );
+                })}
+              </div>
+            </section>
+          )
+        }
+
+        if (s.key === 'merch') {
+          if (!products.length) return null
+          return (
+            <section key="merch" className="section">
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 'var(--space-5)' }}>
+                <h2>merch</h2>
+                <Link href="/tienda" style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-muted)', textDecoration: 'none' }}>ver todo →</Link>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--space-5)' }}>
+                {products.map(product => {
+                  const stock = totalStock(product.product_variants)
+                  const soldOut = stock === 0
+                  return (
+                    <article key={product.id} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <Link href={`/tienda/${product.id}`} style={{ textDecoration: 'none', display: 'block' }}>
+                        <div style={{ aspectRatio: '4/5', borderRadius: 'var(--r-md)', background: '#0a0a0a', position: 'relative', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                          {product.image_url ? (
+                            <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <>
+                              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 10, background: 'var(--gallo-red)' }} />
+                              <div style={{ position: 'absolute', bottom: 16, left: 20, right: 12, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 'clamp(14px, 2vw, 18px)', letterSpacing: 'var(--track-snug)', lineHeight: 1.1, textTransform: 'lowercase', color: '#fff' }}>{product.name}</div>
+                            </>
+                          )}
+                          {product.category && <span style={{ position: 'absolute', top: 10, right: 10, background: '#0a0a0a', color: '#fff', fontSize: 9, fontWeight: 800, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '3px 7px' }}>{product.category}</span>}
+                          {soldOut && <div style={{ position: 'absolute', inset: 0, background: 'rgba(10,10,10,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#fff', background: '#0a0a0a', padding: '5px 10px' }}>agotado</span></div>}
+                        </div>
+                      </Link>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>{product.name}</div>
+                        <div style={{ fontWeight: 700, fontSize: 15 }}>{fmt(product.price_mxn)}</div>
+                      </div>
+                      {!soldOut && <Link href={`/tienda/${product.id}`} className="btn btn-primary btn-sm" style={{ textAlign: 'center', justifyContent: 'center' }}>comprar</Link>}
+                    </article>
+                  )
+                })}
+              </div>
+            </section>
+          )
+        }
+
+        return null
+      })}
     </>
   );
 }

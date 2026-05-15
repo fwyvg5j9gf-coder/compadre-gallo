@@ -1,4 +1,5 @@
-import type { Artist, Tag } from './data'
+import type { Artist, Tag, PageSection, DEFAULT_SECTIONS } from './data'
+import { DEFAULT_SECTIONS as DEF } from './data'
 
 type DbShow = {
   venue: string; city: string; date: string
@@ -9,6 +10,7 @@ type DbArtist = {
   id: string; slug: string; name: string; bio: string | null
   city: string | null; genre: string | null; image_url: string | null
   bg_color: string; stripe_color: string; fg_color: string
+  page_sections?: PageSection[] | null
   shows: DbShow[]
 }
 
@@ -35,6 +37,7 @@ export function mapArtist(a: DbArtist): Artist {
     stripe:         a.stripe_color,
     fg:             a.fg_color,
     image_url:      a.image_url,
+    page_sections:  (a.page_sections as PageSection[]) ?? DEF,
     tag:            (next ? 'preventa' : null) as Tag,
     bio:            a.bio ?? '',
     tracks:         [],

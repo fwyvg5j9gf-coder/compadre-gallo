@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef } from 'react'
 import {
-  updateArtistProfile,
+  updateArtistProfile, updateArtistSections,
   createShow, updateShow, deleteShow,
   createTask, updateTaskStatus, deleteTask,
   createContent, updateContentStatus, deleteContent,
@@ -22,6 +22,7 @@ type Artist = {
   genre: string | null; image_url: string | null; is_published: boolean
   bg_color: string; stripe_color: string; fg_color: string
   instagram: string | null; tiktok: string | null; spotify: string | null; youtube: string | null
+  page_sections?: { key: string; visible: boolean }[] | null
   shows: Show[]; tasks: Task[]; content: Content[]; income: Income[]
   merch_total: number
 }
@@ -153,6 +154,98 @@ function ArtistImageUpload({ currentUrl, onUploaded }: { currentUrl?: string | n
 }
 
 // ── Tab: Perfil ────────────────────────────────────────────────────────────────
+// ── Secciones del perfil ───────────────────────────────────────────────────────
+const SECTION_LABELS: Record<string, string> = {
+  canciones: 'canciones',
+  fechas:    'fechas / boletos',
+  merch:     'merch',
+}
+
+function SeccionesCard({ artist }: { artist: Artist }) {
+  const DEFAULT = [
+    { key: 'canciones', visible: true },
+    { key: 'fechas',    visible: true },
+    { key: 'merch',     visible: true },
+  ]
+  const [sections, setSections] = useState(
+    (artist.page_sections as { key: string; visible: boolean }[] | undefined) ?? DEFAULT
+  )
+  const [pending, start] = useTransition()
+  const [saved, setSaved] = useState(false)
+
+  function move(i: number, dir: -1 | 1) {
+    const next = [...sections]
+    const j = i + dir
+    if (j < 0 || j >= next.length) return
+    ;[next[i], next[j]] = [next[j], next[i]]
+    setSections(next)
+  }
+
+  function toggle(i: number) {
+    const next = [...sections]
+    next[i] = { ...next[i], visible: !next[i].visible }
+    setSections(next)
+  }
+
+  function save() {
+    start(async () => {
+      await updateArtistSections(artist.id, sections)
+      setSaved(true); setTimeout(() => setSaved(false), 2000)
+    })
+  }
+
+  return (
+    <SectionCard
+      title="secciones del perfil público"
+      action={
+        <button onClick={save} disabled={pending} className="adm-btn-primary" style={{ height: 28, padding: '0 14px', fontSize: 11 }}>
+          {pending ? '…' : saved ? 'guardado ✓' : 'guardar orden'}
+        </button>
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {sections.map((s, i) => (
+          <div key={s.key} style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '10px 14px', background: s.visible ? '#fff' : '#f6f5f1',
+            border: `1px solid ${B}`, borderRadius: 6,
+          }}>
+            {/* drag handle visual */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, cursor: 'default' }}>
+              <div style={{ width: 14, height: 1.5, background: S, borderRadius: 1 }} />
+              <div style={{ width: 14, height: 1.5, background: S, borderRadius: 1 }} />
+              <div style={{ width: 14, height: 1.5, background: S, borderRadius: 1 }} />
+            </div>
+
+            <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: s.visible ? '#0a0a0a' : S }}>
+              {SECTION_LABELS[s.key] ?? s.key}
+            </span>
+
+            {/* visible toggle */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: M }}>
+              <input type="checkbox" checked={s.visible} onChange={() => toggle(i)}
+                style={{ width: 15, height: 15, accentColor: '#1a6b35', cursor: 'pointer' }} />
+              {s.visible ? 'visible' : 'oculto'}
+            </label>
+
+            {/* reorder arrows */}
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button onClick={() => move(i, -1)} disabled={i === 0} className="adm-btn-icon"
+                style={{ height: 26, width: 26, padding: 0, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                ↑
+              </button>
+              <button onClick={() => move(i, 1)} disabled={i === sections.length - 1} className="adm-btn-icon"
+                style={{ height: 26, width: 26, padding: 0, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                ↓
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
+  )
+}
+
 function PerfilTab({ artist }: { artist: Artist }) {
   const [imageUrl, setImageUrl] = useState(artist.image_url ?? '')
   const [bgColor, setBgColor]   = useState(artist.bg_color)
@@ -245,6 +338,9 @@ function PerfilTab({ artist }: { artist: Artist }) {
           </div>
         </div>
       </SectionCard>
+
+      {/* Secciones */}
+      <SeccionesCard artist={artist} />
 
       {/* Publicado */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', border: `1px solid ${B}`, borderRadius: 8, padding: '16px 20px' }}>

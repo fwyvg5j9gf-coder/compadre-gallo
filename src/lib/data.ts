@@ -1,8 +1,17 @@
 export type Tag = 'preventa' | 'agotado' | 'en vivo' | null;
 
+export type PageSection = { key: 'canciones' | 'fechas' | 'merch'; visible: boolean }
+
+export const DEFAULT_SECTIONS: PageSection[] = [
+  { key: 'canciones', visible: true },
+  { key: 'fechas',    visible: true },
+  { key: 'merch',     visible: true },
+]
+
 export interface Artist {
   id?: string;
   slug: string;
+  page_sections?: PageSection[];
   name: string;
   city: string;
   genre: string;

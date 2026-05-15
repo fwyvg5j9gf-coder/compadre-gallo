@@ -12,7 +12,7 @@ export default async function ArtistDetailPage({ params }: { params: Promise<{ i
 
   const { data: artist } = await supabaseAdmin
     .from('artists')
-    .select('id, slug, name, bio, city, genre, image_url, is_published, bg_color, stripe_color, fg_color, instagram, tiktok, spotify, youtube')
+    .select('id, slug, name, bio, city, genre, image_url, is_published, bg_color, stripe_color, fg_color, instagram, tiktok, spotify, youtube, page_sections')
     .eq('id', id)
     .single()
 
