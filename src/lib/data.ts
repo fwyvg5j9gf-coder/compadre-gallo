@@ -12,6 +12,7 @@ export interface Artist {
   fg: string;
   tag: Tag;
   bio: string;
+  image_url?: string | null;
   tracks: Track[];
   shows: Show[];
   previewTimestamp: number;

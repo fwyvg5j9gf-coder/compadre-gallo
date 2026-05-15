@@ -31,8 +31,19 @@ export default function ArtistDetailClient({ artist }: { artist: Artist }) {
       <section style={{ background: artist.bg, paddingBottom: 0 }}>
         <div className="artist-hero">
           {/* Color block as stand-in for photo */}
-          <div className="artist-hero-img" style={{ background: `color-mix(in srgb, ${artist.stripe} 30%, ${artist.bg})` }}>
+          <div className="artist-hero-img" style={{ background: `color-mix(in srgb, ${artist.stripe} 30%, ${artist.bg})`, position: 'relative', overflow: 'hidden' }}>
+            {artist.image_url && (
+              <>
+                <img
+                  src={artist.image_url}
+                  alt={artist.name}
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }}
+                />
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.15) 70%)' }} />
+              </>
+            )}
             <div style={{
+              position: 'relative',
               width: '100%', height: '100%',
               display: 'flex', alignItems: 'flex-end', padding: 20,
             }}>

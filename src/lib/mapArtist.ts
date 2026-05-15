@@ -7,7 +7,7 @@ type DbShow = {
 
 type DbArtist = {
   slug: string; name: string; bio: string | null
-  city: string | null; genre: string | null
+  city: string | null; genre: string | null; image_url: string | null
   bg_color: string; stripe_color: string; fg_color: string
   shows: DbShow[]
 }
@@ -33,6 +33,7 @@ export function mapArtist(a: DbArtist): Artist {
     bg:             a.bg_color,
     stripe:         a.stripe_color,
     fg:             a.fg_color,
+    image_url:      a.image_url,
     tag:            (next ? 'preventa' : null) as Tag,
     bio:            a.bio ?? '',
     tracks:         [],

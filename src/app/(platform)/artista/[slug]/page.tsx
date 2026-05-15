@@ -18,7 +18,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
 
   const { data } = await supabaseAdmin
     .from('artists')
-    .select('slug, name, bio, city, genre, bg_color, stripe_color, fg_color, shows(venue, city, date, price_mxn, capacity, is_published)')
+    .select('slug, name, bio, city, genre, image_url, bg_color, stripe_color, fg_color, shows(venue, city, date, price_mxn, capacity, is_published)')
     .eq('slug', slug)
     .eq('is_published', true)
     .single()

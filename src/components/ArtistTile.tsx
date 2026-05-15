@@ -20,7 +20,18 @@ export default function ArtistTile({ artist, ratio = '1/1' }: Props) {
   return (
     <Link href={`/artista/${artist.slug}`} className="artist-tile" style={{ textDecoration: 'none' }}>
       <div className="artist-tile-media" style={{ aspectRatio: ratio, background: artist.bg }}>
-        <div className="artist-tile-stripe" style={{ background: artist.stripe }} />
+        {artist.image_url ? (
+          <>
+            <img
+              src={artist.image_url}
+              alt={artist.name}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }}
+            />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 60%)' }} />
+          </>
+        ) : (
+          <div className="artist-tile-stripe" style={{ background: artist.stripe }} />
+        )}
         {tagStyle && artist.tag && (
           <span
             className="artist-tile-tag"
