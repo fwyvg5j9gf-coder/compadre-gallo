@@ -64,10 +64,15 @@ export type CheckoutPayload = {
   shippingRateId: string | null
   shippingCarrier: string | null
   shippingMxn: number
+  stripePaymentId: string
   items: CartItem[]
 }
 
-export async function createOrder(payload: CheckoutPayload): Promise<{ orderId: string }> {
+export async function createOrder(payload: CheckoutPayload): Promise<{ orderId: string; folioNumber: number }> {
+  const { auth } = await import('@clerk/nextjs/server')
+  const { sendOrderConfirmation, sendAdminNewOrder } = await import('@/lib/emails')
+
+  const { userId } = await auth()
   const subtotal = payload.items.reduce((s, i) => s + i.price_mxn * i.qty, 0)
   const total = subtotal + payload.shippingMxn
 
@@ -90,9 +95,11 @@ export async function createOrder(payload: CheckoutPayload): Promise<{ orderId: 
       subtotal_mxn: subtotal,
       total_mxn: total,
       notes: payload.notes || null,
-      status: 'pending',
+      status: 'paid',
+      stripe_payment_id: payload.stripePaymentId,
+      user_id: userId ?? null,
     })
-    .select('id')
+    .select('id, folio_number, order_items(*)')
     .single()
 
   if (error || !order) throw new Error('Error creando la orden')
@@ -125,5 +132,28 @@ export async function createOrder(payload: CheckoutPayload): Promise<{ orderId: 
     }
   }
 
-  return { orderId: order.id }
+  // Correos — fire and forget
+  const orderForEmail = {
+    id: order.id as string,
+    folio_number: order.folio_number as number,
+    customer_name: payload.name,
+    customer_email: payload.email,
+    total_mxn: total,
+    subtotal_mxn: subtotal,
+    shipping_mxn: payload.shippingMxn,
+    status: 'paid',
+    shipping_address: { street: payload.street, colonia: payload.colonia, zip: payload.zip, state: payload.state, city: payload.city },
+    tracking_number: null,
+    order_items: payload.items.map(i => ({
+      product_name: i.name,
+      quantity: i.qty,
+      unit_price_mxn: i.price_mxn,
+    })),
+  }
+  Promise.allSettled([
+    sendOrderConfirmation(orderForEmail),
+    sendAdminNewOrder(orderForEmail),
+  ]).catch(console.error)
+
+  return { orderId: order.id, folioNumber: order.folio_number }
 }

@@ -26,7 +26,7 @@ export default async function OrdenesPage() {
   const { data: orders } = await supabaseAdmin
     .from('orders')
     .select('*, order_items(*)')
-    .order('created_at', { ascending: false })
+    .order('folio_number', { ascending: false })
 
   const list = orders ?? []
   const totalVentas = list.reduce((s, o) => s + o.total_mxn, 0)
@@ -75,7 +75,7 @@ export default async function OrdenesPage() {
           <div style={{ background: '#fff', border: '1px solid #e8e7e1', borderRadius: 8, overflow: 'hidden' }}>
             {/* Cabecera */}
             <div style={{
-              display: 'grid', gridTemplateColumns: '88px 1fr 200px auto 96px 100px',
+              display: 'grid', gridTemplateColumns: '120px 1fr 200px auto 96px 100px',
               gap: 12, padding: '8px 20px', background: '#f6f5f1', borderBottom: '1px solid #e8e7e1',
               fontSize: 10, fontWeight: 700, color: '#9a9994', letterSpacing: '0.06em', textTransform: 'uppercase',
             }}>
@@ -88,15 +88,17 @@ export default async function OrdenesPage() {
                 .map((i: { product_name: string; quantity: number }) => `${i.product_name} ×${i.quantity}`)
                 .join(', ')
               const sc = STATUS_COLOR[order.status] ?? { bg: '#f0efe9', text: '#6b6a64' }
+              const folioStr = `GALLO-${String(order.folio_number).padStart(5, '0')}`
 
               return (
-                <div key={order.id} className="adm-row" style={{
-                  display: 'grid', gridTemplateColumns: '88px 1fr 200px auto 96px 100px',
+                <a key={order.id} href={`/casa/ordenes/${order.id}`} className="adm-row" style={{
+                  display: 'grid', gridTemplateColumns: '120px 1fr 200px auto 96px 100px',
                   gap: 12, alignItems: 'center', padding: '13px 20px',
                   borderBottom: idx < list.length - 1 ? '1px solid #f0efe9' : 'none',
+                  textDecoration: 'none', color: 'inherit',
                 }}>
-                  <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#9a9994', letterSpacing: '0.02em' }}>
-                    {order.id.slice(0, 8).toUpperCase()}
+                  <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#003a87', fontWeight: 700, letterSpacing: '0.01em' }}>
+                    {folioStr}
                   </span>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: '#0a0a0a' }}>{order.customer_name ?? '—'}</div>
@@ -118,7 +120,7 @@ export default async function OrdenesPage() {
                   }}>
                     {STATUS_LABEL[order.status] ?? order.status}
                   </span>
-                </div>
+                </a>
               )
             })}
           </div>

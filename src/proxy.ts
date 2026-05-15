@@ -1,12 +1,16 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
-// Protege /casa pero NO /casa/login ni sus rutas hijas
-const isProtected = createRouteMatcher(['/casa((?!/login).*)'])
-const isLoginRoute = createRouteMatcher(['/casa/login(.*)'])
+const isAdminProtected = createRouteMatcher(['/casa((?!/login).*)'])
+const isAdminLogin    = createRouteMatcher(['/casa/login(.*)'])
+const isCuentaProtected = createRouteMatcher(['/cuenta((?!/login|/registro).*)'])
+const isCuentaPublic  = createRouteMatcher(['/cuenta/login(.*)', '/cuenta/registro(.*)'])
 
 export default clerkMiddleware(async (auth, req) => {
-  if (!isLoginRoute(req) && isProtected(req)) {
+  if (!isAdminLogin(req) && isAdminProtected(req)) {
     await auth.protect()
+  }
+  if (!isCuentaPublic(req) && isCuentaProtected(req)) {
+    await auth.protect({ unauthenticatedUrl: '/cuenta/login' })
   }
 })
 
