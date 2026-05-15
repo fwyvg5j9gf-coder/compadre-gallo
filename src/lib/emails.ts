@@ -1,6 +1,6 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const getResend = () => new Resend(process.env.RESEND_API_KEY)
 const FROM = process.env.RESEND_FROM_EMAIL ?? 'pedidos@compadregallo.com'
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'naitsabxs@icloud.com'
 
@@ -40,7 +40,7 @@ export async function sendOrderConfirmation(order: OrderWithItems) {
     ? `${addr.street}, ${addr.colonia}, ${addr.zip} ${addr.city}, ${addr.state}`
     : '—'
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to: order.customer_email,
     subject: `tu pedido ${folio(order.folio_number)} está confirmado`,
@@ -117,7 +117,7 @@ export async function sendAdminNewOrder(order: OrderWithItems) {
     ? `${addr.street}, ${addr.colonia}, ${addr.zip} ${addr.city}, ${addr.state}`
     : '—'
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM,
     to: ADMIN_EMAIL,
     subject: `nuevo pedido ${folio(order.folio_number)} — ${fmt(order.total_mxn)}`,
