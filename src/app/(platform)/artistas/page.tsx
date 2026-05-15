@@ -7,7 +7,7 @@ export const revalidate = 60
 export default async function ArtistasPage() {
   const { data } = await supabaseAdmin
     .from('artists')
-    .select('slug, name, bio, city, genre, image_url, bg_color, stripe_color, fg_color, shows(venue, city, date, price_mxn, capacity, is_published)')
+    .select('id, slug, name, bio, city, genre, image_url, bg_color, stripe_color, fg_color, shows(venue, city, date, price_mxn, capacity, is_published)')
     .eq('is_published', true)
     .order('sort_order')
     .order('created_at')

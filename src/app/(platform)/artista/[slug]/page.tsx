@@ -18,7 +18,7 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
 
   const { data } = await supabaseAdmin
     .from('artists')
-    .select('slug, name, bio, city, genre, image_url, bg_color, stripe_color, fg_color, shows(venue, city, date, price_mxn, capacity, is_published)')
+    .select('id, slug, name, bio, city, genre, image_url, bg_color, stripe_color, fg_color, shows(venue, city, date, price_mxn, capacity, is_published)')
     .eq('slug', slug)
     .eq('is_published', true)
     .single()
@@ -27,5 +27,12 @@ export default async function ArtistPage({ params }: { params: Promise<{ slug: s
 
   const artist = mapArtist(data as Parameters<typeof mapArtist>[0])
 
-  return <ArtistDetailClient artist={artist} />
+  const { data: products } = await supabaseAdmin
+    .from('products')
+    .select('id, name, description, price_mxn, category, image_url, product_variants(id, size, stock)')
+    .eq('artist_id', data.id)
+    .eq('is_published', true)
+    .order('sort_order')
+
+  return <ArtistDetailClient artist={artist} products={(products ?? []) as import('@/lib/supabase').Product[]} />
 }

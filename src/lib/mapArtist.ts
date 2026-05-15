@@ -6,7 +6,7 @@ type DbShow = {
 }
 
 type DbArtist = {
-  slug: string; name: string; bio: string | null
+  id: string; slug: string; name: string; bio: string | null
   city: string | null; genre: string | null; image_url: string | null
   bg_color: string; stripe_color: string; fg_color: string
   shows: DbShow[]
@@ -24,6 +24,7 @@ export function mapArtist(a: DbArtist): Artist {
   const next = upcoming[0]
 
   return {
+    id:             a.id,
     slug:           a.slug,
     name:           a.name,
     city:           a.city  ?? '',

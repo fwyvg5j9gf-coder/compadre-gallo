@@ -1,6 +1,7 @@
 export type Tag = 'preventa' | 'agotado' | 'en vivo' | null;
 
 export interface Artist {
+  id?: string;
   slug: string;
   name: string;
   city: string;
