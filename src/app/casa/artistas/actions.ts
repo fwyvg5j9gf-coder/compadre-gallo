@@ -33,9 +33,12 @@ export async function createArtist(formData: FormData) {
 
 export async function toggleArtistPublished(id: string, published: boolean) {
   await requireAdmin()
+  const { data: artist } = await supabaseAdmin.from('artists').select('slug').eq('id', id).single()
   await supabaseAdmin.from('artists').update({ is_published: published, updated_at: new Date().toISOString() }).eq('id', id)
   revalidatePath('/casa/artistas')
   revalidatePath(`/casa/artistas/${id}`)
+  revalidatePath('/artistas')
+  if (artist?.slug) revalidatePath(`/artista/${artist.slug}`)
 }
 
 export async function deleteArtist(id: string) {

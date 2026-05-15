@@ -10,9 +10,12 @@ async function requireAdmin() {
   if (!userId) redirect('/casa/login')
 }
 
-function reval(id: string) {
+async function reval(id: string) {
   revalidatePath(`/casa/artistas/${id}`)
   revalidatePath('/casa/artistas')
+  revalidatePath('/artistas')
+  const { data } = await supabaseAdmin.from('artists').select('slug').eq('id', id).single()
+  if (data?.slug) revalidatePath(`/artista/${data.slug}`)
 }
 
 // ── Perfil ─────────────────────────────────────────────────────────────────────
@@ -35,7 +38,7 @@ export async function updateArtistProfile(id: string, formData: FormData) {
     is_published: formData.get('is_published') === 'true',
     updated_at:   new Date().toISOString(),
   }).eq('id', id)
-  reval(id)
+  await reval(id)
 }
 
 // ── Shows ──────────────────────────────────────────────────────────────────────
@@ -51,7 +54,7 @@ export async function createShow(artistId: string, formData: FormData) {
     capacity:     formData.get('capacity')  ? parseInt(formData.get('capacity')  as string) : null,
     is_published: formData.get('is_published') === 'true',
   })
-  reval(artistId)
+  await reval(artistId)
 }
 
 export async function updateShow(id: string, artistId: string, formData: FormData) {
@@ -65,13 +68,13 @@ export async function updateShow(id: string, artistId: string, formData: FormDat
     is_published: formData.get('is_published') === 'true',
     updated_at:   new Date().toISOString(),
   }).eq('id', id)
-  reval(artistId)
+  await reval(artistId)
 }
 
 export async function deleteShow(id: string, artistId: string) {
   await requireAdmin()
   await supabaseAdmin.from('shows').delete().eq('id', id)
-  reval(artistId)
+  await reval(artistId)
 }
 
 // ── Tareas ─────────────────────────────────────────────────────────────────────
@@ -85,19 +88,19 @@ export async function createTask(artistId: string, formData: FormData) {
     priority:    (formData.get('priority')    as string) || 'normal',
     status:      'pendiente',
   })
-  reval(artistId)
+  await reval(artistId)
 }
 
 export async function updateTaskStatus(id: string, artistId: string, status: string) {
   await requireAdmin()
   await supabaseAdmin.from('artist_tasks').update({ status, updated_at: new Date().toISOString() }).eq('id', id)
-  reval(artistId)
+  await reval(artistId)
 }
 
 export async function deleteTask(id: string, artistId: string) {
   await requireAdmin()
   await supabaseAdmin.from('artist_tasks').delete().eq('id', id)
-  reval(artistId)
+  await reval(artistId)
 }
 
 // ── Contenido ─────────────────────────────────────────────────────────────────
@@ -112,19 +115,19 @@ export async function createContent(artistId: string, formData: FormData) {
     scheduled_date: (formData.get('scheduled_date') as string | null) || null,
     status:         (formData.get('status') as string) || 'idea',
   })
-  reval(artistId)
+  await reval(artistId)
 }
 
 export async function updateContentStatus(id: string, artistId: string, status: string) {
   await requireAdmin()
   await supabaseAdmin.from('content_calendar').update({ status, updated_at: new Date().toISOString() }).eq('id', id)
-  reval(artistId)
+  await reval(artistId)
 }
 
 export async function deleteContent(id: string, artistId: string) {
   await requireAdmin()
   await supabaseAdmin.from('content_calendar').delete().eq('id', id)
-  reval(artistId)
+  await reval(artistId)
 }
 
 // ── Ingresos externos ──────────────────────────────────────────────────────────
@@ -139,11 +142,11 @@ export async function createExternalIncome(artistId: string, formData: FormData)
     category:    formData.get('category') as string,
     notes:       (formData.get('notes') as string | null)?.trim() || null,
   })
-  reval(artistId)
+  await reval(artistId)
 }
 
 export async function deleteExternalIncome(id: string, artistId: string) {
   await requireAdmin()
   await supabaseAdmin.from('external_income').delete().eq('id', id)
-  reval(artistId)
+  await reval(artistId)
 }

@@ -61,12 +61,14 @@ export default function ArtistDetailClient({ artist }: { artist: Artist }) {
               {artist.bio}
             </p>
             <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-              <button
-                className="btn btn-white btn-lg"
-                onClick={() => handlePlay(artist.tracks[0].title)}
-              >
-                {isPlaying(artist.tracks[0].title) ? '⏸ pausar' : '▶ escuchar'}
-              </button>
+              {artist.tracks.length > 0 && (
+                <button
+                  className="btn btn-white btn-lg"
+                  onClick={() => handlePlay(artist.tracks[0].title)}
+                >
+                  {isPlaying(artist.tracks[0].title) ? '⏸ pausar' : '▶ escuchar'}
+                </button>
+              )}
               {artist.tag !== 'agotado' && artist.shows[0] && (
                 <Link
                   href={`/checkout/${artist.slug}`}
