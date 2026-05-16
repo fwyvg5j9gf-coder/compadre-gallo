@@ -8,6 +8,8 @@ type AdminShellProps = {
   children: React.ReactNode
 }
 
+const TEST_MODE = (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').startsWith('pk_test_')
+
 export default function AdminShell({ crumb, crumbHref, right, children }: AdminShellProps) {
   return (
     <div style={{ minHeight: '100vh', background: '#f6f5f1', fontFamily: 'var(--font-sans)' }}>
@@ -42,6 +44,20 @@ export default function AdminShell({ crumb, crumbHref, right, children }: AdminS
           </div>
         )}
       </header>
+      {TEST_MODE && (
+        <div style={{
+          background: '#ffe200', color: '#0a0a0a',
+          padding: '7px 28px',
+          fontSize: 12, fontWeight: 700,
+          display: 'flex', alignItems: 'center', gap: 10,
+          letterSpacing: '0.03em',
+        }}>
+          <span>MODO PRUEBA · STRIPE TEST</span>
+          <span style={{ fontWeight: 400, opacity: 0.7 }}>
+            usa tarjeta <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>4242 4242 4242 4242</span> · cualquier fecha futura · cualquier CVC
+          </span>
+        </div>
+      )}
       {children}
     </div>
   )
