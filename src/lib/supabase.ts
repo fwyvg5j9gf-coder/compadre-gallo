@@ -77,6 +77,57 @@ export type StoreSettings = {
   stripe_markup_pct: number
 }
 
+export type Show = {
+  id: string
+  artist_id: string
+  venue: string
+  city: string
+  date: string
+  ticket_url: string | null
+  price_mxn: number | null
+  capacity: number | null
+  is_published: boolean
+  created_at: string
+  updated_at: string
+  artists?: { name: string; slug: string; image_url: string | null }
+}
+
+export type Ticket = {
+  id: string
+  show_id: string | null
+  user_id: string
+  customer_email: string
+  customer_name: string | null
+  quantity: number
+  unit_price_mxn: number
+  total_mxn: number
+  stripe_payment_id: string | null
+  folio_code: string
+  status: 'confirmed' | 'cancelled' | 'refunded'
+  created_at: string
+  shows?: Show
+}
+
+export type ArtistSubscription = {
+  id: string
+  artist_id: string
+  user_id: string
+  email: string
+  created_at: string
+  artists?: { id: string; name: string; slug: string; image_url: string | null; genre: string | null; city: string | null }
+}
+
+export type CustomerUser = {
+  clerk_user_id: string
+  email: string
+  name: string | null
+  role: string
+  created_at: string
+  orders_count?: number
+  tickets_count?: number
+  subscriptions_count?: number
+}
+
 export function totalStock(variants: ProductVariant[] = []) {
   return variants.reduce((sum, v) => sum + v.stock, 0)
 }

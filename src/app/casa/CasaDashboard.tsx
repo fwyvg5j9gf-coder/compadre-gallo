@@ -5,11 +5,12 @@ import { UserButton } from '@clerk/nextjs'
 import AdminShell from './AdminShell'
 
 const CARDS = [
-  { title: 'tienda',   desc: 'productos, stock, precios e imágenes', href: '/casa/tienda',   accent: '#ff0100' },
-  { title: 'órdenes',  desc: 'compras, envíos y estados',            href: '/casa/ordenes',  accent: '#003a87' },
-  { title: 'artistas', desc: 'catálogo, bios y shows',               href: '/casa/artistas', accent: '#00c4df' },
-  { title: 'editor',   desc: 'contenido y apariencia del sitio',     href: '/casa/editor',   accent: '#ffe200' },
-  { title: 'media',    desc: 'imágenes, videos y audio del proyecto', href: '/casa/media',    accent: '#ffd49a' },
+  { title: 'tienda',    desc: 'productos, stock, precios e imágenes', href: '/casa/tienda',    accent: '#ff0100' },
+  { title: 'órdenes',   desc: 'compras, envíos y estados',            href: '/casa/ordenes',   accent: '#003a87' },
+  { title: 'clientes',  desc: 'usuarios, pedidos, boletos y subs',    href: '/casa/clientes',  accent: '#1a6b35' },
+  { title: 'artistas',  desc: 'catálogo, bios y shows',               href: '/casa/artistas',  accent: '#00c4df' },
+  { title: 'editor',    desc: 'contenido y apariencia del sitio',     href: '/casa/editor',    accent: '#ffe200' },
+  { title: 'media',     desc: 'imágenes, videos y audio del proyecto', href: '/casa/media',    accent: '#ffd49a' },
 ]
 
 // ── Datos de desarrollo ────────────────────────────────────────────────────────
@@ -27,7 +28,9 @@ const OBJETIVOS = [
   { label: 'deployment en Vercel',                 done: true  },
   { label: 'keys reales de Stripe activas',        done: false },
   { label: 'dominio compadregallo.com apuntado',   done: false },
-  { label: 'módulo de boletos',                    done: false },
+  { label: 'módulo de boletos (DB + dashboard)',    done: true  },
+  { label: 'suscripciones a artistas',             done: true  },
+  { label: 'admin de clientes (/casa/clientes)',   done: true  },
   { label: 'editor de contenido',                  done: false },
 ]
 
