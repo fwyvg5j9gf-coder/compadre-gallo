@@ -208,12 +208,19 @@ export default function CheckoutMerch({
     if (items.length === 0 || !zipInfo) return
     const fd = new FormData(e.currentTarget)
 
+    const name  = (fd.get('name')  as string).trim()
+    const email = (fd.get('email') as string).trim()
+    const phone = (fd.get('phone') as string).trim()
+    const street = (fd.get('street') as string).trim()
+
+    // Client-side validation
+    if (name.length < 2) { setSubmitError('ingresa tu nombre completo'); return }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setSubmitError('correo electrónico inválido'); return }
+    if (!street) { setSubmitError('ingresa tu dirección'); return }
+
     const data: SavedData = {
-      name: fd.get('name') as string,
-      email: fd.get('email') as string,
-      phone: fd.get('phone') as string,
-      street: fd.get('street') as string,
-      notes: fd.get('notes') as string,
+      name, email, phone, street,
+      notes: (fd.get('notes') as string).trim(),
       zipInfo,
       shippingRateId: selectedRate?.rate_id ?? null,
       shippingCarrier: selectedRate?.carrier ?? null,
@@ -227,8 +234,17 @@ export default function CheckoutMerch({
         const res = await fetch('/api/stripe/create-intent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amountCents: orderTotal }),
+          // Send item IDs so server calculates real prices
+          body: JSON.stringify({
+            items: items.map(i => ({ productId: i.productId, qty: i.qty })),
+            shippingMxn: data.shippingMxn,
+          }),
         })
+        if (!res.ok) {
+          const { error } = await res.json().catch(() => ({ error: 'error desconocido' }))
+          setSubmitError(error ?? 'error al iniciar el pago')
+          return
+        }
         const { clientSecret: cs, paymentIntentId: piId } = await res.json()
         setClientSecret(cs)
         setPendingPiId(piId)

@@ -1,15 +1,9 @@
 'use server'
 
-import { auth } from '@clerk/nextjs/server'
-import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import type { BlockType } from '@/lib/blocks'
-
-async function requireAdmin() {
-  const { userId } = await auth()
-  if (!userId) redirect('/casa/login')
-}
+import { requireAdmin } from '@/lib/auth.server'
 
 const PAGE_PATHS: Record<string, string> = {
   home:     '/',

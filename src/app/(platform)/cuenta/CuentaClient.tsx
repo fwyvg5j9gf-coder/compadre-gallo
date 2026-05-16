@@ -179,12 +179,17 @@ function ArtistSubCard({
   const [pending, startTransition] = useTransition()
 
   const toggle = () => {
+    const wasSubscribed = isSubscribed
+    onToggle(artist.id, wasSubscribed)  // optimistic
     startTransition(async () => {
-      onToggle(artist.id, isSubscribed)
-      if (isSubscribed) {
-        await unsubscribeFromArtist(artist.id)
-      } else {
-        await subscribeToArtist(artist.id, email)
+      try {
+        if (wasSubscribed) {
+          await unsubscribeFromArtist(artist.id)
+        } else {
+          await subscribeToArtist(artist.id, email)
+        }
+      } catch {
+        onToggle(artist.id, !wasSubscribed)  // rollback on error
       }
     })
   }

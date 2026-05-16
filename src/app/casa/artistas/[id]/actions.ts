@@ -1,14 +1,8 @@
 'use server'
 
-import { auth } from '@clerk/nextjs/server'
-import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
-
-async function requireAdmin() {
-  const { userId } = await auth()
-  if (!userId) redirect('/casa/login')
-}
+import { requireAdmin } from '@/lib/auth.server'
 
 async function reval(id: string) {
   revalidatePath(`/casa/artistas/${id}`)

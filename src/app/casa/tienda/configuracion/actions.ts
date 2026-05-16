@@ -1,15 +1,10 @@
 'use server'
 
-import { auth } from '@clerk/nextjs/server'
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import { getShippingRates } from '@/lib/skydropx'
 import type { ShippingRate } from '@/lib/skydropx'
-
-async function requireAdmin() {
-  const { userId } = await auth()
-  if (!userId) throw new Error('no autorizado')
-}
+import { requireAdminOrThrow as requireAdmin } from '@/lib/auth.server'
 
 // ── Categorías ────────────────────────────────────────────────────────────────
 

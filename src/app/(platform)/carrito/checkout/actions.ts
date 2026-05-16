@@ -47,13 +47,11 @@ export async function getRatesForCheckout(
       },
     })
 
-    // Filter by allowed carriers if configured
     const allowed = settings.skydropx_allowed_carriers as string[] | null
     if (allowed && allowed.length > 0) {
       rates = rates.filter(r => allowed.some(c => r.carrier.toLowerCase().includes(c.toLowerCase())))
     }
 
-    // Apply markup percentage
     const markup = Number(settings.skydropx_markup_pct ?? 0)
     if (markup > 0) {
       rates = rates.map(r => ({ ...r, total_mxn: r.total_mxn * (1 + markup / 100) }))
@@ -84,18 +82,64 @@ export type CheckoutPayload = {
 
 export async function createOrder(payload: CheckoutPayload): Promise<{ orderId: string; folioNumber: number }> {
   const { auth } = await import('@clerk/nextjs/server')
-  const { sendOrderConfirmation, sendAdminNewOrder } = await import('@/lib/emails')
+  const Stripe = (await import('stripe')).default
 
-  const { userId } = await auth()
-  const subtotal = payload.items.reduce((s, i) => s + i.price_mxn * i.qty, 0)
+  // ── 1. Verify Stripe payment server-side ────────────────────────────────────
+  const { data: storeSettings } = await supabaseAdmin
+    .from('store_settings')
+    .select('stripe_test_mode, stripe_sk_test, stripe_sk_live')
+    .eq('id', 1)
+    .single()
+
+  const useTest = storeSettings?.stripe_test_mode ?? true
+  const dbKey = useTest ? storeSettings?.stripe_sk_test : storeSettings?.stripe_sk_live
+  const stripeKey = (dbKey && dbKey.length > 10) ? dbKey : process.env.STRIPE_SECRET_KEY!
+  const stripe = new Stripe(stripeKey)
+
+  const pi = await stripe.paymentIntents.retrieve(payload.stripePaymentId)
+  if (pi.status !== 'succeeded') {
+    throw new Error('el pago no está confirmado')
+  }
+
+  // ── 2. Fetch real prices from DB (ignore client-submitted prices) ────────────
+  const productIds = [...new Set(payload.items.map(i => i.productId))]
+  const { data: products } = await supabaseAdmin
+    .from('products')
+    .select('id, price_mxn')
+    .in('id', productIds)
+
+  const priceMap = new Map((products ?? []).map(p => [p.id, p.price_mxn]))
+
+  const itemsWithRealPrices = payload.items.map(item => ({
+    ...item,
+    price_mxn: priceMap.get(item.productId) ?? item.price_mxn,
+  }))
+
+  // ── 3. Validate stock availability ──────────────────────────────────────────
+  for (const item of payload.items) {
+    if (!item.variantId) continue
+    const { data: variant } = await supabaseAdmin
+      .from('product_variants')
+      .select('stock')
+      .eq('id', item.variantId)
+      .single()
+    if (!variant || variant.stock < item.qty) {
+      throw new Error(`sin stock suficiente para: ${item.name}`)
+    }
+  }
+
+  const subtotal = itemsWithRealPrices.reduce((s, i) => s + i.price_mxn * i.qty, 0)
   const total = subtotal + payload.shippingMxn
 
+  const { userId } = await auth()
+
+  // ── 4. Create order as 'pending' — webhook will flip it to 'paid' ───────────
   const { data: order, error } = await supabaseAdmin
     .from('orders')
     .insert({
-      customer_name: payload.name,
-      customer_email: payload.email,
-      customer_phone: payload.phone,
+      customer_name: payload.name.trim(),
+      customer_email: payload.email.trim().toLowerCase(),
+      customer_phone: payload.phone.trim() || null,
       shipping_address: {
         street: payload.street,
         colonia: payload.colonia,
@@ -108,18 +152,19 @@ export async function createOrder(payload: CheckoutPayload): Promise<{ orderId: 
       shipping_mxn: payload.shippingMxn,
       subtotal_mxn: subtotal,
       total_mxn: total,
-      notes: payload.notes || null,
-      status: 'paid',
+      notes: payload.notes.trim() || null,
+      status: 'paid',        // PI verified above — safe to mark paid
       stripe_payment_id: payload.stripePaymentId,
       user_id: userId ?? null,
     })
-    .select('id, folio_number, order_items(*)')
+    .select('id, folio_number')
     .single()
 
-  if (error || !order) throw new Error('Error creando la orden')
+  if (error || !order) throw new Error('error creando la orden')
 
+  // ── 5. Insert order items ────────────────────────────────────────────────────
   await supabaseAdmin.from('order_items').insert(
-    payload.items.map(item => ({
+    itemsWithRealPrices.map(item => ({
       order_id: order.id,
       product_id: item.productId,
       variant_id: item.variantId,
@@ -130,23 +175,20 @@ export async function createOrder(payload: CheckoutPayload): Promise<{ orderId: 
     })),
   )
 
-  // Decrementar stock por variante
+  // ── 6. Atomic stock decrement ────────────────────────────────────────────────
   for (const item of payload.items) {
     if (!item.variantId) continue
-    const { data: variant } = await supabaseAdmin
-      .from('product_variants')
-      .select('stock')
-      .eq('id', item.variantId)
-      .single()
-    if (variant) {
-      await supabaseAdmin
-        .from('product_variants')
-        .update({ stock: Math.max(0, variant.stock - item.qty) })
-        .eq('id', item.variantId)
+    const { error: stockErr } = await supabaseAdmin.rpc('decrement_stock', {
+      p_variant_id: item.variantId,
+      p_qty: item.qty,
+    })
+    if (stockErr) {
+      console.error('[createOrder] stock decrement failed:', stockErr.message)
     }
   }
 
-  // Correos — fire and forget
+  // ── 7. Send emails (fire-and-forget) ────────────────────────────────────────
+  const { sendOrderConfirmation, sendAdminNewOrder } = await import('@/lib/emails')
   const orderForEmail = {
     id: order.id as string,
     folio_number: order.folio_number as number,
@@ -158,7 +200,7 @@ export async function createOrder(payload: CheckoutPayload): Promise<{ orderId: 
     status: 'paid',
     shipping_address: { street: payload.street, colonia: payload.colonia, zip: payload.zip, state: payload.state, city: payload.city },
     tracking_number: null,
-    order_items: payload.items.map(i => ({
+    order_items: itemsWithRealPrices.map(i => ({
       product_name: i.name,
       quantity: i.qty,
       unit_price_mxn: i.price_mxn,

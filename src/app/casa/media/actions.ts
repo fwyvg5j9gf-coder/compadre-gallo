@@ -1,16 +1,12 @@
 'use server'
 
-import { auth } from '@clerk/nextjs/server'
-import { redirect } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase.server'
+import { requireAdminOrThrow } from '@/lib/auth.server'
 
 const BUCKET = 'product-images'
 const BASE_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET}`
 
-async function requireAdmin() {
-  const { userId } = await auth()
-  if (!userId) redirect('/casa/login')
-}
+const requireAdmin = requireAdminOrThrow
 
 export type MediaFile = {
   id: string

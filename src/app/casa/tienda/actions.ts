@@ -1,8 +1,8 @@
 'use server'
 
-import { auth } from '@clerk/nextjs/server'
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
+import { requireAdminOrThrow } from '@/lib/auth.server'
 
 export async function getUploadUrl(filename: string, contentType: string) {
   await requireAdmin()
@@ -23,10 +23,7 @@ export async function getUploadUrl(filename: string, contentType: string) {
   return { signedUrl: data.signedUrl, publicUrl }
 }
 
-async function requireAdmin() {
-  const { userId } = await auth()
-  if (!userId) throw new Error('no autorizado')
-}
+const requireAdmin = requireAdminOrThrow
 
 function extractVariants(formData: FormData, productId: string) {
   const enabledStr = (formData.get('enabled_sizes') as string) ?? ''

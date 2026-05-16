@@ -1,15 +1,10 @@
 import { Resend } from 'resend'
+import { fmt, folio, escapeHtml } from '@/lib/utils'
 
 const getResend = () => new Resend(process.env.RESEND_API_KEY)
 const FROM = process.env.RESEND_FROM_EMAIL ?? 'pedidos@compadregallo.com'
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'naitsabxs@icloud.com'
-
-const fmt = (cents: number) =>
-  (cents / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
-
-function folio(n: number) {
-  return `GALLO-${String(n).padStart(5, '0')}`
-}
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? ''
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://compadregallo.com'
 
 type OrderWithItems = {
   id: string
@@ -56,7 +51,7 @@ export async function sendOrderConfirmation(order: OrderWithItems) {
       </span>
     </div>
     <div style="padding:32px">
-      <h2 style="margin:0 0 8px;font-size:22px;color:#0a0a0a">gracias, ${order.customer_name ?? 'compadre'}.</h2>
+      <h2 style="margin:0 0 8px;font-size:22px;color:#0a0a0a">gracias, ${escapeHtml(order.customer_name ?? 'compadre')}.</h2>
       <p style="margin:0 0 24px;color:#6b6a64;font-size:14px">tu pedido quedó confirmado.</p>
 
       <div style="background:#f6f5f1;border-radius:6px;padding:16px;margin-bottom:24px">
@@ -110,6 +105,8 @@ export async function sendOrderConfirmation(order: OrderWithItems) {
 }
 
 export async function sendAdminNewOrder(order: OrderWithItems) {
+  if (!ADMIN_EMAIL) return  // skip if not configured
+
   const items = order.order_items ?? []
   const summary = items.map(i => `${i.product_name} ×${i.quantity}`).join(', ')
   const addr = order.shipping_address
@@ -137,15 +134,15 @@ export async function sendAdminNewOrder(order: OrderWithItems) {
       <h2 style="margin:0 0 20px;font-size:28px;font-weight:900;color:#0a0a0a">${folio(order.folio_number)}</h2>
 
       <table style="width:100%;border-collapse:collapse">
-        <tr><td style="padding:6px 0;font-size:13px;color:#6b6a64;width:120px">cliente</td><td style="padding:6px 0;font-size:13px;font-weight:600">${order.customer_name ?? '—'}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#6b6a64">correo</td><td style="padding:6px 0;font-size:13px">${order.customer_email}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#6b6a64">dirección</td><td style="padding:6px 0;font-size:13px">${addrText}</td></tr>
-        <tr><td style="padding:6px 0;font-size:13px;color:#6b6a64">productos</td><td style="padding:6px 0;font-size:13px">${summary}</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#6b6a64;width:120px">cliente</td><td style="padding:6px 0;font-size:13px;font-weight:600">${escapeHtml(order.customer_name ?? '—')}</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#6b6a64">correo</td><td style="padding:6px 0;font-size:13px">${escapeHtml(order.customer_email)}</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#6b6a64">dirección</td><td style="padding:6px 0;font-size:13px">${escapeHtml(addrText)}</td></tr>
+        <tr><td style="padding:6px 0;font-size:13px;color:#6b6a64">productos</td><td style="padding:6px 0;font-size:13px">${escapeHtml(summary)}</td></tr>
         <tr><td style="padding:6px 0;font-size:13px;color:#6b6a64">total</td><td style="padding:6px 0;font-size:15px;font-weight:900;font-family:monospace">${fmt(order.total_mxn)}</td></tr>
       </table>
 
       <div style="margin-top:24px">
-        <a href="https://compadregallo.vercel.app/casa/ordenes/${order.id}" style="display:inline-block;background:#0a0a0a;color:#fff;padding:10px 20px;border-radius:4px;text-decoration:none;font-size:13px;font-weight:700">
+        <a href="${APP_URL}/casa/ordenes/${order.id}" style="display:inline-block;background:#0a0a0a;color:#fff;padding:10px 20px;border-radius:4px;text-decoration:none;font-size:13px;font-weight:700">
           ver pedido en admin →
         </a>
       </div>

@@ -1,14 +1,21 @@
 import { auth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase.server'
+import { csvCell } from '@/lib/utils'
+
+const ADMIN_IDS = (process.env.ADMIN_USER_IDS ?? '').split(',').map(s => s.trim()).filter(Boolean)
 
 export async function GET() {
   const { userId } = await auth()
   if (!userId) return new Response('No autorizado', { status: 401 })
+  if (ADMIN_IDS.length > 0 && !ADMIN_IDS.includes(userId)) {
+    return new Response('No autorizado', { status: 403 })
+  }
 
   const { data: orders, error } = await supabaseAdmin
     .from('orders')
     .select('*, order_items(*)')
-    .order('created_at', { ascending: false })
+    .order('folio_number', { ascending: false })
+    .limit(10000)
 
   if (error) return new Response(error.message, { status: 500 })
 
@@ -19,39 +26,39 @@ export async function GET() {
   for (const order of orders ?? []) {
     const addr = (order.shipping_address ?? {}) as Record<string, string>
     const items = order.order_items ?? []
+    const folioStr = `GALLO-${String(order.folio_number).padStart(5, '0')}`
 
     if (items.length === 0) {
       rows.push([
-        order.id.slice(0, 8),
-        order.created_at.slice(0, 10),
-        csv(order.customer_name ?? ''),
-        csv(order.customer_email),
-        '', '', '',
-        '',
-        (order.total_mxn / 100).toFixed(2),
-        order.status,
-        csv(addr.street ?? ''),
-        csv(addr.city ?? ''),
-        csv(addr.state ?? ''),
-        addr.zip ?? '',
+        csvCell(folioStr),
+        csvCell(order.created_at.slice(0, 10)),
+        csvCell(order.customer_name ?? ''),
+        csvCell(order.customer_email),
+        '', '', '', '',
+        csvCell((order.total_mxn / 100).toFixed(2)),
+        csvCell(order.status),
+        csvCell(addr.street ?? ''),
+        csvCell(addr.city ?? ''),
+        csvCell(addr.state ?? ''),
+        csvCell(addr.zip ?? ''),
       ].join(','))
     } else {
       for (const item of items) {
         rows.push([
-          order.id.slice(0, 8),
-          order.created_at.slice(0, 10),
-          csv(order.customer_name ?? ''),
-          csv(order.customer_email),
-          csv(item.product_name),
-          csv(item.size ?? ''),
-          item.quantity,
-          (item.unit_price_mxn / 100).toFixed(2),
-          (order.total_mxn / 100).toFixed(2),
-          order.status,
-          csv(addr.street ?? ''),
-          csv(addr.city ?? ''),
-          csv(addr.state ?? ''),
-          addr.zip ?? '',
+          csvCell(folioStr),
+          csvCell(order.created_at.slice(0, 10)),
+          csvCell(order.customer_name ?? ''),
+          csvCell(order.customer_email),
+          csvCell(item.product_name),
+          csvCell(item.size ?? ''),
+          csvCell(String(item.quantity)),
+          csvCell((item.unit_price_mxn / 100).toFixed(2)),
+          csvCell((order.total_mxn / 100).toFixed(2)),
+          csvCell(order.status),
+          csvCell(addr.street ?? ''),
+          csvCell(addr.city ?? ''),
+          csvCell(addr.state ?? ''),
+          csvCell(addr.zip ?? ''),
         ].join(','))
       }
     }
@@ -64,12 +71,4 @@ export async function GET() {
       'Content-Disposition': `attachment; filename="${filename}"`,
     },
   })
-}
-
-// Escapa un valor para CSV (entre comillas si tiene comas o saltos)
-function csv(val: string): string {
-  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
-    return `"${val.replace(/"/g, '""')}"`
-  }
-  return val
 }
