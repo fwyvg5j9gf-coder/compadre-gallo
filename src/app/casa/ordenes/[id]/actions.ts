@@ -40,9 +40,12 @@ async function buildOrderShipmentData(orderId: string) {
     .from('store_settings')
     .select('skydropx_client_id, skydropx_client_secret, origin_zip, origin_state, origin_city, origin_colonia, skydropx_enabled')
     .single()
-  if (!settings?.skydropx_enabled || !settings.skydropx_client_id) {
-    throw new Error('Skydropx no está configurado en ajustes de la tienda')
-  }
+  if (!settings?.skydropx_enabled) throw new Error('Skydropx no está habilitado en ajustes de la tienda')
+  if (!settings.skydropx_client_id) throw new Error('falta la clave de cliente de Skydropx en configuración')
+  if (!settings.skydropx_client_secret) throw new Error('falta la clave secreta de Skydropx en configuración')
+  if (!settings.origin_zip) throw new Error('falta el código postal de origen en configuración')
+  if (!settings.origin_state) throw new Error('falta el estado de origen en configuración')
+  if (!settings.origin_city) throw new Error('falta la ciudad de origen en configuración')
 
   const productIds = (order.order_items as { product_id: string | null }[])
     .map(i => i.product_id).filter(Boolean) as string[]

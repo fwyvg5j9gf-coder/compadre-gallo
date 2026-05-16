@@ -109,8 +109,8 @@ export async function getShippingRates({
   const quotationId = created?.data?.id ?? created?.id
   if (!quotationId) throw new Error(`SkyDropX: sin ID de cotización`)
 
-  // 2. Esperar a que la cotización esté completa (máx 8 intentos × 1.5s)
-  for (let i = 0; i < 8; i++) {
+  // 2. Esperar a que la cotización esté completa (máx 6 intentos × 1.5s = 9s)
+  for (let i = 0; i < 6; i++) {
     await new Promise(r => setTimeout(r, 1500))
     const pollRes = await fetch(`${BASE}/api/v1/quotations/${quotationId}`, {
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
