@@ -74,16 +74,15 @@ export default function OrderActions({
     setShipmentError(null)
     setGuideStep('fetching')
     startRates(async () => {
-      try {
-        const r = await getSkydropxRatesForOrder(orderId)
-        if (r.length === 0) throw new Error('Skydropx no devolvió tarifas para esta dirección')
-        setRates(r)
-        setSelectedRate(r[0])
-        setGuideStep('selecting')
-      } catch (e: unknown) {
-        setShipmentError(e instanceof Error ? e.message : 'error cotizando')
+      const { rates, error } = await getSkydropxRatesForOrder(orderId)
+      if (error) {
+        setShipmentError(error)
         setGuideStep('idle')
+        return
       }
+      setRates(rates)
+      setSelectedRate(rates[0])
+      setGuideStep('selecting')
     })
   }
 
@@ -91,16 +90,18 @@ export default function OrderActions({
     setShipmentError(null)
     setGuideStep('creating')
     startShipment(async () => {
-      try {
-        const result = await createSkydropxShipment(orderId, rateId)
-        setTracking(result.trackingNumber)
-        setStatus('shipped')
-        if (result.labelUrl) setLabelUrl(result.labelUrl)
+      const { data, error } = await createSkydropxShipment(orderId, rateId)
+      if (error) {
+        setShipmentError(error)
         setGuideStep('idle')
-      } catch (e: unknown) {
-        setShipmentError(e instanceof Error ? e.message : 'error al crear la guía')
-        setGuideStep('idle')
+        return
       }
+      if (data) {
+        setTracking(data.trackingNumber)
+        setStatus('shipped')
+        if (data.labelUrl) setLabelUrl(data.labelUrl)
+      }
+      setGuideStep('idle')
     })
   }
 

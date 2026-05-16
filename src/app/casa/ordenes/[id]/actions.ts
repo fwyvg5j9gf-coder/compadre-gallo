@@ -74,82 +74,84 @@ async function buildOrderShipmentData(orderId: string) {
 
 // ── Cotizar (para órdenes sin rate_id de Skydropx) ──────────────────────────
 
-export async function getSkydropxRatesForOrder(orderId: string): Promise<ShippingRate[]> {
-  await requireAdmin()
-  const { settings, parcel, addr } = await buildOrderShipmentData(orderId)
+export type RatesResult = { rates: ShippingRate[]; error?: string }
 
-  return getShippingRates({
-    clientId: settings.skydropx_client_id,
-    clientSecret: settings.skydropx_client_secret,
-    originZip: settings.origin_zip,
-    originState: settings.origin_state,
-    originCity: settings.origin_city,
-    originColonia: settings.origin_colonia,
-    destZip: addr.zip,
-    destState: addr.state ?? '',
-    destCity: addr.city ?? '',
-    destColonia: addr.colonia ?? '',
-    parcel,
-  })
+export async function getSkydropxRatesForOrder(orderId: string): Promise<RatesResult> {
+  try {
+    await requireAdmin()
+    const { settings, parcel, addr } = await buildOrderShipmentData(orderId)
+    const rates = await getShippingRates({
+      clientId: settings.skydropx_client_id,
+      clientSecret: settings.skydropx_client_secret,
+      originZip: settings.origin_zip,
+      originState: settings.origin_state,
+      originCity: settings.origin_city,
+      originColonia: settings.origin_colonia ?? '',
+      destZip: addr.zip,
+      destState: addr.state ?? '',
+      destCity: addr.city ?? '',
+      destColonia: addr.colonia ?? '',
+      parcel,
+    })
+    if (rates.length === 0) return { rates: [], error: 'Skydropx no devolvió tarifas para esta dirección' }
+    return { rates }
+  } catch (e) {
+    return { rates: [], error: e instanceof Error ? e.message : 'error cotizando envío' }
+  }
 }
 
 // ── Crear guía ───────────────────────────────────────────────────────────────
 
-export type ShipmentActionResult = {
-  trackingNumber: string
-  labelUrl: string | null
-  carrier: string
-}
+export type ShipmentActionResult = { trackingNumber: string; labelUrl: string | null; carrier: string }
+export type ShipmentResult = { data?: ShipmentActionResult; error?: string }
 
-export async function createSkydropxShipment(orderId: string, overrideRateId?: string): Promise<ShipmentActionResult> {
-  await requireAdmin()
+export async function createSkydropxShipment(orderId: string, overrideRateId?: string): Promise<ShipmentResult> {
+  try {
+    await requireAdmin()
+    const { order, settings, parcel, addr } = await buildOrderShipmentData(orderId)
 
-  const { order, settings, parcel, addr } = await buildOrderShipmentData(orderId)
+    if (order.tracking_number) return { error: 'esta orden ya tiene guía de envío' }
 
-  if (order.tracking_number) throw new Error('esta orden ya tiene guía de envío')
+    const rateId = overrideRateId ?? order.shipping_rate_id
+    if (!rateId) return { error: 'no hay tarifa seleccionada para crear la guía' }
 
-  const rateId = overrideRateId ?? order.shipping_rate_id
-  if (!rateId) throw new Error('no hay tarifa seleccionada para crear la guía')
+    const addressFrom = {
+      name: 'GALLO', email: '', phone: '',
+      postalCode: settings.origin_zip, state: settings.origin_state,
+      city: settings.origin_city, colonia: settings.origin_colonia ?? '', street: '',
+    }
+    const addressTo = {
+      name: order.customer_name ?? 'Cliente',
+      email: order.customer_email ?? '',
+      phone: order.customer_phone ?? '',
+      postalCode: addr.zip,
+      state: addr.state ?? '', city: addr.city ?? '',
+      colonia: addr.colonia ?? '', street: addr.street ?? '',
+    }
 
-  const addressFrom = {
-    name: 'GALLO', email: '', phone: '',
-    postalCode: settings.origin_zip, state: settings.origin_state,
-    city: settings.origin_city, colonia: settings.origin_colonia, street: '',
-  }
-  const addressTo = {
-    name: order.customer_name ?? 'Cliente',
-    email: order.customer_email ?? '',
-    phone: order.customer_phone ?? '',
-    postalCode: addr.zip,
-    state: addr.state ?? '', city: addr.city ?? '',
-    colonia: addr.colonia ?? '', street: addr.street ?? '',
-  }
+    const result = await createShipment({
+      clientId: settings.skydropx_client_id,
+      clientSecret: settings.skydropx_client_secret,
+      rateId,
+      addressFrom,
+      addressTo,
+      parcel,
+      contentDescription: 'Merch GALLO',
+    })
 
-  const result = await createShipment({
-    clientId: settings.skydropx_client_id,
-    clientSecret: settings.skydropx_client_secret,
-    rateId,
-    addressFrom,
-    addressTo,
-    parcel,
-    contentDescription: 'Merch GALLO',
-  })
+    await supabaseAdmin.from('orders').update({
+      tracking_number: result.trackingNumber,
+      skydropx_shipment_id: result.shipmentId,
+      label_url: result.labelUrl,
+      status: 'shipped',
+      updated_at: new Date().toISOString(),
+    }).eq('id', orderId)
 
-  // ── 6. Save to order ────────────────────────────────────────────────────────
-  await supabaseAdmin.from('orders').update({
-    tracking_number: result.trackingNumber,
-    skydropx_shipment_id: result.shipmentId,
-    label_url: result.labelUrl,
-    status: 'shipped',
-    updated_at: new Date().toISOString(),
-  }).eq('id', orderId)
+    revalidatePath(`/casa/ordenes/${orderId}`)
+    revalidatePath('/casa/ordenes')
 
-  revalidatePath(`/casa/ordenes/${orderId}`)
-  revalidatePath('/casa/ordenes')
-
-  return {
-    trackingNumber: result.trackingNumber,
-    labelUrl: result.labelUrl,
-    carrier: result.carrier,
+    return { data: { trackingNumber: result.trackingNumber, labelUrl: result.labelUrl, carrier: result.carrier } }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'error al crear la guía' }
   }
 }
