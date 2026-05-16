@@ -28,6 +28,7 @@ type SavedData = {
   shippingRateId: string | null
   shippingCarrier: string | null
   shippingMxn: number
+  saveAddress: boolean
 }
 
 // ── Sección del formulario ─────────────────────────────────────────────────────
@@ -153,12 +154,16 @@ export default function CheckoutMerch({
   shippingLocalMxn,
   shippingNationalMxn,
   freeThresholdMxn,
+  savedAddress,
+  userEmail,
 }: {
   packaging: PackagingType[]
   skydropxEnabled: boolean
   shippingLocalMxn: number
   shippingNationalMxn: number
   freeThresholdMxn: number
+  savedAddress?: Record<string, string> | null
+  userEmail?: string | null
 }) {
   const { items, totalMxn, clearCart } = useCart()
 
@@ -166,6 +171,15 @@ export default function CheckoutMerch({
   const [savedData, setSavedData] = useState<SavedData | null>(null)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [pendingPiId, setPendingPiId] = useState<string | null>(null)
+
+  // Controlled form fields
+  const [formName, setFormName] = useState('')
+  const [formEmail, setFormEmail] = useState(userEmail ?? '')
+  const [formPhone, setFormPhone] = useState('')
+  const [formStreet, setFormStreet] = useState('')
+  const [formNotes, setFormNotes] = useState('')
+  const [saveAddr, setSaveAddr] = useState(false)
+  const [zipKey, setZipKey] = useState(0)
 
   const [zipInfo, setZipInfo] = useState<ZipInfo | null>(null)
   const [rates, setRates] = useState<ShippingRate[]>([])
@@ -202,16 +216,32 @@ export default function CheckoutMerch({
 
   const orderTotal = totalMxn + shippingMxn
 
+  function applyAddress() {
+    if (!savedAddress) return
+    setFormName(savedAddress.name ?? '')
+    setFormPhone(savedAddress.phone ?? '')
+    setFormStreet(savedAddress.street ?? '')
+    if (savedAddress.zip && savedAddress.state) {
+      const info: ZipInfo = {
+        zip: savedAddress.zip,
+        colonia: savedAddress.colonia ?? '',
+        municipio: savedAddress.city ?? '',
+        estado: savedAddress.state,
+      }
+      setZipInfo(info)
+      setZipKey(k => k + 1)
+    }
+  }
+
   // Ir al pago → crear payment intent
   function handleGoToPayment(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (items.length === 0 || !zipInfo) return
-    const fd = new FormData(e.currentTarget)
 
-    const name  = (fd.get('name')  as string).trim()
-    const email = (fd.get('email') as string).trim()
-    const phone = (fd.get('phone') as string).trim()
-    const street = (fd.get('street') as string).trim()
+    const name  = formName.trim()
+    const email = formEmail.trim()
+    const phone = formPhone.trim()
+    const street = formStreet.trim()
 
     // Client-side validation
     if (name.length < 2) { setSubmitError('ingresa tu nombre completo'); return }
@@ -220,11 +250,12 @@ export default function CheckoutMerch({
 
     const data: SavedData = {
       name, email, phone, street,
-      notes: (fd.get('notes') as string).trim(),
+      notes: formNotes.trim(),
       zipInfo,
       shippingRateId: selectedRate?.rate_id ?? null,
       shippingCarrier: selectedRate?.carrier ?? null,
       shippingMxn,
+      saveAddress: saveAddr,
     }
     setSavedData(data)
     setSubmitError(null)
@@ -275,6 +306,7 @@ export default function CheckoutMerch({
           shippingMxn: savedData.shippingMxn,
           stripePaymentId: piId,
           items,
+          saveAddressForUser: savedData.saveAddress,
         })
         clearCart()
         setOrderResult({ orderId, folioNumber })
@@ -371,19 +403,42 @@ export default function CheckoutMerch({
         {step === 'shipping' && (
           <form onSubmit={handleGoToPayment} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-7)' }}>
 
+            {/* Banner dirección guardada */}
+            {savedAddress?.street && savedAddress?.zip && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 16px', borderRadius: 4,
+                background: 'rgba(0,58,135,0.05)', border: '1px solid rgba(0,58,135,0.15)',
+                gap: 'var(--space-4)', flexWrap: 'wrap',
+              }}>
+                <div style={{ fontSize: 13, color: '#003a87' }}>
+                  <span style={{ fontWeight: 700 }}>dirección guardada:</span>{' '}
+                  {savedAddress.street}, {savedAddress.colonia}, {savedAddress.city}
+                </div>
+                <button type="button" onClick={applyAddress} className="btn btn-sm" style={{
+                  background: '#003a87', color: '#fff', border: 'none', flexShrink: 0,
+                }}>
+                  usar esta dirección
+                </button>
+              </div>
+            )}
+
             <Section title="datos de contacto">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
                 <div className="field">
                   <label htmlFor="name">nombre completo</label>
-                  <input id="name" name="name" type="text" required placeholder="tu nombre" defaultValue={savedData?.name} />
+                  <input id="name" name="name" type="text" required placeholder="tu nombre"
+                    value={formName} onChange={e => setFormName(e.target.value)} />
                 </div>
                 <div className="field">
                   <label htmlFor="phone">teléfono</label>
-                  <input id="phone" name="phone" type="tel" placeholder="55 1234 5678" defaultValue={savedData?.phone} />
+                  <input id="phone" name="phone" type="tel" placeholder="55 1234 5678"
+                    value={formPhone} onChange={e => setFormPhone(e.target.value)} />
                 </div>
                 <div className="field" style={{ gridColumn: '1/-1' }}>
                   <label htmlFor="email">correo electrónico</label>
-                  <input id="email" name="email" type="email" required placeholder="tu@correo.com" defaultValue={savedData?.email} />
+                  <input id="email" name="email" type="email" required placeholder="tu@correo.com"
+                    value={formEmail} onChange={e => setFormEmail(e.target.value)} />
                 </div>
               </div>
             </Section>
@@ -391,9 +446,18 @@ export default function CheckoutMerch({
             <Section title="dirección de envío">
               <div className="field">
                 <label htmlFor="street">calle y número</label>
-                <input id="street" name="street" type="text" required placeholder="av. insurgentes 123 int. 4b" defaultValue={savedData?.street} />
+                <input id="street" name="street" type="text" required placeholder="av. insurgentes 123 int. 4b"
+                  value={formStreet} onChange={e => setFormStreet(e.target.value)} />
               </div>
-              <ZipSelector label="código postal" onSelect={info => setZipInfo(info)} />
+              <ZipSelector
+                key={zipKey}
+                label="código postal"
+                onSelect={info => setZipInfo(info)}
+                defaultZip={zipKey > 0 ? (savedAddress?.zip ?? '') : ''}
+                defaultState={zipKey > 0 ? (savedAddress?.state ?? '') : ''}
+                defaultCity={zipKey > 0 ? (savedAddress?.city ?? '') : ''}
+                defaultColonia={zipKey > 0 ? (savedAddress?.colonia ?? '') : ''}
+              />
               {zipInfo && (
                 <div style={{ fontSize: 13, color: 'var(--fg-muted)', background: 'var(--bg-soft)', borderRadius: 4, padding: '10px 14px' }}>
                   {zipInfo.colonia}, {zipInfo.municipio}, {zipInfo.estado}
@@ -442,9 +506,22 @@ export default function CheckoutMerch({
 
             <Section title="notas (opcional)">
               <div className="field">
-                <textarea name="notes" rows={3} placeholder="indicaciones de entrega, referencias, etc." style={{ resize: 'vertical' }} defaultValue={savedData?.notes} />
+                <textarea name="notes" rows={3} placeholder="indicaciones de entrega, referencias, etc."
+                  style={{ resize: 'vertical' }} value={formNotes} onChange={e => setFormNotes(e.target.value)} />
               </div>
             </Section>
+
+            {userEmail && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={saveAddr}
+                  onChange={e => setSaveAddr(e.target.checked)}
+                  style={{ accentColor: 'var(--gallo-red)', width: 16, height: 16 }}
+                />
+                guardar esta dirección para mis próximos pedidos
+              </label>
+            )}
 
             {submitError && (
               <div style={{ padding: '12px 16px', background: 'rgba(255,1,0,0.06)', border: '1px solid rgba(255,1,0,0.2)', borderRadius: 4 }}>

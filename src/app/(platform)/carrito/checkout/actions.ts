@@ -78,6 +78,7 @@ export type CheckoutPayload = {
   shippingMxn: number
   stripePaymentId: string
   items: CartItem[]
+  saveAddressForUser?: boolean
 }
 
 export async function createOrder(payload: CheckoutPayload): Promise<{ orderId: string; folioNumber: number }> {
@@ -187,7 +188,22 @@ export async function createOrder(payload: CheckoutPayload): Promise<{ orderId: 
     }
   }
 
-  // ── 7. Send emails (fire-and-forget) ────────────────────────────────────────
+  // ── 7. Save address to user profile if requested ────────────────────────────
+  if (payload.saveAddressForUser && userId) {
+    await supabaseAdmin.from('users').update({
+      shipping_address: {
+        name: payload.name,
+        phone: payload.phone,
+        street: payload.street,
+        colonia: payload.colonia,
+        zip: payload.zip,
+        city: payload.city,
+        state: payload.state,
+      },
+    }).eq('clerk_user_id', userId)
+  }
+
+  // ── 8. Send emails (fire-and-forget) ────────────────────────────────────────
   const { sendOrderConfirmation, sendAdminNewOrder } = await import('@/lib/emails')
   const orderForEmail = {
     id: order.id as string,
