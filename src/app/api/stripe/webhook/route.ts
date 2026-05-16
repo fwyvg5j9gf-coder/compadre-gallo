@@ -48,5 +48,16 @@ export async function POST(req: NextRequest) {
       .eq('stripe_payment_id', pi.id)
   }
 
+  if (event.type === 'charge.refunded') {
+    const charge = event.data.object as Stripe.Charge
+    const piId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id
+    if (piId) {
+      await supabaseAdmin
+        .from('orders')
+        .update({ status: 'refunded', updated_at: new Date().toISOString() })
+        .eq('stripe_payment_id', piId)
+    }
+  }
+
   return NextResponse.json({ received: true })
 }
