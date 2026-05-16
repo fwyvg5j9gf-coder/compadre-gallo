@@ -17,13 +17,13 @@ export default function PlayBar() {
           <div className="playbar-spacer" />
           <button className="playbar-ctrl" onClick={toggle} aria-label={playing ? 'pausar' : 'reproducir'}>
             {playing ? (
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <rect x="2" y="1" width="4" height="12" rx="1" fill="#0a0a0a"/>
-                <rect x="8" y="1" width="4" height="12" rx="1" fill="#0a0a0a"/>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+                <rect x="9" y="7" width="5" height="18" rx="1.5" fill="#ff0100"/>
+                <rect x="18" y="7" width="5" height="18" rx="1.5" fill="#ffe200"/>
               </svg>
             ) : (
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M3 1.5L12 7L3 12.5V1.5Z" fill="#0a0a0a"/>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="20" height="20" fill="none">
+                <polygon points="11,7 25,16 11,25" fill="#ff0100"/>
               </svg>
             )}
           </button>

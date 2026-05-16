@@ -11,11 +11,12 @@ const links = [
   { href: '/cuenta',    label: 'cuenta'   },
 ];
 
-const IconBag = () => (
-  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-    <line x1="3" y1="6" x2="21" y2="6"/>
-    <path d="M16 10a4 4 0 0 1-8 0"/>
+const IconCart = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="22" height="22" fill="none">
+    <path d="M8 9 H28 L25 19 H10 Z" fill="#ffd49a"/>
+    <path d="M3 5 H7 L10 22 H25" stroke="#0a0a0a" fill="none" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="12" cy="26" r="2.2" fill="#003a87"/>
+    <circle cx="23" cy="26" r="2.2" fill="#003a87"/>
   </svg>
 )
 
@@ -51,7 +52,7 @@ export default function Nav() {
           color: 'var(--fg-muted)', padding: 4,
           transition: 'color 140ms var(--ease-out)',
         }}>
-          <IconBag />
+          <IconCart />
           {totalItems > 0 && (
             <span style={{
               position: 'absolute', top: -1, right: -5,

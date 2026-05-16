@@ -1,0 +1,224 @@
+{
+  "version": 1,
+  "palette": {
+    "blue": "#003a87",
+    "cyan": "#00c4df",
+    "peach": "#ffd49a",
+    "red": "#ff0100",
+    "yellow": "#ffe200",
+    "black": "#0a0a0a",
+    "paper": "#ffffff"
+  },
+  "categories": {
+    "music": {
+      "label": "música",
+      "fill": "#ff0100",
+      "accent": "#ffe200",
+      "soft": "#ffd49a"
+    },
+    "tickets": {
+      "label": "tickets",
+      "fill": "#ffe200",
+      "accent": "#ff0100",
+      "soft": "#ffd49a"
+    },
+    "shop": {
+      "label": "tienda",
+      "fill": "#ffd49a",
+      "accent": "#003a87",
+      "soft": "#ffd49a"
+    },
+    "social": {
+      "label": "social",
+      "fill": "#00c4df",
+      "accent": "#ff0100",
+      "soft": "#ffd49a"
+    },
+    "nav": {
+      "label": "navegación",
+      "fill": "#003a87",
+      "accent": "#ffe200",
+      "soft": "#ffd49a"
+    },
+    "status": {
+      "label": "estados",
+      "fill": "#ff0100",
+      "accent": "#ffe200",
+      "soft": "#ffd49a"
+    },
+    "content": {
+      "label": "contenido",
+      "fill": "#00c4df",
+      "accent": "#ffe200",
+      "soft": "#ffd49a"
+    },
+    "account": {
+      "label": "cuenta",
+      "fill": "#003a87",
+      "accent": "#00c4df",
+      "soft": "#ffd49a"
+    }
+  },
+  "icons": [
+    {
+      "name": "play",
+      "cat": "music",
+      "label": "música"
+    },
+    {
+      "name": "pause",
+      "cat": "music",
+      "label": "música"
+    },
+    {
+      "name": "skip-forward",
+      "cat": "music",
+      "label": "música"
+    },
+    {
+      "name": "skip-back",
+      "cat": "music",
+      "label": "música"
+    },
+    {
+      "name": "vinyl",
+      "cat": "music",
+      "label": "música"
+    },
+    {
+      "name": "headphones",
+      "cat": "music",
+      "label": "música"
+    },
+    {
+      "name": "ticket",
+      "cat": "tickets",
+      "label": "tickets"
+    },
+    {
+      "name": "calendar",
+      "cat": "tickets",
+      "label": "tickets"
+    },
+    {
+      "name": "map-pin",
+      "cat": "tickets",
+      "label": "tickets"
+    },
+    {
+      "name": "clock",
+      "cat": "tickets",
+      "label": "tickets"
+    },
+    {
+      "name": "bag",
+      "cat": "shop",
+      "label": "tienda"
+    },
+    {
+      "name": "cart",
+      "cat": "shop",
+      "label": "tienda"
+    },
+    {
+      "name": "tag",
+      "cat": "shop",
+      "label": "tienda"
+    },
+    {
+      "name": "box",
+      "cat": "shop",
+      "label": "tienda"
+    },
+    {
+      "name": "heart",
+      "cat": "social",
+      "label": "social"
+    },
+    {
+      "name": "share",
+      "cat": "social",
+      "label": "social"
+    },
+    {
+      "name": "user-plus",
+      "cat": "social",
+      "label": "social"
+    },
+    {
+      "name": "comment",
+      "cat": "social",
+      "label": "social"
+    },
+    {
+      "name": "menu",
+      "cat": "nav",
+      "label": "navegación"
+    },
+    {
+      "name": "search",
+      "cat": "nav",
+      "label": "navegación"
+    },
+    {
+      "name": "close",
+      "cat": "nav",
+      "label": "navegación"
+    },
+    {
+      "name": "arrow-right",
+      "cat": "nav",
+      "label": "navegación"
+    },
+    {
+      "name": "user",
+      "cat": "nav",
+      "label": "navegación"
+    },
+    {
+      "name": "zap",
+      "cat": "status",
+      "label": "estados"
+    },
+    {
+      "name": "sold-out",
+      "cat": "status",
+      "label": "estados"
+    },
+    {
+      "name": "live",
+      "cat": "status",
+      "label": "estados"
+    },
+    {
+      "name": "star",
+      "cat": "status",
+      "label": "estados"
+    },
+    {
+      "name": "mic",
+      "cat": "content",
+      "label": "contenido"
+    },
+    {
+      "name": "camera",
+      "cat": "content",
+      "label": "contenido"
+    },
+    {
+      "name": "music-note",
+      "cat": "content",
+      "label": "contenido"
+    },
+    {
+      "name": "card",
+      "cat": "account",
+      "label": "cuenta"
+    },
+    {
+      "name": "lock",
+      "cat": "account",
+      "label": "cuenta"
+    }
+  ]
+}
