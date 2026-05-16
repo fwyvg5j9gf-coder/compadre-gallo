@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { updateOrderStatus, updateTrackingNumber, createSkydropxShipment } from './actions'
+import { updateOrderStatus, updateTrackingNumber, createSkydropxShipment, getSkydropxRatesForOrder } from './actions'
+import type { ShippingRate } from '@/lib/skydropx'
 
 const STATUS_OPTIONS = [
   { value: 'pending',   label: 'pendiente' },
@@ -15,17 +16,24 @@ const STATUS_OPTIONS = [
 const B = '#ecebe5'
 const M = '#6b6a64'
 
+const fmt = (cents: number) =>
+  (cents / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
+
 export default function OrderActions({
   orderId,
   currentStatus,
   currentTracking,
   shippingRateId,
+  shippingMxn,
+  shippingCarrier,
   labelUrl: initialLabelUrl,
 }: {
   orderId: string
   currentStatus: string
   currentTracking: string | null
   shippingRateId: string | null
+  shippingMxn: number
+  shippingCarrier: string | null
   labelUrl: string | null
 }) {
   const [status, setStatus] = useState(currentStatus)
@@ -35,9 +43,16 @@ export default function OrderActions({
   const [pendingStatus, startStatus] = useTransition()
   const [pendingTracking, startTracking] = useTransition()
   const [pendingShipment, startShipment] = useTransition()
+  const [pendingRates, startRates] = useTransition()
   const [shipmentError, setShipmentError] = useState<string | null>(null)
   const [labelUrl, setLabelUrl] = useState(initialLabelUrl)
-  const [confirming, setConfirming] = useState(false)
+  // 'idle' | 'confirming' | 'fetching' | 'selecting' | 'creating'
+  const [guideStep, setGuideStep] = useState<'idle' | 'confirming' | 'fetching' | 'selecting' | 'creating'>('idle')
+  const [rates, setRates] = useState<ShippingRate[]>([])
+  const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null)
+
+  const hasTracking = !!tracking
+  const hasRateId = !!shippingRateId
 
   function handleStatusSave() {
     startStatus(async () => {
@@ -55,22 +70,39 @@ export default function OrderActions({
     })
   }
 
-  function handleCreateShipment() {
+  function handleFetchRates() {
     setShipmentError(null)
-    setConfirming(false)
-    startShipment(async () => {
+    setGuideStep('fetching')
+    startRates(async () => {
       try {
-        const result = await createSkydropxShipment(orderId)
-        setTracking(result.trackingNumber)
-        setStatus('shipped')
-        if (result.labelUrl) setLabelUrl(result.labelUrl)
+        const r = await getSkydropxRatesForOrder(orderId)
+        if (r.length === 0) throw new Error('Skydropx no devolvió tarifas para esta dirección')
+        setRates(r)
+        setSelectedRate(r[0])
+        setGuideStep('selecting')
       } catch (e: unknown) {
-        setShipmentError(e instanceof Error ? e.message : 'error al crear la guía')
+        setShipmentError(e instanceof Error ? e.message : 'error cotizando')
+        setGuideStep('idle')
       }
     })
   }
 
-  const canCreateGuide = !!shippingRateId && !tracking
+  function handleCreateShipment(rateId?: string) {
+    setShipmentError(null)
+    setGuideStep('creating')
+    startShipment(async () => {
+      try {
+        const result = await createSkydropxShipment(orderId, rateId)
+        setTracking(result.trackingNumber)
+        setStatus('shipped')
+        if (result.labelUrl) setLabelUrl(result.labelUrl)
+        setGuideStep('idle')
+      } catch (e: unknown) {
+        setShipmentError(e instanceof Error ? e.message : 'error al crear la guía')
+        setGuideStep('idle')
+      }
+    })
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -142,40 +174,90 @@ export default function OrderActions({
       </div>
 
       {/* Crear guía Skydropx */}
-      {(canCreateGuide || pendingShipment) && (
+      {!hasTracking && (
         <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, padding: '20px 24px' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 14 }}>
             skydropx
           </div>
 
-          {!confirming ? (
-            <button
-              onClick={() => setConfirming(true)}
-              disabled={pendingShipment}
-              className="adm-btn-primary"
-              style={{ width: '100%', height: 38, fontSize: 13 }}
-            >
-              crear guía de envío
+          {/* Info de envío del cliente */}
+          <div style={{ marginBottom: 16, padding: '10px 14px', background: '#f6f5f1', borderRadius: 4, fontSize: 13 }}>
+            <span style={{ color: M }}>cliente pagó: </span>
+            <span style={{ fontWeight: 700, fontFamily: 'monospace' }}>{fmt(shippingMxn)}</span>
+            {shippingCarrier && (
+              <span style={{ color: M }}> · {shippingCarrier}</span>
+            )}
+            {!shippingCarrier && (
+              <span style={{ color: M }}> · tarifa fija</span>
+            )}
+          </div>
+
+          {/* Flujo con rate_id: confirmación directa */}
+          {hasRateId && guideStep === 'idle' && (
+            <button onClick={() => setGuideStep('confirming')} className="adm-btn-primary" style={{ width: '100%', height: 38, fontSize: 13 }}>
+              crear guía automáticamente
             </button>
-          ) : (
+          )}
+          {hasRateId && guideStep === 'confirming' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <p style={{ fontSize: 13, color: M, margin: 0 }}>
-                esto creará la guía en Skydropx, marcará la orden como <strong>enviada</strong> y guardará el número de rastreo automáticamente.
+                crea la guía con la tarifa que el cliente eligió en el checkout, marca la orden como <strong>enviada</strong> y guarda el número de rastreo.
               </p>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={handleCreateShipment}
-                  disabled={pendingShipment}
-                  className="adm-btn-primary"
-                  style={{ flex: 1, height: 36, fontSize: 13 }}
-                >
-                  {pendingShipment ? 'creando guía…' : 'confirmar y crear'}
+                <button onClick={() => handleCreateShipment()} disabled={pendingShipment} className="adm-btn-primary" style={{ flex: 1, height: 36, fontSize: 13 }}>
+                  {pendingShipment ? 'creando…' : 'confirmar'}
                 </button>
+                <button onClick={() => setGuideStep('idle')} disabled={pendingShipment} style={{ height: 36, padding: '0 14px', fontSize: 13, border: `1px solid ${B}`, borderRadius: 4, background: '#fff', cursor: 'pointer', color: M }}>
+                  cancelar
+                </button>
+              </div>
+            </div>
+          )}
+          {guideStep === 'creating' && (
+            <p style={{ fontSize: 13, color: M, fontStyle: 'italic' }}>creando guía…</p>
+          )}
+
+          {/* Flujo sin rate_id: cotizar primero */}
+          {!hasRateId && guideStep === 'idle' && (
+            <button onClick={handleFetchRates} disabled={pendingRates} className="adm-btn-primary" style={{ width: '100%', height: 38, fontSize: 13 }}>
+              cotizar envío en Skydropx
+            </button>
+          )}
+          {!hasRateId && guideStep === 'fetching' && (
+            <p style={{ fontSize: 13, color: M, fontStyle: 'italic' }}>cotizando…</p>
+          )}
+          {!hasRateId && guideStep === 'selecting' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {rates.map(r => (
+                  <label key={r.rate_id} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                    border: `1px solid ${selectedRate?.rate_id === r.rate_id ? '#0a0a0a' : B}`,
+                    borderRadius: 4, cursor: 'pointer',
+                    background: selectedRate?.rate_id === r.rate_id ? '#f6f5f1' : '#fff',
+                  }}>
+                    <input type="radio" name="sky_rate" checked={selectedRate?.rate_id === r.rate_id}
+                      onChange={() => setSelectedRate(r)} style={{ accentColor: '#ff0100' }} />
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontWeight: 700, fontSize: 13 }}>{r.carrier}</span>
+                      {r.service_level && <span style={{ fontSize: 12, color: M, marginLeft: 6 }}>{r.service_level}</span>}
+                      {r.days && <span style={{ fontSize: 12, color: M, marginLeft: 6 }}>{r.days} días</span>}
+                    </div>
+                    <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 13 }}>
+                      {fmt(Math.round(r.total_mxn * 100))}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
                 <button
-                  onClick={() => setConfirming(false)}
-                  disabled={pendingShipment}
-                  style={{ height: 36, padding: '0 14px', fontSize: 13, border: `1px solid ${B}`, borderRadius: 4, background: '#fff', cursor: 'pointer', color: M }}
+                  onClick={() => selectedRate && handleCreateShipment(selectedRate.rate_id)}
+                  disabled={!selectedRate || pendingShipment}
+                  className="adm-btn-primary" style={{ flex: 1, height: 36, fontSize: 13 }}
                 >
+                  crear guía · {selectedRate ? fmt(Math.round(selectedRate.total_mxn * 100)) : ''}
+                </button>
+                <button onClick={() => setGuideStep('idle')} style={{ height: 36, padding: '0 14px', fontSize: 13, border: `1px solid ${B}`, borderRadius: 4, background: '#fff', cursor: 'pointer', color: M }}>
                   cancelar
                 </button>
               </div>

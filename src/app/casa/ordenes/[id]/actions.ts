@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import { requireAdmin } from '@/lib/auth.server'
-import { createShipment } from '@/lib/skydropx'
+import { createShipment, getShippingRates, type ShippingRate } from '@/lib/skydropx'
 
 const VALID_STATUSES = ['pending', 'paid', 'shipped', 'delivered', 'refunded', 'failed'] as const
 
@@ -26,99 +26,106 @@ export async function updateTrackingNumber(orderId: string, trackingNumber: stri
   revalidatePath(`/casa/ordenes/${orderId}`)
 }
 
+// ── Helpers compartidos ──────────────────────────────────────────────────────
+
+async function buildOrderShipmentData(orderId: string) {
+  const { data: order } = await supabaseAdmin
+    .from('orders')
+    .select('*, order_items(product_id)')
+    .eq('id', orderId)
+    .single()
+  if (!order) throw new Error('orden no encontrada')
+
+  const { data: settings } = await supabaseAdmin
+    .from('store_settings')
+    .select('skydropx_client_id, skydropx_client_secret, origin_zip, origin_state, origin_city, origin_colonia, skydropx_enabled')
+    .single()
+  if (!settings?.skydropx_enabled || !settings.skydropx_client_id) {
+    throw new Error('Skydropx no está configurado en ajustes de la tienda')
+  }
+
+  const productIds = (order.order_items as { product_id: string | null }[])
+    .map(i => i.product_id).filter(Boolean) as string[]
+
+  let parcel = { weight_kg: 0.5, length_cm: 30, width_cm: 20, height_cm: 10 }
+  if (productIds.length > 0) {
+    const { data: product } = await supabaseAdmin
+      .from('products').select('packaging_type_id, weight_grams').eq('id', productIds[0]).single()
+    if (product?.packaging_type_id) {
+      const { data: pkg } = await supabaseAdmin
+        .from('packaging_types').select('weight_grams, length_cm, width_cm, height_cm').eq('id', product.packaging_type_id).single()
+      if (pkg) {
+        parcel = {
+          weight_kg: Math.max(0.01, (product.weight_grams ?? pkg.weight_grams) / 1000),
+          length_cm: Number(pkg.length_cm), width_cm: Number(pkg.width_cm), height_cm: Number(pkg.height_cm),
+        }
+      }
+    }
+  }
+
+  const addr = order.shipping_address as Record<string, string> | null
+  if (!addr?.zip) throw new Error('la orden no tiene dirección de envío completa')
+
+  return { order, settings, parcel, addr }
+}
+
+// ── Cotizar (para órdenes sin rate_id de Skydropx) ──────────────────────────
+
+export async function getSkydropxRatesForOrder(orderId: string): Promise<ShippingRate[]> {
+  await requireAdmin()
+  const { settings, parcel, addr } = await buildOrderShipmentData(orderId)
+
+  return getShippingRates({
+    clientId: settings.skydropx_client_id,
+    clientSecret: settings.skydropx_client_secret,
+    originZip: settings.origin_zip,
+    originState: settings.origin_state,
+    originCity: settings.origin_city,
+    originColonia: settings.origin_colonia,
+    destZip: addr.zip,
+    destState: addr.state ?? '',
+    destCity: addr.city ?? '',
+    destColonia: addr.colonia ?? '',
+    parcel,
+  })
+}
+
+// ── Crear guía ───────────────────────────────────────────────────────────────
+
 export type ShipmentActionResult = {
   trackingNumber: string
   labelUrl: string | null
   carrier: string
 }
 
-export async function createSkydropxShipment(orderId: string): Promise<ShipmentActionResult> {
+export async function createSkydropxShipment(orderId: string, overrideRateId?: string): Promise<ShipmentActionResult> {
   await requireAdmin()
 
-  // ── 1. Fetch order ──────────────────────────────────────────────────────────
-  const { data: order } = await supabaseAdmin
-    .from('orders')
-    .select('*, order_items(product_id)')
-    .eq('id', orderId)
-    .single()
+  const { order, settings, parcel, addr } = await buildOrderShipmentData(orderId)
 
-  if (!order) throw new Error('orden no encontrada')
-  if (!order.shipping_rate_id) throw new Error('esta orden no tiene una tarifa de Skydropx asociada')
   if (order.tracking_number) throw new Error('esta orden ya tiene guía de envío')
 
-  // ── 2. Fetch store settings ─────────────────────────────────────────────────
-  const { data: settings } = await supabaseAdmin
-    .from('store_settings')
-    .select('skydropx_client_id, skydropx_client_secret, origin_zip, origin_state, origin_city, origin_colonia, skydropx_enabled')
-    .single()
-
-  if (!settings?.skydropx_enabled || !settings.skydropx_client_id) {
-    throw new Error('Skydropx no está configurado en ajustes de la tienda')
-  }
-
-  // ── 3. Get parcel dimensions from first product ─────────────────────────────
-  const productIds = (order.order_items as { product_id: string | null }[])
-    .map(i => i.product_id).filter(Boolean) as string[]
-
-  let parcel = { weight_kg: 0.5, length_cm: 30, width_cm: 20, height_cm: 10 }
-
-  if (productIds.length > 0) {
-    const { data: product } = await supabaseAdmin
-      .from('products')
-      .select('packaging_type_id, weight_grams')
-      .eq('id', productIds[0])
-      .single()
-
-    if (product?.packaging_type_id) {
-      const { data: pkg } = await supabaseAdmin
-        .from('packaging_types')
-        .select('weight_grams, length_cm, width_cm, height_cm')
-        .eq('id', product.packaging_type_id)
-        .single()
-
-      if (pkg) {
-        const itemWeight = product.weight_grams ?? pkg.weight_grams
-        parcel = {
-          weight_kg: Math.max(0.01, itemWeight / 1000),
-          length_cm: Number(pkg.length_cm),
-          width_cm: Number(pkg.width_cm),
-          height_cm: Number(pkg.height_cm),
-        }
-      }
-    }
-  }
-
-  // ── 4. Build addresses ──────────────────────────────────────────────────────
-  const addr = order.shipping_address as Record<string, string> | null
-  if (!addr?.zip) throw new Error('la orden no tiene dirección de envío completa')
+  const rateId = overrideRateId ?? order.shipping_rate_id
+  if (!rateId) throw new Error('no hay tarifa seleccionada para crear la guía')
 
   const addressFrom = {
-    name: 'GALLO',
-    email: '',
-    phone: '',
-    postalCode: settings.origin_zip,
-    state: settings.origin_state,
-    city: settings.origin_city,
-    colonia: settings.origin_colonia,
-    street: '',
+    name: 'GALLO', email: '', phone: '',
+    postalCode: settings.origin_zip, state: settings.origin_state,
+    city: settings.origin_city, colonia: settings.origin_colonia, street: '',
   }
-
   const addressTo = {
     name: order.customer_name ?? 'Cliente',
     email: order.customer_email ?? '',
     phone: order.customer_phone ?? '',
     postalCode: addr.zip,
-    state: addr.state ?? '',
-    city: addr.city ?? '',
-    colonia: addr.colonia ?? '',
-    street: addr.street ?? '',
+    state: addr.state ?? '', city: addr.city ?? '',
+    colonia: addr.colonia ?? '', street: addr.street ?? '',
   }
 
-  // ── 5. Create shipment ──────────────────────────────────────────────────────
   const result = await createShipment({
     clientId: settings.skydropx_client_id,
     clientSecret: settings.skydropx_client_secret,
-    rateId: order.shipping_rate_id,
+    rateId,
     addressFrom,
     addressTo,
     parcel,

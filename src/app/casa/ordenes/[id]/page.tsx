@@ -184,6 +184,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               currentStatus={order.status}
               currentTracking={order.tracking_number ?? null}
               shippingRateId={order.shipping_rate_id ?? null}
+              shippingMxn={order.shipping_mxn ?? 0}
+              shippingCarrier={order.shipping_carrier ?? null}
               labelUrl={(order as Record<string, unknown>).label_url as string ?? null}
             />
           </div>
