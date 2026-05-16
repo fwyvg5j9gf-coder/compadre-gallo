@@ -21,7 +21,9 @@ export async function POST(req: NextRequest) {
       paymentIntentId: paymentIntent.id,
     })
   } catch (err) {
-    console.error('stripe create-intent error:', err)
-    return NextResponse.json({ error: 'error al iniciar el pago' }, { status: 500 })
+    const msg = err instanceof Error ? err.message : String(err)
+    const keyHint = (process.env.STRIPE_SECRET_KEY ?? 'undefined').slice(0, 12)
+    console.error('stripe create-intent error:', msg, '| key prefix:', keyHint)
+    return NextResponse.json({ error: 'error al iniciar el pago', debug: msg, keyHint }, { status: 500 })
   }
 }
