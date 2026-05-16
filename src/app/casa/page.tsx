@@ -5,13 +5,13 @@ import CasaDashboard from './CasaDashboard'
 
 export default async function CasaPage() {
   const { userId } = await auth()
-  if (!userId) redirect('/casa/login')
+  if (!userId) redirect('/cuenta/login')
 
   // Artistas go directly to their profile — they have no dashboard access
   if (!(await isAdmin(userId))) {
     const linked = await getLinkedArtist(userId)
     if (linked) redirect(`/casa/artistas/${linked.id}`)
-    redirect('/casa/login')
+    redirect('/cuenta')
   }
 
   const user = await currentUser()

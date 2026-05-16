@@ -245,7 +245,7 @@ function ArtistSubCard({
 type Tab = 'pedidos' | 'boletos' | 'artistas' | 'perfil'
 
 export default function CuentaClient({
-  orders, tickets, subscriptions, allArtists, firstName, email, userId: _userId,
+  orders, tickets, subscriptions, allArtists, firstName, email, userId: _userId, role, dashboardUrl,
 }: {
   orders: Order[]
   tickets: Ticket[]
@@ -254,6 +254,8 @@ export default function CuentaClient({
   firstName: string
   email: string
   userId: string
+  role: string
+  dashboardUrl?: string
 }) {
   const [tab, setTab] = useState<Tab>('pedidos')
   const [localSubs, setLocalSubs] = useState<Set<string>>(
@@ -311,7 +313,24 @@ export default function CuentaClient({
             )}
           </button>
         ))}
-        <div style={{ marginTop: 'auto', paddingTop: 'var(--space-6)' }}>
+        {dashboardUrl && (
+          <div style={{ marginTop: 'var(--space-5)', paddingTop: 'var(--space-5)', borderTop: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, color: 'var(--fg-muted)', marginBottom: 8 }}>
+              {role === 'admin' ? 'admin' : 'artista'}
+            </div>
+            <Link
+              href={dashboardUrl}
+              style={{
+                display: 'block', padding: '9px 14px', borderRadius: 4,
+                background: '#0a0a0a', color: '#fff', textDecoration: 'none',
+                fontSize: 13, fontWeight: 600, textAlign: 'center',
+              }}
+            >
+              {role === 'admin' ? 'panel de admin' : 'mi perfil de artista'}
+            </Link>
+          </div>
+        )}
+        <div style={{ marginTop: dashboardUrl ? 'var(--space-4)' : 'auto', paddingTop: dashboardUrl ? 0 : 'var(--space-6)' }}>
           <button
             className="btn btn-ghost btn-sm"
             style={{ color: 'var(--fg-muted)' }}

@@ -32,8 +32,8 @@ export async function getLinkedArtist(userId: string) {
 
 export async function requireAdmin() {
   const { userId } = await auth()
-  if (!userId) redirect('/casa/login')
-  if (!(await isAdmin(userId))) redirect('/casa/login')
+  if (!userId) redirect('/cuenta/login')
+  if (!(await isAdmin(userId))) redirect('/cuenta/login')
 }
 
 export async function requireAdminOrThrow() {
@@ -46,11 +46,11 @@ export async function requireAdminOrThrow() {
 // Returns 'admin' | 'artista' so the page can adapt the UI.
 export async function requireAdminOrArtista(artistId: string): Promise<'admin' | 'artista'> {
   const { userId } = await auth()
-  if (!userId) redirect('/casa/login')
+  if (!userId) redirect('/cuenta/login')
   if (await isAdmin(userId)) return 'admin'
   const linked = await getLinkedArtist(userId)
   if (linked?.id === artistId) return 'artista'
-  redirect('/casa/login')
+  redirect('/cuenta/login')
 }
 
 export { isAdmin }

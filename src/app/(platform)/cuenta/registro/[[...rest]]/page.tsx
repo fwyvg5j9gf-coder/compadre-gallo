@@ -33,7 +33,7 @@ export default function CuentaRegistroPage() {
           crea tu cuenta
         </p>
       </div>
-      <SignUp fallbackRedirectUrl="/cuenta" />
+      <SignUp fallbackRedirectUrl="/cuenta" signInUrl="/cuenta/login" />
     </div>
   )
 }

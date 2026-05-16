@@ -28,18 +28,12 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               `default-src 'self'`,
-              // Scripts: self + Stripe + Clerk
-              `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.clerk.com https://*.clerk.accounts.dev`,
-              // Styles: self + Google Fonts
-              `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
-              // Fonts: self + Google Fonts CDN
-              `font-src 'self' https://fonts.gstatic.com`,
-              // Images: self + Supabase + data URIs
-              `img-src 'self' data: blob: https://*.supabase.co https://img.clerk.com`,
-              // XHR/fetch: self + Supabase + Stripe + SkyDropX + OSM + Clerk
-              `connect-src 'self' https://*.supabase.co https://api.stripe.com https://api-pro.skydropx.com https://nominatim.openstreetmap.org https://*.clerk.com https://*.clerk.accounts.dev ${APP_URL}`,
-              // iframes: Stripe payment element + Clerk
-              `frame-src https://js.stripe.com https://hooks.stripe.com https://*.clerk.com https://*.clerk.accounts.dev`,
+              `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.clerk.com https://*.clerk.accounts.dev https://challenges.cloudflare.com`,
+              `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.clerk.com https://*.clerk.accounts.dev`,
+              `font-src 'self' https://fonts.gstatic.com https://*.clerk.com`,
+              `img-src 'self' data: blob: https://*.supabase.co https://img.clerk.com https://*.clerk.com`,
+              `connect-src 'self' https://*.supabase.co https://api.stripe.com https://api-pro.skydropx.com https://nominatim.openstreetmap.org https://*.clerk.com https://*.clerk.accounts.dev https://clerk-telemetry.com ${APP_URL}`,
+              `frame-src https://js.stripe.com https://hooks.stripe.com https://*.clerk.com https://*.clerk.accounts.dev https://challenges.cloudflare.com`,
             ].join('; '),
           },
         ],

@@ -1,6 +1,7 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase.server'
+import { isAdmin, getLinkedArtist } from '@/lib/auth.server'
 import CuentaClient from './CuentaClient'
 
 export default async function CuentaPage() {
@@ -17,6 +18,20 @@ export default async function CuentaPage() {
       { clerk_user_id: userId, email, name },
       { onConflict: 'clerk_user_id', ignoreDuplicates: false },
     )
+  }
+
+  // Role-based dashboard access
+  const adminUser = await isAdmin(userId)
+  const { data: userRecord } = await supabaseAdmin
+    .from('users').select('role').eq('clerk_user_id', userId).single()
+  const role = adminUser ? 'admin' : (userRecord?.role ?? 'fan')
+
+  let dashboardUrl: string | undefined
+  if (adminUser) {
+    dashboardUrl = '/casa'
+  } else if (role === 'artista') {
+    const linked = await getLinkedArtist(userId)
+    if (linked) dashboardUrl = `/casa/artistas/${linked.id}`
   }
 
   const [ordersResult, ticketsResult, subsResult, artistsResult] = await Promise.all([
@@ -51,6 +66,8 @@ export default async function CuentaPage() {
       firstName={name ?? 'compadre'}
       email={email}
       userId={userId}
+      role={role}
+      dashboardUrl={dashboardUrl}
     />
   )
 }
