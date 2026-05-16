@@ -16,6 +16,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // Auth pages: no CSP so Clerk can load without restrictions
+        source: '/cuenta/(login|registro)/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy',         value: 'strict-origin-when-cross-origin' },
+        ],
+      },
+      {
         source: '/(.*)',
         headers: [
           { key: 'X-Frame-Options',           value: 'DENY' },
