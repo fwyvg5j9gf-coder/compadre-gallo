@@ -211,6 +211,38 @@ export async function testShippingQuote(destZip: string, destState: string, dest
   })
 }
 
+// ── Stripe ────────────────────────────────────────────────────────────────────
+
+export async function saveStripeConfig(formData: FormData) {
+  await requireAdmin()
+  const { error } = await supabaseAdmin.from('store_settings').update({
+    stripe_test_mode:     formData.get('test_mode') === 'true',
+    stripe_pk_test:       (formData.get('pk_test') as string ?? '').trim(),
+    stripe_sk_test:       (formData.get('sk_test') as string ?? '').trim(),
+    stripe_pk_live:       (formData.get('pk_live') as string ?? '').trim(),
+    stripe_sk_live:       (formData.get('sk_live') as string ?? '').trim(),
+    stripe_webhook_secret:(formData.get('webhook_secret') as string ?? '').trim(),
+    stripe_statement_desc:(formData.get('statement_desc') as string ?? '').trim().slice(0, 22),
+    stripe_markup_pct:    parseFloat((formData.get('markup_pct') as string) || '0'),
+    updated_at: new Date().toISOString(),
+  }).eq('id', 1)
+  if (error) throw new Error(error.message)
+  revalidatePath('/casa/tienda/configuracion')
+}
+
+export async function saveSkydropxExtra(formData: FormData) {
+  await requireAdmin()
+  const carriersRaw = (formData.get('allowed_carriers') as string ?? '')
+  const carriers = carriersRaw.split(',').map(c => c.trim()).filter(Boolean)
+  const { error } = await supabaseAdmin.from('store_settings').update({
+    skydropx_markup_pct:       parseFloat((formData.get('markup_pct') as string) || '0'),
+    skydropx_allowed_carriers: carriers,
+    updated_at: new Date().toISOString(),
+  }).eq('id', 1)
+  if (error) throw new Error(error.message)
+  revalidatePath('/casa/tienda/configuracion')
+}
+
 // ── Envíos manuales ───────────────────────────────────────────────────────────
 
 export async function saveShipping(formData: FormData) {

@@ -14,7 +14,7 @@ export async function getRatesForCheckout(
 ): Promise<ShippingRate[]> {
   const { data: settings } = await supabaseAdmin
     .from('store_settings')
-    .select('skydropx_enabled, skydropx_client_id, skydropx_client_secret, origin_zip, origin_state, origin_city, origin_colonia')
+    .select('skydropx_enabled, skydropx_client_id, skydropx_client_secret, origin_zip, origin_state, origin_city, origin_colonia, skydropx_markup_pct, skydropx_allowed_carriers')
     .single()
 
   if (!settings?.skydropx_enabled || !settings.skydropx_client_id) return []
@@ -28,7 +28,7 @@ export async function getRatesForCheckout(
   if (!pkg) return []
 
   try {
-    return await getShippingRates({
+    let rates = await getShippingRates({
       clientId: settings.skydropx_client_id,
       clientSecret: settings.skydropx_client_secret,
       originZip: settings.origin_zip,
@@ -46,6 +46,20 @@ export async function getRatesForCheckout(
         height_cm: Number(pkg.height_cm),
       },
     })
+
+    // Filter by allowed carriers if configured
+    const allowed = settings.skydropx_allowed_carriers as string[] | null
+    if (allowed && allowed.length > 0) {
+      rates = rates.filter(r => allowed.some(c => r.carrier.toLowerCase().includes(c.toLowerCase())))
+    }
+
+    // Apply markup percentage
+    const markup = Number(settings.skydropx_markup_pct ?? 0)
+    if (markup > 0) {
+      rates = rates.map(r => ({ ...r, total_mxn: r.total_mxn * (1 + markup / 100) }))
+    }
+
+    return rates
   } catch {
     return []
   }

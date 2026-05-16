@@ -8,7 +8,12 @@ const DEFAULT_SETTINGS: StoreSettings = {
   shipping_local_mxn: 8900, shipping_national_mxn: 14900,
   shipping_intl_mxn: 45000, shipping_free_threshold_mxn: 150000,
   return_policy: '', shipping_policy: '',
-  skydropx_enabled: false, skydropx_client_id: '', skydropx_client_secret: '', origin_zip: '', origin_state: '', origin_city: '', origin_colonia: '',
+  skydropx_enabled: false, skydropx_client_id: '', skydropx_client_secret: '',
+  skydropx_markup_pct: 0, skydropx_allowed_carriers: [],
+  origin_zip: '', origin_state: '', origin_city: '', origin_colonia: '',
+  stripe_test_mode: true, stripe_pk_test: '', stripe_sk_test: '',
+  stripe_pk_live: '', stripe_sk_live: '', stripe_webhook_secret: '',
+  stripe_statement_desc: 'GALLO', stripe_markup_pct: 0,
 }
 
 export default async function ConfiguracionPage() {

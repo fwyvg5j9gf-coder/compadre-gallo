@@ -9,7 +9,7 @@ import {
   addSize, updateSize, deleteSize, reorderSize,
   addPackaging, updatePackaging, deletePackaging, reorderPackaging,
   saveSkydropxConfig, toggleSkydropx, testShippingQuote,
-  saveShipping, savePolicies,
+  saveShipping, savePolicies, saveStripeConfig, saveSkydropxExtra,
 } from './actions'
 import ZipSelector from '@/components/ZipSelector'
 import AdminShell from '../../AdminShell'
@@ -445,8 +445,186 @@ function SkydropxSection({ settings, packaging }: { settings: StoreSettings; pac
           </div>
         )}
       </div>
+      {/* Markup + carriers */}
+      <form action={fd => startTransition(async () => { await saveSkydropxExtra(fd); setSaved(true); setTimeout(() => setSaved(false), 2500); router.refresh() })}
+        style={{ display: 'flex', flexDirection: 'column', gap: 16, borderTop: `1px solid ${B}`, paddingTop: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.06em', textTransform: 'uppercase' }}>ajustes de tarifa</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <label className="adm-lbl">
+            markup % (comisión + diferencias)
+            <input name="markup_pct" type="number" step="0.1" min="0" max="50"
+              defaultValue={settings.skydropx_markup_pct ?? 0} className="adm-inp" />
+            <span style={{ fontSize: 11, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+              ej. 5 = +5% sobre la tarifa de SkyDropX
+            </span>
+          </label>
+          <label className="adm-lbl">
+            paqueterías a mostrar
+            <input name="allowed_carriers" type="text"
+              defaultValue={(settings.skydropx_allowed_carriers ?? []).join(', ')}
+              placeholder="FedEx, DHL, Estafeta (vacío = todas)"
+              className="adm-inp" />
+            <span style={{ fontSize: 11, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+              separadas por coma. vacío muestra todas.
+            </span>
+          </label>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <button type="submit" disabled={isPending} className="adm-btn-primary">guardar ajustes</button>
+          <SavedBadge show={saved} />
+        </div>
+      </form>
+
       {/* suppresses unused import warning */}
       <span style={{ display: 'none' }}>{JSON.stringify(STATUS_COLOR)}</span>
+    </div>
+  )
+}
+
+// ── StripeSection ─────────────────────────────────────────────────────────────
+function StripeSection({ settings }: { settings: StoreSettings }) {
+  const [isPending, startTransition] = useTransition()
+  const [saved, setSaved] = useState(false)
+  const [testMode, setTestMode] = useState(settings.stripe_test_mode ?? true)
+  const [showSk, setShowSk] = useState(false)
+  const router = useRouter()
+
+  function handleSave(fd: FormData) {
+    fd.set('test_mode', testMode ? 'true' : 'false')
+    startTransition(async () => {
+      await saveStripeConfig(fd)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+      router.refresh()
+    })
+  }
+
+  const hint = (v: string, n = 8) => v && v.length > n ? `···${v.slice(-6)}` : ''
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+      {/* Mode toggle */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', background: '#f6f5f1', borderRadius: 6, border: `1px solid ${B}` }}>
+        <button type="button" onClick={() => setTestMode(v => !v)} style={{
+          width: 44, height: 24, borderRadius: 999, border: 'none', cursor: 'pointer',
+          background: testMode ? '#ffd49a' : '#1a6b35',
+          position: 'relative', transition: 'background 200ms', flexShrink: 0,
+        }}>
+          <span style={{
+            position: 'absolute', top: 3, left: testMode ? 3 : 23,
+            width: 18, height: 18, borderRadius: '50%', background: '#fff',
+            transition: 'left 200ms', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+          }} />
+        </button>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#0a0a0a' }}>
+            {testMode ? 'modo prueba (test)' : 'modo producción (live)'}
+          </div>
+          <div style={{ fontSize: 12, color: M, marginTop: 2 }}>
+            {testMode
+              ? 'usa keys sk_test_... y pk_test_... — no cobra real'
+              : 'usa keys sk_live_... y pk_live_... — cobra real'}
+          </div>
+        </div>
+        {!testMode && (
+          <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#1a6b35', background: 'rgba(26,107,53,0.1)', padding: '3px 10px', borderRadius: 999 }}>
+            LIVE
+          </span>
+        )}
+      </div>
+
+      <form action={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+        {/* Test keys */}
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
+            keys de prueba (test)
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <label className="adm-lbl">
+              publishable key (pk_test_...)
+              {hint(settings.stripe_pk_test) && <span style={{ fontSize: 10, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>activa: {hint(settings.stripe_pk_test)}</span>}
+              <input name="pk_test" type="text" defaultValue={settings.stripe_pk_test} placeholder="pk_test_..." className="adm-inp" autoComplete="off" />
+            </label>
+            <label className="adm-lbl">
+              secret key (sk_test_...)
+              {hint(settings.stripe_sk_test) && <span style={{ fontSize: 10, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>activa: {hint(settings.stripe_sk_test)}</span>}
+              <input name="sk_test" type="password" defaultValue={settings.stripe_sk_test} placeholder="sk_test_..." className="adm-inp" autoComplete="off" />
+            </label>
+          </div>
+        </div>
+
+        {/* Live keys */}
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>
+            keys de producción (live)
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <label className="adm-lbl">
+              publishable key (pk_live_...)
+              {hint(settings.stripe_pk_live) && <span style={{ fontSize: 10, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>activa: {hint(settings.stripe_pk_live)}</span>}
+              <input name="pk_live" type="text" defaultValue={settings.stripe_pk_live} placeholder="pk_live_..." className="adm-inp" autoComplete="off" />
+            </label>
+            <label className="adm-lbl">
+              secret key (sk_live_...)
+              {hint(settings.stripe_sk_live) && <span style={{ fontSize: 10, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>activa: {hint(settings.stripe_sk_live)}</span>}
+              <div style={{ position: 'relative' }}>
+                <input name="sk_live" type={showSk ? 'text' : 'password'} defaultValue={settings.stripe_sk_live}
+                  placeholder="sk_live_..." className="adm-inp" style={{ paddingRight: 44 }} autoComplete="off" />
+                <button type="button" onClick={() => setShowSk(v => !v)} style={{
+                  position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer', color: M, display: 'flex', alignItems: 'center', padding: 0,
+                }}>
+                  {showSk ? <IconEyeOff /> : <IconEyeOn />}
+                </button>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        {/* Webhook + extras */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+          <label className="adm-lbl" style={{ gridColumn: '1/3' }}>
+            webhook secret (whsec_...)
+            {hint(settings.stripe_webhook_secret) && <span style={{ fontSize: 10, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>activa: {hint(settings.stripe_webhook_secret)}</span>}
+            <input name="webhook_secret" type="password" defaultValue={settings.stripe_webhook_secret} placeholder="whsec_..." className="adm-inp" autoComplete="off" />
+          </label>
+          <label className="adm-lbl">
+            descriptor (22 chars)
+            <input name="statement_desc" type="text" maxLength={22}
+              defaultValue={settings.stripe_statement_desc || 'GALLO'} className="adm-inp" />
+            <span style={{ fontSize: 11, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+              aparece en el estado de cuenta del cliente
+            </span>
+          </label>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
+          <label className="adm-lbl">
+            markup % (comisión pasarela)
+            <input name="markup_pct" type="number" step="0.1" min="0" max="10"
+              defaultValue={settings.stripe_markup_pct ?? 0} className="adm-inp" />
+            <span style={{ fontSize: 11, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+              ej. 3.6 = agrega 3.6% al total (Stripe cobra ~3.6% en MX)
+            </span>
+          </label>
+          <div style={{ background: 'rgba(0,58,135,0.04)', border: '1px solid rgba(0,58,135,0.12)', borderRadius: 6, padding: '14px 16px', fontSize: 12, color: M, lineHeight: 1.7 }}>
+            <strong style={{ color: '#003a87', display: 'block', marginBottom: 6 }}>¿cómo funciona?</strong>
+            Si el carrito suma $500 MXN con 3.6% de markup, el cliente paga $518 MXN.
+            Los $18 cubren la comisión de Stripe (3.6% + IVA).<br />
+            Las keys de DB tienen prioridad sobre las variables de entorno de Vercel.
+            Si dejas los campos vacíos, se usan las env vars.
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingTop: 4 }}>
+          <button type="submit" disabled={isPending} className="adm-btn-primary">
+            {isPending ? 'guardando…' : 'guardar configuración stripe'}
+          </button>
+          <SavedBadge show={saved} />
+        </div>
+      </form>
     </div>
   )
 }
@@ -526,6 +704,7 @@ function SectionCard({ id, title, desc, children }: { id: string; title: string;
 
 // ── NAV ────────────────────────────────────────────────────────────────────────
 const NAV = [
+  { id: 'stripe',     label: 'stripe' },
   { id: 'skydropx',   label: 'skydropx' },
   { id: 'embalajes',  label: 'embalajes' },
   { id: 'categorias', label: 'categorías' },
@@ -572,6 +751,11 @@ export default function ConfiguracionAdmin({ categories, sizes, packaging, setti
         {/* Content */}
         <main style={{ flex: 1, paddingLeft: 32, paddingTop: 32, paddingBottom: 80 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            <SectionCard id="stripe" title="stripe"
+              desc="pasarela de pagos. stripe.com → developers → api keys. en producción cobra 3.6% + IVA por transacción en México.">
+              <StripeSection settings={settings} />
+            </SectionCard>
 
             <SectionCard id="skydropx" title="skydropx"
               desc="cotización automática. credenciales en pro.skydropx.com → api → credenciales de aplicación.">
