@@ -13,7 +13,7 @@ function HeroMascotBlock({ c }: { c: Record<string, string> }) {
       </div>
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 48 }}>
         <img src={c.mascot_image || '/assets/gallo-mascot.jpg'} alt="el gallo"
-          style={{ objectFit: 'contain', width: 'clamp(200px, 30vw, 380px)', height: 'auto', filter: 'contrast(1.05)' }} />
+          style={{ objectFit: 'contain', width: 'clamp(260px, 50vw, 380px)', height: 'auto', filter: 'contrast(1.05)', mixBlendMode: 'multiply' }} />
       </div>
     </div>
   )
