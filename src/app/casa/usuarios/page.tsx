@@ -8,7 +8,7 @@ export default async function UsuariosPage() {
 
   const { data: users } = await supabaseAdmin
     .from('users')
-    .select('id, clerk_user_id, email, name, role, created_at')
+    .select('id, clerk_user_id, email, name, username, role, created_at')
     .order('created_at', { ascending: false })
 
   return (

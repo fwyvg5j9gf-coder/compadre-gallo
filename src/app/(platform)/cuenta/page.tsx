@@ -23,7 +23,7 @@ export default async function CuentaPage() {
   // Role-based dashboard access
   const adminUser = await isAdmin(userId)
   const { data: userRecord } = await supabaseAdmin
-    .from('users').select('role').eq('clerk_user_id', userId).single()
+    .from('users').select('role, username, shipping_address').eq('clerk_user_id', userId).single()
   const role = adminUser ? 'admin' : (userRecord?.role ?? 'fan')
 
   let dashboardUrl: string | undefined
@@ -68,6 +68,8 @@ export default async function CuentaPage() {
       userId={userId}
       role={role}
       dashboardUrl={dashboardUrl}
+      username={userRecord?.username ?? null}
+      savedAddress={(userRecord?.shipping_address as Record<string, string>) ?? null}
     />
   )
 }

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useClerk } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
-import { subscribeToArtist, unsubscribeFromArtist } from './actions'
+import { subscribeToArtist, unsubscribeFromArtist, saveUsername, saveAddress } from './actions'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const STATUS_LABEL: Record<string, string> = {
@@ -241,11 +241,89 @@ function ArtistSubCard({
   )
 }
 
+// ── UsernameModal ────────────────────────────────────────────────────────────
+function UsernameModal({ onDone }: { onDone: (saved?: string) => void }) {
+  const [value, setValue] = useState('')
+  const [error, setError] = useState('')
+  const [pending, startTransition] = useTransition()
+
+  const preview = value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '')
+
+  const submit = () => {
+    setError('')
+    startTransition(async () => {
+      try {
+        await saveUsername(value)
+        onDone(preview)
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'error al guardar')
+      }
+    })
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 50,
+      background: 'rgba(0,0,0,0.45)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 'var(--space-5)',
+    }}>
+      <div style={{
+        background: '#fff', borderRadius: 8, padding: 'var(--space-7)',
+        maxWidth: 420, width: '100%',
+        display: 'flex', flexDirection: 'column', gap: 'var(--space-5)',
+      }}>
+        <div>
+          <h2 style={{ margin: 0, marginBottom: 6 }}>elige tu nombre de usuario</h2>
+          <p style={{ fontSize: 14, color: 'var(--fg-muted)', margin: 0 }}>
+            solo letras, números y guión bajo. mínimo 3 caracteres.
+          </p>
+        </div>
+        <div className="field">
+          <label>nombre de usuario</label>
+          <input
+            type="text"
+            value={value}
+            onChange={e => { setValue(e.target.value); setError('') }}
+            placeholder="ej. juan_gallo"
+            maxLength={20}
+            onKeyDown={e => e.key === 'Enter' && submit()}
+            autoFocus
+          />
+          {preview && preview !== value.trim().toLowerCase() && (
+            <span style={{ fontSize: 12, color: 'var(--fg-muted)', marginTop: 4 }}>
+              se guardará como: <strong>{preview}</strong>
+            </span>
+          )}
+          {error && (
+            <span style={{ fontSize: 12, color: 'var(--gallo-red)', marginTop: 4 }}>{error}</span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
+          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--fg-muted)' }} onClick={() => onDone()}>
+            ahora no
+          </button>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={submit}
+            disabled={pending || preview.length < 3}
+          >
+            {pending ? 'guardando...' : 'guardar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 type Tab = 'pedidos' | 'boletos' | 'artistas' | 'perfil'
 
+const EMPTY_ADDRESS = { name: '', phone: '', street: '', colonia: '', zip: '', city: '', state: '' }
+
 export default function CuentaClient({
   orders, tickets, subscriptions, allArtists, firstName, email, userId: _userId, role, dashboardUrl,
+  username: initialUsername, savedAddress,
 }: {
   orders: Order[]
   tickets: Ticket[]
@@ -256,8 +334,13 @@ export default function CuentaClient({
   userId: string
   role: string
   dashboardUrl?: string
+  username: string | null
+  savedAddress: Record<string, string> | null
 }) {
   const [tab, setTab] = useState<Tab>('pedidos')
+  const [currentUsername, setCurrentUsername] = useState<string | null>(initialUsername)
+  const [showUsernameModal, setShowUsernameModal] = useState(initialUsername === null)
+  const [editingUsername, setEditingUsername] = useState(false)
   const [localSubs, setLocalSubs] = useState<Set<string>>(
     new Set(subscriptions.map(s => s.artist_id)),
   )
@@ -285,7 +368,27 @@ export default function CuentaClient({
     { key: 'perfil', label: 'perfil' },
   ]
 
+  const [address, setAddress] = useState<Record<string, string>>(savedAddress ?? EMPTY_ADDRESS)
+  const [addressSaved, setAddressSaved] = useState(false)
+  const [addressPending, startAddressTransition] = useTransition()
+
+  const handleSaveAddress = () => {
+    setAddressSaved(false)
+    startAddressTransition(async () => {
+      await saveAddress(address)
+      setAddressSaved(true)
+    })
+  }
+
   return (
+    <>
+    {(showUsernameModal || editingUsername) && (
+      <UsernameModal onDone={(saved) => {
+        if (saved) setCurrentUsername(saved)
+        setShowUsernameModal(false)
+        setEditingUsername(false)
+      }} />
+    )}
     <div className="account-grid">
       {/* Sidebar */}
       <aside className="account-sidebar">
@@ -453,9 +556,78 @@ export default function CuentaClient({
             <p style={{ marginTop: 'var(--space-4)', fontSize: 13, color: 'var(--fg-muted)' }}>
               para cambiar tu nombre o correo, ve a tu perfil de Clerk.
             </p>
+
+            {/* Nombre de usuario */}
+            <div style={{ marginTop: 'var(--space-7)', paddingTop: 'var(--space-6)', borderTop: '1px solid var(--border)' }}>
+              <h3 style={{ marginBottom: 'var(--space-4)', fontSize: 16 }}>nombre de usuario</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+                {currentUsername ? (
+                  <>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 15 }}>
+                      @{currentUsername}
+                    </span>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      style={{ color: 'var(--fg-muted)' }}
+                      onClick={() => setEditingUsername(true)}
+                    >
+                      cambiar
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => setEditingUsername(true)}
+                  >
+                    elegir nombre de usuario
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Dirección guardada */}
+            <div style={{ marginTop: 'var(--space-7)', paddingTop: 'var(--space-6)', borderTop: '1px solid var(--border)' }}>
+              <h3 style={{ marginBottom: 4, fontSize: 16 }}>dirección de envío</h3>
+              <p style={{ fontSize: 13, color: 'var(--fg-muted)', marginBottom: 'var(--space-5)' }}>
+                se usa automáticamente al momento de comprar.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', maxWidth: 560 }}>
+                {([
+                  { key: 'name',    label: 'nombre completo',  span: 2,   type: 'text' },
+                  { key: 'phone',   label: 'teléfono',         span: 1,   type: 'tel'  },
+                  { key: 'street',  label: 'calle y número',   span: 2,   type: 'text' },
+                  { key: 'colonia', label: 'colonia',          span: 1,   type: 'text' },
+                  { key: 'zip',     label: 'código postal',    span: 1,   type: 'text' },
+                  { key: 'city',    label: 'ciudad',           span: 1,   type: 'text' },
+                  { key: 'state',   label: 'estado',           span: 1,   type: 'text' },
+                ] as { key: string; label: string; span: number; type: string }[]).map(({ key, label, span, type }) => (
+                  <div key={key} className="field" style={{ gridColumn: `span ${span}` }}>
+                    <label>{label}</label>
+                    <input
+                      type={type}
+                      value={address[key] ?? ''}
+                      onChange={e => setAddress(a => ({ ...a, [key]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 'var(--space-5)', display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleSaveAddress}
+                  disabled={addressPending}
+                >
+                  {addressPending ? 'guardando...' : 'guardar dirección'}
+                </button>
+                {addressSaved && (
+                  <span style={{ fontSize: 13, color: '#1a6b35' }}>dirección guardada</span>
+                )}
+              </div>
+            </div>
           </>
         )}
       </div>
     </div>
+    </>
   )
 }

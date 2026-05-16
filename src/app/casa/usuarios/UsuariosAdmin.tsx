@@ -8,6 +8,7 @@ type User = {
   clerk_user_id: string
   email: string
   name: string | null
+  username: string | null
   role: string
   created_at: string
 }
@@ -70,7 +71,7 @@ export default function UsuariosAdmin({ users }: { users: User[] }) {
   const [roleFilter, setRoleFilter] = useState('todos')
 
   const filtered = users.filter(u => {
-    const matchQ = !q || u.email.toLowerCase().includes(q.toLowerCase()) || (u.name ?? '').toLowerCase().includes(q.toLowerCase())
+    const matchQ = !q || u.email.toLowerCase().includes(q.toLowerCase()) || (u.name ?? '').toLowerCase().includes(q.toLowerCase()) || (u.username ?? '').toLowerCase().includes(q.toLowerCase())
     const matchRole = roleFilter === 'todos' || u.role === roleFilter
     return matchQ && matchRole
   })
@@ -148,8 +149,15 @@ export default function UsuariosAdmin({ users }: { users: User[] }) {
               }}
             >
               <div>
-                <div style={{ fontWeight: 600, fontSize: 14, color: '#0a0a0a' }}>
-                  {u.name ?? '—'}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  <span style={{ fontWeight: 600, fontSize: 14, color: '#0a0a0a' }}>
+                    {u.name ?? '—'}
+                  </span>
+                  {u.username && (
+                    <span style={{ fontSize: 12, color: '#6b6a64', fontFamily: 'monospace' }}>
+                      @{u.username}
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontSize: 11, color: '#9a9994', marginTop: 2, fontFamily: 'monospace' }}>
                   {u.clerk_user_id}
