@@ -11,10 +11,10 @@ export default async function CuentaPage() {
   const email = user?.emailAddresses[0]?.emailAddress ?? ''
   const name = user?.firstName ?? null
 
-  // Upsert user record so admin can see customers
+  // Upsert user record — do not overwrite role so admin-assigned roles persist
   if (email) {
     await supabaseAdmin.from('users').upsert(
-      { clerk_user_id: userId, email, name, role: 'fan' },
+      { clerk_user_id: userId, email, name },
       { onConflict: 'clerk_user_id', ignoreDuplicates: false },
     )
   }

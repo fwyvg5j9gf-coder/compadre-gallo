@@ -131,6 +131,18 @@ export async function deleteContent(id: string, artistId: string) {
   await reval(artistId)
 }
 
+// ── Vinculación Clerk ──────────────────────────────────────────────────────────
+export async function linkArtistClerkUser(id: string, clerkUserId: string) {
+  await requireAdmin()
+  const value = clerkUserId.trim() || null
+  await supabaseAdmin.from('artists').update({ clerk_user_id: value, updated_at: new Date().toISOString() }).eq('id', id)
+  // Sync role in users table if linking
+  if (value) {
+    await supabaseAdmin.from('users').update({ role: 'artista' }).eq('clerk_user_id', value)
+  }
+  await reval(id)
+}
+
 // ── Ingresos externos ──────────────────────────────────────────────────────────
 export async function createExternalIncome(artistId: string, formData: FormData) {
   await requireAdmin()

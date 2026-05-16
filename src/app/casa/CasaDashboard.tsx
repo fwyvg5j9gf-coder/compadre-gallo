@@ -7,7 +7,8 @@ import AdminShell from './AdminShell'
 const CARDS = [
   { title: 'tienda',    desc: 'productos, stock, precios e imágenes', href: '/casa/tienda',    accent: '#ff0100' },
   { title: 'órdenes',   desc: 'compras, envíos y estados',            href: '/casa/ordenes',   accent: '#003a87' },
-  { title: 'clientes',  desc: 'usuarios, pedidos, boletos y subs',    href: '/casa/clientes',  accent: '#1a6b35' },
+  { title: 'clientes',  desc: 'actividad de fans — pedidos y boletos', href: '/casa/clientes', accent: '#1a6b35' },
+  { title: 'usuarios',  desc: 'roles y permisos del equipo',           href: '/casa/usuarios', accent: '#9b59b6' },
   { title: 'artistas',  desc: 'catálogo, bios y shows',               href: '/casa/artistas',  accent: '#00c4df' },
   { title: 'editor',    desc: 'contenido y apariencia del sitio',     href: '/casa/editor',    accent: '#ffe200' },
   { title: 'media',     desc: 'imágenes, videos y audio del proyecto', href: '/casa/media',    accent: '#ffd49a' },
@@ -31,6 +32,7 @@ const OBJETIVOS = [
   { label: 'módulo de boletos (DB + dashboard)',    done: true  },
   { label: 'suscripciones a artistas',             done: true  },
   { label: 'admin de clientes (/casa/clientes)',   done: true  },
+  { label: 'gestión de roles (/casa/usuarios)',    done: true  },
   { label: 'editor de contenido',                  done: false },
 ]
 

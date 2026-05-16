@@ -7,10 +7,12 @@ const isCuentaPublic  = createRouteMatcher(['/cuenta/login(.*)', '/cuenta/regist
 
 export default clerkMiddleware(async (auth, req) => {
   if (!isAdminLogin(req) && isAdminProtected(req)) {
-    await auth.protect()
+    const adminLogin = new URL('/casa/login', req.url)
+    await auth.protect({ unauthenticatedUrl: adminLogin.toString() })
   }
   if (!isCuentaPublic(req) && isCuentaProtected(req)) {
-    await auth.protect({ unauthenticatedUrl: '/cuenta/login' })
+    const cuentaLogin = new URL('/cuenta/login', req.url)
+    await auth.protect({ unauthenticatedUrl: cuentaLogin.toString() })
   }
 })
 

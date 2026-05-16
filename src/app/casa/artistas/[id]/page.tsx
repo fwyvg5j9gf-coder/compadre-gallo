@@ -1,18 +1,18 @@
-import { auth } from '@clerk/nextjs/server'
-import { redirect, notFound } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase.server'
+import { requireAdminOrArtista } from '@/lib/auth.server'
 import AdminShell from '../../AdminShell'
 import ArtistDetail from './ArtistDetail'
 
 export default async function ArtistDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { userId } = await auth()
-  if (!userId) redirect('/casa/login')
-
   const { id } = await params
+
+  // Returns 'admin' | 'artista'; redirects to login if unauthorized
+  const role = await requireAdminOrArtista(id)
 
   const { data: artist } = await supabaseAdmin
     .from('artists')
-    .select('id, slug, name, bio, city, genre, image_url, is_published, bg_color, stripe_color, fg_color, instagram, tiktok, spotify, youtube, page_sections')
+    .select('id, slug, name, bio, city, genre, image_url, is_published, bg_color, stripe_color, fg_color, instagram, tiktok, spotify, youtube, page_sections, clerk_user_id')
     .eq('id', id)
     .single()
 
@@ -33,8 +33,11 @@ export default async function ArtistDetailPage({ params }: { params: Promise<{ i
     return sum + (item.price_mxn ?? 0) * (item.quantity ?? 1)
   }, 0)
 
+  // Artistas see a stripped header — no link back to the full dashboard
+  const crumbHref = role === 'admin' ? '/casa/artistas' : undefined
+
   return (
-    <AdminShell crumb="artistas" crumbHref="/casa/artistas">
+    <AdminShell crumb={role === 'artista' ? 'mi perfil' : 'artistas'} crumbHref={crumbHref}>
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 32px' }}>
         <ArtistDetail
           artist={{
@@ -45,6 +48,7 @@ export default async function ArtistDetailPage({ params }: { params: Promise<{ i
             income:  incomeRes.data  ?? [],
             merch_total,
           }}
+          isAdmin={role === 'admin'}
         />
       </main>
     </AdminShell>

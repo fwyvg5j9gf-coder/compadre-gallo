@@ -7,6 +7,7 @@ import {
   createTask, updateTaskStatus, deleteTask,
   createContent, updateContentStatus, deleteContent,
   createExternalIncome, deleteExternalIncome,
+  linkArtistClerkUser,
 } from './actions'
 import { getArtistUploadUrl } from '../actions'
 import ImageCropper, { cropAndCompress } from '../../tienda/ImageCropper'
@@ -23,6 +24,7 @@ type Artist = {
   bg_color: string; stripe_color: string; fg_color: string
   instagram: string | null; tiktok: string | null; spotify: string | null; youtube: string | null
   page_sections?: { key: string; visible: boolean }[] | null
+  clerk_user_id: string | null
   shows: Show[]; tasks: Task[]; content: Content[]; income: Income[]
   merch_total: number
 }
@@ -246,7 +248,60 @@ function SeccionesCard({ artist }: { artist: Artist }) {
   )
 }
 
-function PerfilTab({ artist }: { artist: Artist }) {
+function ClerkLinkCard({ artist }: { artist: Artist }) {
+  const [val, setVal] = useState(artist.clerk_user_id ?? '')
+  const [pending, start] = useTransition()
+  const [saved, setSaved] = useState(false)
+
+  return (
+    <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, padding: '16px 20px' }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
+        acceso del artista al panel
+      </div>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <input
+          type="text"
+          value={val}
+          onChange={e => setVal(e.target.value)}
+          placeholder="user_xxxxxxxxxxxxxx (Clerk User ID)"
+          style={{
+            flex: 1, minWidth: 240, padding: '8px 12px', borderRadius: 6,
+            border: `1px solid ${B}`, fontSize: 13, fontFamily: 'monospace',
+          }}
+        />
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => start(async () => {
+            await linkArtistClerkUser(artist.id, val)
+            setSaved(true); setTimeout(() => setSaved(false), 2000)
+          })}
+          className="adm-btn-primary"
+          style={{ height: 36, padding: '0 16px', fontSize: 13 }}
+        >
+          {pending ? 'guardando…' : saved ? 'vinculado ✓' : 'vincular'}
+        </button>
+        {artist.clerk_user_id && (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => { setVal(''); start(async () => { await linkArtistClerkUser(artist.id, ''); setSaved(true); setTimeout(() => setSaved(false), 2000) }) }}
+            style={{ fontSize: 12, color: '#cc0000', background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px' }}
+          >
+            desvincular
+          </button>
+        )}
+      </div>
+      <p style={{ fontSize: 12, color: M, marginTop: 8, marginBottom: 0, lineHeight: 1.5 }}>
+        {artist.clerk_user_id
+          ? `el artista puede iniciar sesión en /casa/login con su cuenta de Clerk y ver solo este perfil`
+          : 'pega el Clerk User ID del artista para darle acceso a su perfil. lo encuentras en /casa/usuarios'}
+      </p>
+    </div>
+  )
+}
+
+function PerfilTab({ artist, isAdmin }: { artist: Artist; isAdmin: boolean }) {
   const [imageUrl, setImageUrl] = useState(artist.image_url ?? '')
   const [bgColor, setBgColor]   = useState(artist.bg_color)
   const [pending, start]        = useTransition()
@@ -362,6 +417,8 @@ function PerfilTab({ artist }: { artist: Artist }) {
           {pending ? 'guardando…' : saved ? 'guardado ✓' : 'guardar cambios'}
         </button>
       </div>
+
+      {isAdmin && <ClerkLinkCard artist={artist} />}
     </form>
   )
 }
@@ -740,17 +797,18 @@ function IngresosTab({ artist }: { artist: Artist }) {
 }
 
 // ── Main: ArtistDetail ─────────────────────────────────────────────────────────
-const TABS = [
-  { key: 'perfil',     label: 'perfil' },
-  { key: 'shows',      label: 'shows' },
-  { key: 'tareas',     label: 'tareas' },
-  { key: 'contenido',  label: 'contenido' },
-  { key: 'ingresos',   label: 'ingresos' },
+const ALL_TABS = [
+  { key: 'perfil',     label: 'perfil',     adminOnly: false },
+  { key: 'shows',      label: 'shows',      adminOnly: false },
+  { key: 'tareas',     label: 'tareas',     adminOnly: false },
+  { key: 'contenido',  label: 'contenido',  adminOnly: false },
+  { key: 'ingresos',   label: 'ingresos',   adminOnly: true  },
 ] as const
 
-type TabKey = typeof TABS[number]['key']
+type TabKey = typeof ALL_TABS[number]['key']
 
-export default function ArtistDetail({ artist }: { artist: Artist }) {
+export default function ArtistDetail({ artist, isAdmin = true }: { artist: Artist; isAdmin?: boolean }) {
+  const TABS = ALL_TABS.filter(t => !t.adminOnly || isAdmin)
   const [tab, setTab] = useState<TabKey>('perfil')
 
   const tasksDone  = artist.tasks.filter(t => t.status === 'listo').length
@@ -809,7 +867,7 @@ export default function ArtistDetail({ artist }: { artist: Artist }) {
       </div>
 
       {/* Contenido del tab */}
-      {tab === 'perfil'    && <PerfilTab    artist={artist} />}
+      {tab === 'perfil'    && <PerfilTab    artist={artist} isAdmin={isAdmin} />}
       {tab === 'shows'     && <ShowsTab     artist={artist} />}
       {tab === 'tareas'    && <TareasTab    artist={artist} />}
       {tab === 'contenido' && <ContenidoTab artist={artist} />}
