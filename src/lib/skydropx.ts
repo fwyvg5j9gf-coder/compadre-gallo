@@ -130,6 +130,103 @@ export async function getShippingRates({
   return []
 }
 
+// ── Crear guía ────────────────────────────────────────────────────────────────
+
+export type ShipmentResult = {
+  shipmentId: string
+  trackingNumber: string
+  labelUrl: string | null
+  carrier: string
+}
+
+type Address = {
+  name: string
+  email?: string
+  phone?: string
+  postalCode: string
+  state: string
+  city: string
+  colonia: string
+  street: string
+}
+
+export async function createShipment({
+  clientId, clientSecret, rateId, addressFrom, addressTo, parcel, contentDescription,
+}: {
+  clientId: string
+  clientSecret: string
+  rateId: string
+  addressFrom: Address
+  addressTo: Address
+  parcel: { weight_kg: number; length_cm: number; width_cm: number; height_cm: number }
+  contentDescription?: string
+}): Promise<ShipmentResult> {
+  const token = await getAccessToken(
+    clientId.replace(/\s+/g, ''),
+    clientSecret.replace(/\s+/g, ''),
+  )
+
+  const body = {
+    shipment: {
+      rate_id: rateId,
+      address_from: {
+        name: addressFrom.name,
+        email: addressFrom.email ?? '',
+        phone: (addressFrom.phone ?? '').replace(/\D/g, ''),
+        country_code: 'MX',
+        postal_code: addressFrom.postalCode.trim(),
+        area_level1: addressFrom.state.trim(),
+        area_level2: addressFrom.city.trim(),
+        area_level3: addressFrom.colonia.trim(),
+        address1: addressFrom.street.trim(),
+      },
+      address_to: {
+        name: addressTo.name,
+        email: addressTo.email ?? '',
+        phone: (addressTo.phone ?? '').replace(/\D/g, ''),
+        country_code: 'MX',
+        postal_code: addressTo.postalCode.trim(),
+        area_level1: addressTo.state.trim(),
+        area_level2: addressTo.city.trim(),
+        area_level3: addressTo.colonia.trim(),
+        address1: addressTo.street.trim(),
+      },
+      parcels: [{
+        weight: Math.max(0.01, parcel.weight_kg),
+        length: Math.max(1, Math.round(parcel.length_cm)),
+        width: Math.max(1, Math.round(parcel.width_cm)),
+        height: Math.max(1, Math.round(parcel.height_cm)),
+      }],
+      content_description: contentDescription ?? 'Merch GALLO',
+    },
+  }
+
+  const res = await fetch(`${BASE}/api/v1/shipments`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  })
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`SkyDropX ${res.status}: ${text.slice(0, 400)}`)
+  }
+
+  const json = await res.json()
+  const data = json?.data ?? json
+  const attrs = data?.attributes ?? data
+
+  const trackingNumber = String(attrs?.tracking_number ?? attrs?.tracking ?? '')
+  const labelUrl: string | null = attrs?.label_url ?? attrs?.label ?? null
+  const shipmentId = String(data?.id ?? attrs?.id ?? '')
+  const carrier = String(attrs?.carrier ?? attrs?.provider_display_name ?? '')
+
+  if (!trackingNumber) throw new Error('Skydropx no devolvió número de guía')
+
+  return { shipmentId, trackingNumber, labelUrl, carrier }
+}
+
 function mapRates(rates: Record<string, unknown>[]): ShippingRate[] {
   return rates
     .filter(r => r.success !== false)
