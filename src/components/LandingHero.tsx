@@ -2,62 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useCallback } from 'react'
-
-// ── Gallo SVG ─────────────────────────────────────────────────────────────────
-function GalloSVG() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 280 370"
-      aria-label="el gallo"
-      style={{ width: '100%', height: '100%', display: 'block' }}
-    >
-      {/* Tail feathers — fan up-left */}
-      <path d="M 72 198 Q 8 148 28 58 Q 42 95 58 158 Z" fill="#0a0a0a" />
-      <path d="M 80 190 Q 30 130 62 42 Q 68 82 74 152 Z" fill="#0a0a0a" />
-      <path d="M 90 183 Q 54 118 95 36 Q 94 78 90 148 Z" fill="#0a0a0a" />
-      <path d="M 100 178 Q 78 110 128 34 Q 120 76 108 145 Z" fill="#0a0a0a" />
-
-      {/* Body */}
-      <ellipse cx="162" cy="242" rx="88" ry="94" fill="#0a0a0a" />
-
-      {/* Neck */}
-      <path d="M 148 155 Q 172 148 190 162 Q 196 182 190 200 Q 175 208 158 206 Q 140 204 132 188 Q 130 168 148 155 Z" fill="#0a0a0a" />
-
-      {/* Head */}
-      <circle cx="194" cy="108" r="50" fill="#0a0a0a" />
-
-      {/* Comb — red, 3 lobes */}
-      <path d="M 175 60 Q 170 36 180 22 Q 186 40 188 58 Q 193 34 200 20 Q 204 40 206 60 Q 213 36 220 24 Q 222 44 218 62" fill="none" stroke="#ff0100" strokeWidth="0" />
-      <ellipse cx="180" cy="52" rx="9" ry="14" fill="#ff0100" />
-      <ellipse cx="196" cy="44" rx="9" ry="16" fill="#ff0100" />
-      <ellipse cx="212" cy="52" rx="8" ry="13" fill="#ff0100" />
-
-      {/* Wattle — red */}
-      <ellipse cx="216" cy="148" rx="12" ry="17" fill="#ff0100" />
-
-      {/* Beak — yellow */}
-      <path d="M 241 102 L 268 112 L 241 122 Z" fill="#ffe200" />
-
-      {/* Eye */}
-      <circle cx="210" cy="100" r="11" fill="white" />
-      <circle cx="212" cy="100" r="6" fill="#0a0a0a" />
-      <circle cx="214" cy="97" r="2.5" fill="white" />
-
-      {/* Wing highlight stripe */}
-      <path d="M 90 248 Q 122 220 188 224 Q 176 238 152 243 Q 124 247 100 243 Z" fill="rgba(255,255,255,0.11)" />
-
-      {/* Legs */}
-      <rect x="136" y="330" width="13" height="46" rx="6" fill="#0a0a0a" />
-      <rect x="175" y="330" width="13" height="46" rx="6" fill="#0a0a0a" />
-
-      {/* Left foot */}
-      <path d="M 116 374 L 143 369 L 162 374" stroke="#0a0a0a" strokeWidth="10" strokeLinecap="round" fill="none" />
-      {/* Right foot */}
-      <path d="M 158 374 L 183 369 L 204 374" stroke="#0a0a0a" strokeWidth="10" strokeLinecap="round" fill="none" />
-    </svg>
-  )
-}
+import Image from 'next/image'
 
 // ── CTA Panel ─────────────────────────────────────────────────────────────────
 function CtaPanel({
@@ -174,14 +119,21 @@ export default function LandingHero({
           {tagline}
         </div>
 
-        {/* Gallo SVG — scales to fill space */}
+        {/* Mascot original — mix-blend-mode:multiply hace transparente el fondo blanco */}
         <div style={{
-          width: 'clamp(180px, 42vw, 340px)',
-          height: 'clamp(220px, 52vw, 430px)',
-          maxHeight: '70%',
+          width: 'clamp(200px, 38vw, 360px)',
+          height: 'clamp(260px, 50vw, 470px)',
+          maxHeight: '72%',
           flexShrink: 0,
+          position: 'relative',
         }}>
-          <GalloSVG />
+          <Image
+            src="/assets/gallo-mascot.jpg"
+            alt="el gallo"
+            fill
+            style={{ objectFit: 'contain', mixBlendMode: 'multiply' }}
+            priority
+          />
         </div>
       </div>
 
