@@ -26,7 +26,12 @@ export default function LoginPage() {
         <span style={{ color: '#ff0100' }}>l</span>
         <span style={{ color: '#ffe200' }}>o</span>
       </div>
-      <SignIn />
+      <SignIn
+        routing="path"
+        path="/casa/login"
+        signUpUrl="/casa/login"
+        forceRedirectUrl="/casa"
+      />
     </div>
   )
 }
