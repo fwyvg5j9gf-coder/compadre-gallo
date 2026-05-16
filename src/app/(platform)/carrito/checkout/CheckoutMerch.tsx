@@ -11,6 +11,7 @@ import type { ShippingRate } from '@/lib/skydropx'
 import { getRatesForCheckout, createOrder } from './actions'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+const TEST_MODE = (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').startsWith('pk_test_')
 
 const fmt = (cents: number) =>
   (cents / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
@@ -395,6 +396,19 @@ export default function CheckoutMerch({
           ← tienda
         </Link>
         <h1>checkout</h1>
+        {TEST_MODE && (
+          <div style={{
+            marginTop: 'var(--space-4)', padding: '10px 16px', borderRadius: 4,
+            background: '#ffe200', color: '#0a0a0a',
+            fontSize: 13, fontWeight: 700,
+            display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+          }}>
+            <span>MODO PRUEBA</span>
+            <span style={{ fontWeight: 400 }}>
+              tarjeta: <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>4242 4242 4242 4242</span> · cualquier fecha futura · cualquier CVC
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="checkout-grid">
