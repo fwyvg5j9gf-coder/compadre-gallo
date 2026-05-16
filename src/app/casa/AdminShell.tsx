@@ -1,5 +1,3 @@
-import { supabaseAdmin } from '@/lib/supabase.server'
-
 type AdminShellProps = {
   crumb: string
   crumbHref?: string
@@ -7,12 +5,7 @@ type AdminShellProps = {
   children: React.ReactNode
 }
 
-export default async function AdminShell({ crumb, crumbHref, right, children }: AdminShellProps) {
-  const { data: s } = await supabaseAdmin
-    .from('store_settings')
-    .select('stripe_test_mode')
-    .single()
-  const testMode = s?.stripe_test_mode ?? false
+export default function AdminShell({ crumb, crumbHref, right, children }: AdminShellProps) {
   return (
     <div style={{ minHeight: '100vh', background: '#f6f5f1', fontFamily: 'var(--font-sans)' }}>
       <header style={{
@@ -46,20 +39,6 @@ export default async function AdminShell({ crumb, crumbHref, right, children }: 
           </div>
         )}
       </header>
-      {testMode && (
-        <div style={{
-          background: '#ffe200', color: '#0a0a0a',
-          padding: '7px 28px',
-          fontSize: 12, fontWeight: 700,
-          display: 'flex', alignItems: 'center', gap: 10,
-          letterSpacing: '0.03em',
-        }}>
-          <span>MODO PRUEBA · STRIPE TEST</span>
-          <span style={{ fontWeight: 400, opacity: 0.7 }}>
-            usa tarjeta <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>4242 4242 4242 4242</span> · cualquier fecha futura · cualquier CVC
-          </span>
-        </div>
-      )}
       {children}
     </div>
   )
