@@ -11,8 +11,8 @@ export default function CuentaLoginPage() {
       alignItems: 'center',
       justifyContent: 'center',
       gap: 32,
-      background: 'var(--bg)',
-      padding: 'var(--outer-px)',
+      background: '#fafafa',
+      padding: '24px 16px',
     }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{
@@ -29,7 +29,7 @@ export default function CuentaLoginPage() {
           <span style={{ color: '#ff0100' }}>l</span>
           <span style={{ color: '#ffe200' }}>o</span>
         </div>
-        <p style={{ fontSize: 13, color: 'var(--fg-muted)', margin: 0 }}>
+        <p style={{ fontSize: 13, color: '#6b6a64', margin: 0 }}>
           entra para ver tus pedidos
         </p>
       </div>
