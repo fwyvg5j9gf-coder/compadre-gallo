@@ -9,6 +9,7 @@ const CARDS = [
   { title: 'órdenes',  desc: 'compras, envíos y estados',            href: '/casa/ordenes',  accent: '#003a87' },
   { title: 'artistas', desc: 'catálogo, bios y shows',               href: '/casa/artistas', accent: '#00c4df' },
   { title: 'editor',   desc: 'contenido y apariencia del sitio',     href: '/casa/editor',   accent: '#ffe200' },
+  { title: 'media',    desc: 'imágenes, videos y audio del proyecto', href: '/casa/media',    accent: '#ffd49a' },
 ]
 
 // ── Datos de desarrollo ────────────────────────────────────────────────────────
