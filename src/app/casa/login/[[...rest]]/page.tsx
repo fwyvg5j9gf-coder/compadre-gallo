@@ -26,7 +26,7 @@ export default function LoginPage() {
         <span style={{ color: '#ff0100' }}>l</span>
         <span style={{ color: '#ffe200' }}>o</span>
       </div>
-      <SignIn fallbackRedirectUrl="/casa" />
+      <SignIn forceRedirectUrl="/casa" />
     </div>
   )
 }
