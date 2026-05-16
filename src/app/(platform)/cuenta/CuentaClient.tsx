@@ -299,10 +299,7 @@ function UsernameModal({ onDone }: { onDone: (saved?: string) => void }) {
             <span style={{ fontSize: 12, color: 'var(--gallo-red)', marginTop: 4 }}>{error}</span>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end' }}>
-          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--fg-muted)' }} onClick={() => onDone()}>
-            ahora no
-          </button>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button
             className="btn btn-primary btn-sm"
             onClick={submit}
