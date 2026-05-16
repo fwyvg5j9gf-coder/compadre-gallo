@@ -10,8 +10,13 @@ import type { PackagingType } from '@/lib/supabase'
 import type { ShippingRate } from '@/lib/skydropx'
 import { getRatesForCheckout, createOrder } from './actions'
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
-const TEST_MODE = (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').startsWith('pk_test_')
+// stripePromise se inicializa por instancia según el key pasado desde el servidor
+let _stripePromise: ReturnType<typeof loadStripe> | null = null
+let _stripeKey = ''
+function getStripePromise(key: string) {
+  if (key !== _stripeKey) { _stripeKey = key; _stripePromise = loadStripe(key) }
+  return _stripePromise!
+}
 
 const fmt = (cents: number) =>
   (cents / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
@@ -157,6 +162,7 @@ export default function CheckoutMerch({
   freeThresholdMxn,
   savedAddress,
   userEmail,
+  stripePublishableKey,
 }: {
   packaging: PackagingType[]
   skydropxEnabled: boolean
@@ -165,7 +171,10 @@ export default function CheckoutMerch({
   freeThresholdMxn: number
   savedAddress?: Record<string, string> | null
   userEmail?: string | null
+  stripePublishableKey: string
 }) {
+  const testMode = stripePublishableKey.startsWith('pk_test_')
+  const stripePromise = getStripePromise(stripePublishableKey)
   const { items, totalMxn, clearCart } = useCart()
 
   const [step, setStep] = useState<Step>('shipping')
@@ -396,7 +405,7 @@ export default function CheckoutMerch({
           ← tienda
         </Link>
         <h1>checkout</h1>
-        {TEST_MODE && (
+        {testMode && (
           <div style={{
             marginTop: 'var(--space-4)', padding: '10px 16px', borderRadius: 4,
             background: '#ffe200', color: '#0a0a0a',

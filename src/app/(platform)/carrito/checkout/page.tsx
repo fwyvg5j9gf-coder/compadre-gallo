@@ -21,13 +21,20 @@ export default async function CheckoutPage() {
   const [{ data: settings }, { data: packaging }] = await Promise.all([
     supabaseAdmin
       .from('store_settings')
-      .select('skydropx_enabled, shipping_local_mxn, shipping_national_mxn, shipping_free_threshold_mxn')
+      .select('skydropx_enabled, shipping_local_mxn, shipping_national_mxn, shipping_free_threshold_mxn, stripe_test_mode, stripe_pk_test, stripe_pk_live')
       .single(),
     supabaseAdmin
       .from('packaging_types')
       .select('*')
       .order('sort_order', { ascending: true }),
   ])
+
+  // Publishable key: prefer DB value, fall back to env var
+  const useTest = settings?.stripe_test_mode ?? true
+  const dbPk = useTest ? settings?.stripe_pk_test : settings?.stripe_pk_live
+  const stripePublishableKey = (dbPk && dbPk.length > 10)
+    ? dbPk
+    : process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 
   return (
     <CheckoutMerch
@@ -38,6 +45,7 @@ export default async function CheckoutPage() {
       freeThresholdMxn={settings?.shipping_free_threshold_mxn ?? 0}
       savedAddress={savedAddress}
       userEmail={userEmail}
+      stripePublishableKey={stripePublishableKey}
     />
   )
 }

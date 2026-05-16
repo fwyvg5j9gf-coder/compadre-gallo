@@ -1,16 +1,18 @@
-// Shared layout shell for all /casa admin pages.
-// No 'use client' — safe to import from both server and client components.
+import { supabaseAdmin } from '@/lib/supabase.server'
 
 type AdminShellProps = {
-  crumb: string             // e.g. "tienda" or "órdenes"
-  crumbHref?: string        // makes crumb a back-link
-  right?: React.ReactNode   // right side of header (buttons, user)
+  crumb: string
+  crumbHref?: string
+  right?: React.ReactNode
   children: React.ReactNode
 }
 
-const TEST_MODE = (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').startsWith('pk_test_')
-
-export default function AdminShell({ crumb, crumbHref, right, children }: AdminShellProps) {
+export default async function AdminShell({ crumb, crumbHref, right, children }: AdminShellProps) {
+  const { data: s } = await supabaseAdmin
+    .from('store_settings')
+    .select('stripe_test_mode')
+    .single()
+  const testMode = s?.stripe_test_mode ?? false
   return (
     <div style={{ minHeight: '100vh', background: '#f6f5f1', fontFamily: 'var(--font-sans)' }}>
       <header style={{
@@ -44,7 +46,7 @@ export default function AdminShell({ crumb, crumbHref, right, children }: AdminS
           </div>
         )}
       </header>
-      {TEST_MODE && (
+      {testMode && (
         <div style={{
           background: '#ffe200', color: '#0a0a0a',
           padding: '7px 28px',
