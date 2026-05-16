@@ -315,7 +315,7 @@ export default function CuentaClient({
           <button
             className="btn btn-ghost btn-sm"
             style={{ color: 'var(--fg-muted)' }}
-            onClick={() => signOut(() => router.push('/'))}
+            onClick={() => signOut({ redirectUrl: '/' })}
           >
             cerrar sesión
           </button>

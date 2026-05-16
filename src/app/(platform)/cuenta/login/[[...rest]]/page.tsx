@@ -33,12 +33,7 @@ export default function CuentaLoginPage() {
           entra para ver tus pedidos
         </p>
       </div>
-      <SignIn
-        routing="path"
-        path="/cuenta/login"
-        signUpUrl="/cuenta/registro"
-        fallbackRedirectUrl="/cuenta"
-      />
+      <SignIn fallbackRedirectUrl="/cuenta" />
     </div>
   )
 }
