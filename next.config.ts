@@ -1,6 +1,8 @@
 import type { NextConfig } from 'next'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://compadregallo.com'
+// Clerk uses a custom subdomain on production (clerk.compadregallo.com)
+const CLERK_CUSTOM = 'https://clerk.compadregallo.com'
 
 const nextConfig: NextConfig = {
   images: {
@@ -28,12 +30,12 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               `default-src 'self'`,
-              `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.clerk.com https://*.clerk.accounts.dev https://challenges.cloudflare.com`,
-              `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.clerk.com https://*.clerk.accounts.dev`,
-              `font-src 'self' https://fonts.gstatic.com https://*.clerk.com`,
-              `img-src 'self' data: blob: https://*.supabase.co https://img.clerk.com https://*.clerk.com`,
-              `connect-src 'self' https://*.supabase.co https://api.stripe.com https://api-pro.skydropx.com https://nominatim.openstreetmap.org https://*.clerk.com https://*.clerk.accounts.dev https://clerk-telemetry.com ${APP_URL}`,
-              `frame-src https://js.stripe.com https://hooks.stripe.com https://*.clerk.com https://*.clerk.accounts.dev https://challenges.cloudflare.com`,
+              `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.clerk.com https://*.clerk.accounts.dev https://challenges.cloudflare.com ${CLERK_CUSTOM}`,
+              `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.clerk.com https://*.clerk.accounts.dev ${CLERK_CUSTOM}`,
+              `font-src 'self' https://fonts.gstatic.com https://*.clerk.com ${CLERK_CUSTOM}`,
+              `img-src 'self' data: blob: https://*.supabase.co https://img.clerk.com https://*.clerk.com ${CLERK_CUSTOM}`,
+              `connect-src 'self' https://*.supabase.co https://api.stripe.com https://api-pro.skydropx.com https://nominatim.openstreetmap.org https://*.clerk.com https://*.clerk.accounts.dev https://clerk-telemetry.com ${CLERK_CUSTOM} ${APP_URL}`,
+              `frame-src https://js.stripe.com https://hooks.stripe.com https://*.clerk.com https://*.clerk.accounts.dev https://challenges.cloudflare.com ${CLERK_CUSTOM}`,
             ].join('; '),
           },
         ],
