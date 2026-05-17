@@ -259,17 +259,17 @@ export async function createShipment({
         street1: addressTo.street.trim(),
         reference: addressTo.reference ?? addressTo.name,
       },
+      parcels: [{
+        weight: Math.max(0.01, parcel.weight_kg),
+        mass_unit: 'KG',
+        distance_unit: 'CM',
+        length: Math.max(1, Math.round(parcel.length_cm)),
+        width: Math.max(1, Math.round(parcel.width_cm)),
+        height: Math.max(1, Math.round(parcel.height_cm)),
+        package_type: packagingCode,
+        consignment_note: classCode,
+      }],
     },
-    parcels: [{
-      weight: Math.max(0.01, parcel.weight_kg),
-      mass_unit: 'KG',
-      distance_unit: 'CM',
-      length: Math.max(1, Math.round(parcel.length_cm)),
-      width: Math.max(1, Math.round(parcel.width_cm)),
-      height: Math.max(1, Math.round(parcel.height_cm)),
-      package_type: packagingCode,
-      consignment_note: classCode,
-    }],
   }
 
   const res = await fetch(`${BASE}/api/v1/shipments`, {
