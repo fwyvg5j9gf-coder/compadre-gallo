@@ -3,7 +3,7 @@ import type { Block } from '@/lib/blocks'
 import BlockRenderer from '@/components/BlockRenderer'
 import LandingHero from '@/components/LandingHero'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
   const { data } = await supabaseAdmin

@@ -4,7 +4,7 @@ import type { Block } from '@/lib/blocks'
 import BlockRenderer from '@/components/BlockRenderer'
 import ArtistasClient from './ArtistasClient'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 export default async function ArtistasPage() {
   const [blocksRes, artistsRes] = await Promise.all([

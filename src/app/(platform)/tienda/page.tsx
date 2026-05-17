@@ -3,7 +3,7 @@ import type { Block } from '@/lib/blocks'
 import BlockRenderer from '@/components/BlockRenderer'
 import TiendaClient from './TiendaClient'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 export default async function TiendaPage() {
   const [blocksRes, productsRes, categoriesRes] = await Promise.all([
