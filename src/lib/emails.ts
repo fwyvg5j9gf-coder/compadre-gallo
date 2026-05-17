@@ -1,10 +1,28 @@
 import { Resend } from 'resend'
 import { fmt, folio, escapeHtml } from '@/lib/utils'
+import { supabaseAdmin } from '@/lib/supabase.server'
 
 const getResend = () => new Resend(process.env.RESEND_API_KEY)
 const FROM = process.env.RESEND_FROM_EMAIL ?? 'pedidos@compadregallo.com'
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? ''
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://compadregallo.com'
+
+async function logEmail(tipo: string, toEmail: string, subject: string, opts?: {
+  folioNumber?: number
+  resendId?: string
+  error?: string
+  isTest?: boolean
+}) {
+  await supabaseAdmin.from('email_logs').insert({
+    tipo,
+    to_email: toEmail,
+    subject,
+    folio_number: opts?.folioNumber ?? null,
+    resend_id: opts?.resendId ?? null,
+    error: opts?.error ?? null,
+    is_test: opts?.isTest ?? false,
+  })
+}
 
 type OrderWithItems = {
   id: string
@@ -20,7 +38,7 @@ type OrderWithItems = {
   order_items: { product_name: string; quantity: number; unit_price_mxn: number }[]
 }
 
-export async function sendOrderConfirmation(order: OrderWithItems) {
+export async function sendOrderConfirmation(order: OrderWithItems, isTest = false) {
   const items = order.order_items ?? []
   const itemsHtml = items
     .map(i => `<tr>
@@ -35,10 +53,11 @@ export async function sendOrderConfirmation(order: OrderWithItems) {
     ? `${addr.street}, ${addr.colonia}, ${addr.zip} ${addr.city}, ${addr.state}`
     : '—'
 
-  await getResend().emails.send({
+  const subject = `tu pedido ${folio(order.folio_number)} está confirmado`
+  const { data, error } = await getResend().emails.send({
     from: FROM,
     to: order.customer_email,
-    subject: `tu pedido ${folio(order.folio_number)} está confirmado`,
+    subject,
     html: `
 <!DOCTYPE html>
 <html>
@@ -102,17 +121,24 @@ export async function sendOrderConfirmation(order: OrderWithItems) {
 </body>
 </html>`,
   })
+  await logEmail('confirmacion_pedido', order.customer_email, subject, {
+    folioNumber: order.folio_number,
+    resendId: data?.id,
+    error: error?.message,
+    isTest,
+  })
 }
 
 export async function sendShipmentNotification(order: {
   customer_email: string
   customer_name: string | null
   folio_number: number
-}, trackingNumber: string, carrier: string | null) {
-  await getResend().emails.send({
+}, trackingNumber: string, carrier: string | null, isTest = false) {
+  const subject = `tu pedido ${folio(order.folio_number)} está en camino`
+  const { data, error } = await getResend().emails.send({
     from: FROM,
     to: order.customer_email,
-    subject: `tu pedido ${folio(order.folio_number)} está en camino`,
+    subject,
     html: `
 <!DOCTYPE html>
 <html>
@@ -143,9 +169,15 @@ export async function sendShipmentNotification(order: {
 </body>
 </html>`,
   })
+  await logEmail('notificacion_envio', order.customer_email, subject, {
+    folioNumber: order.folio_number,
+    resendId: data?.id,
+    error: error?.message,
+    isTest,
+  })
 }
 
-export async function sendAdminNewOrder(order: OrderWithItems) {
+export async function sendAdminNewOrder(order: OrderWithItems, isTest = false) {
   if (!ADMIN_EMAIL) return  // skip if not configured
 
   const items = order.order_items ?? []
@@ -155,10 +187,11 @@ export async function sendAdminNewOrder(order: OrderWithItems) {
     ? `${addr.street}, ${addr.colonia}, ${addr.zip} ${addr.city}, ${addr.state}`
     : '—'
 
-  await getResend().emails.send({
+  const subject = `nuevo pedido ${folio(order.folio_number)} — ${fmt(order.total_mxn)}`
+  const { data, error } = await getResend().emails.send({
     from: FROM,
     to: ADMIN_EMAIL,
-    subject: `nuevo pedido ${folio(order.folio_number)} — ${fmt(order.total_mxn)}`,
+    subject,
     html: `
 <!DOCTYPE html>
 <html>
@@ -191,5 +224,11 @@ export async function sendAdminNewOrder(order: OrderWithItems) {
   </div>
 </body>
 </html>`,
+  })
+  await logEmail('notificacion_admin', ADMIN_EMAIL, subject, {
+    folioNumber: order.folio_number,
+    resendId: data?.id,
+    error: error?.message,
+    isTest,
   })
 }
