@@ -156,8 +156,6 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
 
     if (order.tracking_number) return { error: 'esta orden ya tiene guía de envío' }
 
-    if (!parcel.packageType) return { error: 'configura el código de embalaje SAT (Skydropx) en el tipo de embalaje del producto' }
-    if (!parcel.consignmentNote) return { error: 'configura el código de clase SAT (Skydropx) en el tipo de embalaje del producto' }
 
     const addressFrom = {
       name: settings.origin_name || 'GALLO',
