@@ -28,9 +28,20 @@ export async function updateOrderStatus(orderId: string, status: string) {
   await requireAdmin()
   if (!(VALID_STATUSES as readonly string[]).includes(status)) throw new Error('estado inválido')
 
-  await supabaseAdmin.from('orders').update({ status, updated_at: new Date().toISOString() }).eq('id', orderId)
+  const { data: order } = await supabaseAdmin
+    .from('orders')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', orderId)
+    .select('customer_email, customer_name, folio_number')
+    .single()
+
   revalidatePath(`/casa/ordenes/${orderId}`)
   revalidatePath('/casa/ordenes')
+
+  if (order && (status === 'cancelled' || status === 'refunded')) {
+    const { sendOrderCancelled } = await import('@/lib/emails')
+    sendOrderCancelled({ ...order, status: status as 'cancelled' | 'refunded' }).catch(console.error)
+  }
 }
 
 export async function deleteOrder(orderId: string): Promise<{ error?: string }> {

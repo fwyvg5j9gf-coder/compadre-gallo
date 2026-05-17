@@ -12,6 +12,7 @@ async function logEmail(tipo: string, toEmail: string, subject: string, opts?: {
   resendId?: string
   error?: string
   isTest?: boolean
+  recipientCount?: number
 }) {
   await supabaseAdmin.from('email_logs').insert({
     tipo,
@@ -21,7 +22,44 @@ async function logEmail(tipo: string, toEmail: string, subject: string, opts?: {
     resend_id: opts?.resendId ?? null,
     error: opts?.error ?? null,
     is_test: opts?.isTest ?? false,
+    recipient_count: opts?.recipientCount ?? null,
   })
+}
+
+function getTrackingUrl(carrier: string | null, trackingNumber: string): string | null {
+  if (!carrier) return null
+  const c = carrier.toLowerCase()
+  if (c.includes('dhl'))          return `https://www.dhl.com/mx-es/home/tracking.html?tracking-id=${trackingNumber}`
+  if (c.includes('fedex'))        return `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`
+  if (c.includes('estafeta'))     return `https://www.estafeta.com/Rastreo/BusquedaAvanzada?wayBill=${trackingNumber}`
+  if (c.includes('redpack'))      return `https://www.redpack.com.mx/es/rastreo/?guias=${trackingNumber}`
+  if (c.includes('ups'))          return `https://www.ups.com/track?tracknum=${trackingNumber}`
+  if (c.includes('paquetexpress')) return `https://www.paquetexpress.com.mx/rastreo?guia=${trackingNumber}`
+  if (c.includes('99minutos'))    return `https://tracking.99minutos.com/?guia=${trackingNumber}`
+  return null
+}
+
+const HEADER_HTML = `
+    <div style="background:#0a0a0a;padding:24px 32px">
+      <span style="font-size:28px;font-weight:900;letter-spacing:-0.05em">
+        <span style="color:#003a87">g</span><span style="color:#00c4df">a</span><span style="color:#ffd49a">l</span><span style="color:#ff0100">l</span><span style="color:#ffe200">o</span>
+      </span>
+    </div>`
+
+const FOOTER_HTML = `
+    <div style="padding:20px 32px;border-top:1px solid #e8e7e1;text-align:center">
+      <p style="margin:0;font-size:12px;color:#9a9994">compadregallo.com — cualquier duda, contáctanos.</p>
+    </div>`
+
+function wrapEmail(content: string): string {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="font-family:sans-serif;background:#f6f5f1;margin:0;padding:40px 16px">
+  <div style="max-width:540px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e8e7e1">
+    ${HEADER_HTML}
+    <div style="padding:32px">${content}</div>
+    ${FOOTER_HTML}
+  </div>
+</body></html>`
 }
 
 type OrderWithItems = {
@@ -160,7 +198,11 @@ export async function sendShipmentNotification(order: {
         ${carrier ? `<p style="margin:8px 0 0;font-size:13px;color:#6b6a64">paquetería: <strong>${escapeHtml(carrier)}</strong></p>` : ''}
       </div>
 
-      <p style="font-size:13px;color:#6b6a64;margin:0">usa el número de guía en el sitio de la paquetería para rastrear tu pedido en tiempo real.</p>
+      ${getTrackingUrl(carrier, trackingNumber) ? `
+      <a href="${getTrackingUrl(carrier, trackingNumber)}" style="display:inline-block;background:#003a87;color:#fff;padding:12px 24px;border-radius:4px;text-decoration:none;font-size:13px;font-weight:700;margin-bottom:16px">
+        rastrear mi pedido →
+      </a>` : ''}
+      <p style="font-size:13px;color:#6b6a64;margin:0">también puedes usar el número de guía directamente en el sitio de la paquetería.</p>
     </div>
     <div style="padding:20px 32px;border-top:1px solid #e8e7e1;text-align:center">
       <p style="margin:0;font-size:12px;color:#9a9994">compadregallo.com — cualquier duda, contáctanos.</p>
@@ -231,4 +273,125 @@ export async function sendAdminNewOrder(order: OrderWithItems, isTest = false) {
     error: error?.message,
     isTest,
   })
+}
+
+// ── Welcome ─────────────────────────────────────────────────────────────────
+export async function sendWelcomeEmail(email: string, name: string | null, isTest = false) {
+  const subject = 'bienvenido a gallo.'
+  const { data, error } = await getResend().emails.send({
+    from: FROM,
+    to: email,
+    subject,
+    html: wrapEmail(`
+      <h2 style="margin:0 0 8px;font-size:22px;color:#0a0a0a">bienvenido, ${escapeHtml(name ?? 'compadre')}.</h2>
+      <p style="margin:0 0 24px;color:#6b6a64;font-size:14px">ya eres parte de gallo. aquí vas a encontrar música, merch y preventas antes que nadie.</p>
+      <a href="${APP_URL}/tienda" style="display:inline-block;background:#0a0a0a;color:#fff;padding:12px 24px;border-radius:4px;text-decoration:none;font-size:13px;font-weight:700">
+        explorar tienda →
+      </a>
+    `),
+  })
+  await logEmail('bienvenida', email, subject, { resendId: data?.id, error: error?.message, isTest })
+}
+
+// ── Order cancelled / refunded ───────────────────────────────────────────────
+export async function sendOrderCancelled(order: {
+  customer_email: string
+  customer_name: string | null
+  folio_number: number
+  status: 'cancelled' | 'refunded'
+}, isTest = false) {
+  const isCancelled = order.status === 'cancelled'
+  const subject = `tu pedido ${folio(order.folio_number)} fue ${isCancelled ? 'cancelado' : 'reembolsado'}`
+  const { data, error } = await getResend().emails.send({
+    from: FROM,
+    to: order.customer_email,
+    subject,
+    html: wrapEmail(`
+      <h2 style="margin:0 0 8px;font-size:22px;color:#0a0a0a">
+        ${isCancelled ? 'pedido cancelado.' : 'reembolso procesado.'}
+      </h2>
+      <p style="margin:0 0 24px;color:#6b6a64;font-size:14px">
+        ${escapeHtml(order.customer_name ?? 'compadre')}, tu pedido ${folio(order.folio_number)} fue ${isCancelled ? 'cancelado' : 'reembolsado'}.
+        ${isCancelled ? '' : ' el reembolso puede tardar 5–10 días hábiles en reflejarse en tu cuenta.'}
+      </p>
+      <p style="font-size:13px;color:#6b6a64;margin:0 0 24px">¿tienes dudas? contáctanos, con gusto te ayudamos.</p>
+      <a href="${APP_URL}/tienda" style="display:inline-block;background:#0a0a0a;color:#fff;padding:12px 24px;border-radius:4px;text-decoration:none;font-size:13px;font-weight:700">
+        ver tienda →
+      </a>
+    `),
+  })
+  await logEmail(isCancelled ? 'pedido_cancelado' : 'pedido_reembolsado', order.customer_email, subject, {
+    folioNumber: order.folio_number,
+    resendId: data?.id,
+    error: error?.message,
+    isTest,
+  })
+}
+
+// ── Payment failed ───────────────────────────────────────────────────────────
+export async function sendPaymentFailed(order: {
+  customer_email: string
+  customer_name: string | null
+  folio_number: number
+}, isTest = false) {
+  const subject = `problema con el pago de tu pedido ${folio(order.folio_number)}`
+  const { data, error } = await getResend().emails.send({
+    from: FROM,
+    to: order.customer_email,
+    subject,
+    html: wrapEmail(`
+      <h2 style="margin:0 0 8px;font-size:22px;color:#0a0a0a">hubo un problema con tu pago.</h2>
+      <p style="margin:0 0 8px;color:#6b6a64;font-size:14px">
+        ${escapeHtml(order.customer_name ?? 'compadre')}, no pudimos procesar el pago de tu pedido ${folio(order.folio_number)}.
+      </p>
+      <p style="margin:0 0 24px;color:#6b6a64;font-size:14px">
+        esto puede pasar por fondos insuficientes, datos incorrectos, o un rechazo de tu banco. intenta de nuevo con otra tarjeta o contáctanos.
+      </p>
+      <a href="${APP_URL}/tienda" style="display:inline-block;background:#ff0100;color:#fff;padding:12px 24px;border-radius:4px;text-decoration:none;font-size:13px;font-weight:700">
+        volver a la tienda →
+      </a>
+    `),
+  })
+  await logEmail('pago_fallido', order.customer_email, subject, {
+    folioNumber: order.folio_number,
+    resendId: data?.id,
+    error: error?.message,
+    isTest,
+  })
+}
+
+// ── Mass email ───────────────────────────────────────────────────────────────
+export async function sendMassEmail(
+  subject: string,
+  bodyHtml: string,
+  recipients: { email: string; name: string | null }[],
+): Promise<{ sent: number; failed: number }> {
+  const resend = getResend()
+  let sent = 0
+  let failed = 0
+
+  // Send in batches of 100 (Resend limit)
+  for (let i = 0; i < recipients.length; i += 100) {
+    const batch = recipients.slice(i, i + 100)
+    try {
+      await resend.batch.send(
+        batch.map(r => ({
+          from: FROM,
+          to: r.email,
+          subject,
+          html: wrapEmail(bodyHtml.replace(/\{\{nombre\}\}/g, escapeHtml(r.name ?? 'compadre'))),
+        })),
+      )
+      sent += batch.length
+    } catch {
+      failed += batch.length
+    }
+  }
+
+  await logEmail('masivo', FROM, subject, {
+    recipientCount: recipients.length,
+    error: failed > 0 ? `${failed} fallidos de ${recipients.length}` : undefined,
+  })
+
+  return { sent, failed }
 }

@@ -22,7 +22,6 @@ export async function POST(req: NextRequest) {
   if (event.type === 'payment_intent.succeeded') {
     const pi = event.data.object as Stripe.PaymentIntent
 
-    // Idempotency: only update if order is not already paid
     const { data: order } = await supabaseAdmin
       .from('orders')
       .select('id, status, folio_number, customer_name, customer_email, total_mxn, subtotal_mxn, shipping_mxn, shipping_address, tracking_number, order_items(*)')
@@ -34,28 +33,50 @@ export async function POST(req: NextRequest) {
         .from('orders')
         .update({ status: 'paid', updated_at: new Date().toISOString() })
         .eq('id', order.id)
-
-      // Emails sent here only if order wasn't already paid
-      // (createOrder also sends them after PI verification — webhook is the fallback)
+      // createOrder already sent emails — webhook only fires if that was skipped
     }
   }
 
   if (event.type === 'payment_intent.payment_failed') {
     const pi = event.data.object as Stripe.PaymentIntent
-    await supabaseAdmin
+
+    const { data: order } = await supabaseAdmin
       .from('orders')
-      .update({ status: 'failed' })
+      .select('id, status, customer_email, customer_name, folio_number')
       .eq('stripe_payment_id', pi.id)
+      .single()
+
+    if (order) {
+      await supabaseAdmin
+        .from('orders')
+        .update({ status: 'failed', updated_at: new Date().toISOString() })
+        .eq('id', order.id)
+
+      const { sendPaymentFailed } = await import('@/lib/emails')
+      sendPaymentFailed(order).catch(console.error)
+    }
   }
 
   if (event.type === 'charge.refunded') {
     const charge = event.data.object as Stripe.Charge
     const piId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id
+
     if (piId) {
-      await supabaseAdmin
+      const { data: order } = await supabaseAdmin
         .from('orders')
-        .update({ status: 'refunded', updated_at: new Date().toISOString() })
+        .select('id, customer_email, customer_name, folio_number')
         .eq('stripe_payment_id', piId)
+        .single()
+
+      if (order) {
+        await supabaseAdmin
+          .from('orders')
+          .update({ status: 'refunded', updated_at: new Date().toISOString() })
+          .eq('id', order.id)
+
+        const { sendOrderCancelled } = await import('@/lib/emails')
+        sendOrderCancelled({ ...order, status: 'refunded' }).catch(console.error)
+      }
     }
   }
 
