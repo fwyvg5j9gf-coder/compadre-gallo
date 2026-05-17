@@ -75,9 +75,18 @@ export async function getShippingRates({
   destState: string
   destCity: string
   destColonia: string
-  parcel: { weight_kg: number; length_cm: number; width_cm: number; height_cm: number }
+  parcel: { weight_kg: number; length_cm: number; width_cm: number; height_cm: number; packageType?: string; consignmentNote?: string }
 }): Promise<ShippingRate[]> {
   const token = await getAccessToken(cleanId(clientId), cleanId(clientSecret))
+
+  const parcelObj: Record<string, unknown> = {
+    weight: Math.max(0.01, parcel.weight_kg),
+    length: Math.max(1, Math.round(parcel.length_cm)),
+    width: Math.max(1, Math.round(parcel.width_cm)),
+    height: Math.max(1, Math.round(parcel.height_cm)),
+  }
+  if (parcel.packageType)    parcelObj.package_type    = parcel.packageType
+  if (parcel.consignmentNote) parcelObj.consignment_note = parcel.consignmentNote
 
   const body = {
     quotation: {
@@ -95,12 +104,7 @@ export async function getShippingRates({
         area_level2: destCity.trim(),
         area_level3: destColonia.trim(),
       },
-      parcels: [{
-        weight: Math.max(0.01, parcel.weight_kg),
-        length: Math.max(1, Math.round(parcel.length_cm)),
-        width: Math.max(1, Math.round(parcel.width_cm)),
-        height: Math.max(1, Math.round(parcel.height_cm)),
-      }],
+      parcels: [parcelObj],
     },
   }
 

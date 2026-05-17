@@ -135,7 +135,7 @@ export async function getSkydropxRatesForOrder(orderId: string): Promise<RatesRe
       destState: addr.state ?? '',
       destCity: addr.city ?? '',
       destColonia: addr.colonia ?? '',
-      parcel,
+      parcel: { ...parcel, packageType: parcel.packageType || undefined, consignmentNote: parcel.consignmentNote || undefined },
     })
     if (rates.length === 0) return { rates: [], error: 'Skydropx no devolvió tarifas para esta dirección' }
     return { rates }
@@ -196,7 +196,7 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
         destState: addr.state ?? '',
         destCity: addr.city ?? '',
         destColonia: addr.colonia ?? '',
-        parcel,
+        parcel: { ...parcel, packageType: parcel.packageType || undefined, consignmentNote: parcel.consignmentNote || undefined },
       })
       if (freshRates.length === 0) return { error: 'no se obtuvieron tarifas para re-cotizar' }
 
