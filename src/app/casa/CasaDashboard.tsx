@@ -5,13 +5,15 @@ import { UserButton } from '@clerk/nextjs'
 import AdminShell from './AdminShell'
 
 const CARDS = [
-  { title: 'tienda',    desc: 'productos, stock, precios e imágenes', href: '/casa/tienda',    accent: '#ff0100' },
-  { title: 'órdenes',   desc: 'compras, envíos y estados',            href: '/casa/ordenes',   accent: '#003a87' },
-  { title: 'clientes',  desc: 'actividad de fans — pedidos y boletos', href: '/casa/clientes', accent: '#1a6b35' },
-  { title: 'usuarios',  desc: 'roles y permisos del equipo',           href: '/casa/usuarios', accent: '#9b59b6' },
-  { title: 'artistas',  desc: 'catálogo, bios y shows',               href: '/casa/artistas',  accent: '#00c4df' },
-  { title: 'editor',    desc: 'contenido y apariencia del sitio',     href: '/casa/editor',    accent: '#ffe200' },
-  { title: 'media',     desc: 'imágenes, videos y audio del proyecto', href: '/casa/media',    accent: '#ffd49a' },
+  { title: 'tienda',         desc: 'productos, stock, precios e imágenes',  href: '/casa/tienda',                accent: '#ff0100' },
+  { title: 'órdenes',        desc: 'compras, envíos y estados',             href: '/casa/ordenes',               accent: '#003a87' },
+  { title: 'clientes',       desc: 'actividad de fans — pedidos y boletos', href: '/casa/clientes',              accent: '#1a6b35' },
+  { title: 'usuarios',       desc: 'roles y permisos del equipo',           href: '/casa/usuarios',              accent: '#9b59b6' },
+  { title: 'artistas',       desc: 'catálogo, bios y shows',                href: '/casa/artistas',              accent: '#00c4df' },
+  { title: 'correos',        desc: 'historial, pruebas y envíos masivos',   href: '/casa/correos',               accent: '#ffd49a' },
+  { title: 'configuración',  desc: 'stripe, skydropx, embalajes y tarifas', href: '/casa/tienda/configuracion',  accent: '#6b6a64' },
+  { title: 'editor',         desc: 'contenido y apariencia del sitio',      href: '/casa/editor',                accent: '#ffe200' },
+  { title: 'media',          desc: 'imágenes, videos y audio del proyecto', href: '/casa/media',                 accent: '#ffd49a' },
 ]
 
 // ── Datos de desarrollo ────────────────────────────────────────────────────────
