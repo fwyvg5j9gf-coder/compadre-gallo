@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createManualOrder, type ManualItem } from './actions'
+import { createManualOrder, lookupUser, type ManualItem } from './actions'
 import AdminShell from '../../AdminShell'
 
 type ProductOption = {
@@ -115,15 +115,46 @@ function ItemRow({
 export default function NuevoOrden({ products }: { products: ProductOption[] }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [pendingLookup, startLookup] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [isTest, setIsTest] = useState(false)
   const [showAddress, setShowAddress] = useState(false)
+  // customer fields (controlled so lookup can pre-fill them)
+  const [customerEmail, setCustomerEmail] = useState('')
+  const [customerName, setCustomerName] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [addrStreet, setAddrStreet] = useState('')
+  const [addrColonia, setAddrColonia] = useState('')
+  const [addrZip, setAddrZip] = useState('')
+  const [addrCity, setAddrCity] = useState('')
+  const [addrState, setAddrState] = useState('')
+  const [lookupQuery, setLookupQuery] = useState('')
+  const [lookupError, setLookupError] = useState<string | null>(null)
   const [items, setItems] = useState<({ _key: string } & ManualItem)[]>([
     { _key: uid(), productId: '', productName: '', variantId: null, size: null, quantity: 1, unitPriceMxn: 0 },
   ])
 
   const subtotal = items.reduce((s, i) => s + i.unitPriceMxn * i.quantity, 0)
   const fmt = (c: number) => (c / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
+
+  function handleLookup() {
+    setLookupError(null)
+    startLookup(async () => {
+      const { data, error: err } = await lookupUser(lookupQuery)
+      if (err || !data) { setLookupError(err ?? 'no encontrado'); return }
+      setCustomerEmail(data.email)
+      setCustomerName(data.name ?? '')
+      setCustomerPhone(data.phone ?? '')
+      if (data.address) {
+        setAddrStreet(data.address.street ?? '')
+        setAddrColonia(data.address.colonia ?? '')
+        setAddrZip(data.address.zip ?? '')
+        setAddrCity(data.address.city ?? '')
+        setAddrState(data.address.state ?? '')
+        setShowAddress(true)
+      }
+    })
+  }
 
   function addItem() {
     setItems(prev => [...prev, { _key: uid(), productId: '', productName: '', variantId: null, size: null, quantity: 1, unitPriceMxn: 0 }])
@@ -201,18 +232,42 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
           {/* Cliente */}
           <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, padding: '20px 24px' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 16 }}>cliente</div>
+
+            {/* Buscador de cliente registrado */}
+            <div style={{ marginBottom: 16, padding: '12px 14px', background: '#f6f5f1', borderRadius: 6, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: M }}>cargar cliente registrado</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  value={lookupQuery}
+                  onChange={e => setLookupQuery(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleLookup())}
+                  placeholder="nombre, correo o username..."
+                  style={{ ...inp, flex: 1, background: '#fff' }}
+                />
+                <button
+                  type="button"
+                  onClick={handleLookup}
+                  disabled={pendingLookup || !lookupQuery.trim()}
+                  style={{ height: 36, padding: '0 16px', background: '#003a87', color: '#fff', border: 'none', borderRadius: 4, fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', opacity: (!lookupQuery.trim() || pendingLookup) ? 0.5 : 1 }}
+                >
+                  {pendingLookup ? '…' : 'cargar'}
+                </button>
+              </div>
+              {lookupError && <p style={{ fontSize: 12, color: '#cc0000', margin: 0 }}>{lookupError}</p>}
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
               <label style={lbl}>
                 correo *
-                <input name="customer_email" type="email" required style={inp} placeholder="correo@ejemplo.com" />
+                <input name="customer_email" type="email" required value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} style={inp} placeholder="correo@ejemplo.com" />
               </label>
               <label style={lbl}>
                 nombre
-                <input name="customer_name" style={inp} placeholder="Nombre Apellido" />
+                <input name="customer_name" value={customerName} onChange={e => setCustomerName(e.target.value)} style={inp} placeholder="Nombre Apellido" />
               </label>
               <label style={lbl}>
                 teléfono
-                <input name="customer_phone" style={inp} placeholder="55 1234 5678" />
+                <input name="customer_phone" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} style={inp} placeholder="55 1234 5678" />
               </label>
             </div>
           </div>
@@ -260,23 +315,23 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 16 }}>
                 <label style={{ ...lbl, gridColumn: '1 / -1' }}>
                   calle y número
-                  <input name="addr_street" style={inp} placeholder="Av. Insurgentes 123" />
+                  <input name="addr_street" value={addrStreet} onChange={e => setAddrStreet(e.target.value)} style={inp} placeholder="Av. Insurgentes 123" />
                 </label>
                 <label style={lbl}>
                   colonia
-                  <input name="addr_colonia" style={inp} placeholder="Roma Norte" />
+                  <input name="addr_colonia" value={addrColonia} onChange={e => setAddrColonia(e.target.value)} style={inp} placeholder="Roma Norte" />
                 </label>
                 <label style={lbl}>
                   C.P.
-                  <input name="addr_zip" style={inp} placeholder="06700" />
+                  <input name="addr_zip" value={addrZip} onChange={e => setAddrZip(e.target.value)} style={inp} placeholder="06700" />
                 </label>
                 <label style={lbl}>
                   ciudad
-                  <input name="addr_city" style={inp} placeholder="Ciudad de México" />
+                  <input name="addr_city" value={addrCity} onChange={e => setAddrCity(e.target.value)} style={inp} placeholder="Ciudad de México" />
                 </label>
                 <label style={lbl}>
                   estado
-                  <input name="addr_state" style={inp} placeholder="CDMX" />
+                  <input name="addr_state" value={addrState} onChange={e => setAddrState(e.target.value)} style={inp} placeholder="CDMX" />
                 </label>
               </div>
             )}

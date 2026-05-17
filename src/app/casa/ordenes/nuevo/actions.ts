@@ -4,6 +4,51 @@ import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import { requireAdmin } from '@/lib/auth.server'
 
+export type UserLookup = {
+  email: string
+  name: string | null
+  phone: string | null
+  address: Record<string, string> | null
+}
+
+export async function lookupUser(email: string): Promise<{ data?: UserLookup; error?: string }> {
+  try {
+    await requireAdmin()
+    const q = email.trim().toLowerCase()
+    if (!q) return { error: 'escribe un correo o nombre' }
+
+    const { data: user } = await supabaseAdmin
+      .from('users')
+      .select('email, name')
+      .or(`email.ilike.%${q}%,name.ilike.%${q}%,username.ilike.%${q}%`)
+      .limit(1)
+      .single()
+
+    if (!user) return { error: 'usuario no encontrado' }
+
+    // Buscar última dirección de envío en órdenes previas
+    const { data: lastOrder } = await supabaseAdmin
+      .from('orders')
+      .select('customer_phone, shipping_address')
+      .eq('customer_email', user.email)
+      .not('shipping_address', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    return {
+      data: {
+        email: user.email,
+        name: user.name,
+        phone: lastOrder?.customer_phone ?? null,
+        address: lastOrder?.shipping_address as Record<string, string> | null,
+      },
+    }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'error al buscar' }
+  }
+}
+
 export type ManualItem = {
   productId: string
   productName: string
