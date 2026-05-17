@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import { requireAdmin } from '@/lib/auth.server'
-import { createShipment, getShippingRates, type ShippingRate } from '@/lib/skydropx'
+import { createShipment, getShippingRates, getShipmentStatus, type ShippingRate, type ShipmentStatus } from '@/lib/skydropx'
 
 const VALID_STATUSES = ['pending', 'paid', 'shipped', 'delivered', 'refunded', 'failed'] as const
 
@@ -300,6 +300,7 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
       tracking_number: result.trackingNumber,
       skydropx_shipment_id: result.shipmentId,
       label_url: result.labelUrl,
+      skydropx_cost_mxn: result.cost != null ? Math.round(result.cost * 100) : null,
       status: 'shipped',
       updated_at: new Date().toISOString(),
     }).eq('id', orderId)
@@ -310,5 +311,47 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
     return { data: { trackingNumber: result.trackingNumber, labelUrl: result.labelUrl, carrier: result.carrier } }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'error al crear la guía' }
+  }
+}
+
+// ── Rastrear guía ────────────────────────────────────────────────────────────
+
+export type ShipmentStatusResult = { data?: ShipmentStatus; error?: string }
+
+export async function fetchSkydropxShipmentStatus(orderId: string): Promise<ShipmentStatusResult> {
+  try {
+    await requireAdmin()
+    const { data: order } = await supabaseAdmin.from('orders').select('skydropx_shipment_id').eq('id', orderId).single()
+    if (!order?.skydropx_shipment_id) return { error: 'esta orden no tiene shipment ID de Skydropx' }
+
+    const { data: settings } = await supabaseAdmin
+      .from('store_settings').select('skydropx_client_id, skydropx_client_secret').single()
+    if (!settings?.skydropx_client_id) return { error: 'faltan credenciales de Skydropx' }
+
+    const status = await getShipmentStatus(settings.skydropx_client_id, settings.skydropx_client_secret, order.skydropx_shipment_id)
+    return { data: status }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'error al consultar el estado del envío' }
+  }
+}
+
+// ── Cancelar guía (solo local — Skydropx no expone endpoint de cancel) ───────
+
+export async function cancelSkydropxShipmentLocal(orderId: string): Promise<{ error?: string }> {
+  try {
+    await requireAdmin()
+    await supabaseAdmin.from('orders').update({
+      tracking_number: null,
+      skydropx_shipment_id: null,
+      label_url: null,
+      skydropx_cost_mxn: null,
+      status: 'paid',
+      updated_at: new Date().toISOString(),
+    }).eq('id', orderId)
+    revalidatePath(`/casa/ordenes/${orderId}`)
+    revalidatePath('/casa/ordenes')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'error al cancelar' }
   }
 }

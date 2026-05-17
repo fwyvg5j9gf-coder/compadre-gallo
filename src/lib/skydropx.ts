@@ -156,6 +156,39 @@ export type ShipmentResult = {
   trackingNumber: string
   labelUrl: string | null
   carrier: string
+  cost: number | null
+}
+
+export type ShipmentStatus = {
+  workflowStatus: string
+  paymentStatus: string
+  cost: number | null
+  trackingNumber: string
+  labelUrl: string | null
+  carrier: string
+}
+
+export async function getShipmentStatus(clientId: string, clientSecret: string, shipmentId: string): Promise<ShipmentStatus> {
+  const token = await getAccessToken(cleanId(clientId), cleanId(clientSecret))
+  const res = await fetch(`${BASE}/shipments/${shipmentId}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    cache: 'no-store',
+  })
+  if (!res.ok) throw new Error(`SkyDropX shipment ${res.status}`)
+  const json = await res.json()
+  const d = (json?.data ?? json) as Record<string, unknown>
+  const a = (d?.attributes ?? d) as Record<string, unknown>
+  const pkgIncluded = ((json?.included ?? []) as Record<string, unknown>[])
+    .find(i => (i as Record<string, unknown>).type === 'package')
+  const pkgAttrs = (pkgIncluded as Record<string, unknown> | undefined)?.attributes as Record<string, unknown> | undefined
+  return {
+    workflowStatus: String(a?.workflow_status ?? ''),
+    paymentStatus: String(a?.payment_status ?? ''),
+    cost: a?.total != null ? Number(a.total) : null,
+    trackingNumber: String(a?.master_tracking_number ?? pkgAttrs?.tracking_number ?? ''),
+    labelUrl: pkgAttrs?.label_url as string ?? null,
+    carrier: String(a?.carrier_name ?? a?.carrier ?? ''),
+  }
 }
 
 type Address = {
@@ -330,10 +363,11 @@ export async function createShipment({
     const pkgAttrs = (pkgIncluded as Record<string, unknown> | undefined)?.attributes as Record<string, unknown> | undefined
     const label: string | null = pkgAttrs?.label_url as string ?? a?.label_url as string ?? null
     const trackingFinal = tracking || String(pkgAttrs?.tracking_number ?? '')
-    return { tracking: trackingFinal, label }
+    const cost = a?.total != null ? Number(a.total) : null
+    return { tracking: trackingFinal, label, cost }
   }
 
-  let { tracking: trackingNumber, label: labelUrl } = extractFromResponse(json)
+  let { tracking: trackingNumber, label: labelUrl, cost } = extractFromResponse(json)
 
   // Shipment comienza como "in_progress"; la guía llega al completarse
   if (!trackingNumber && shipmentId) {
@@ -345,14 +379,14 @@ export async function createShipment({
       })
       if (!pollRes.ok) break
       const pj = await pollRes.json() as Record<string, unknown>
-      ;({ tracking: trackingNumber, label: labelUrl } = extractFromResponse(pj))
+      ;({ tracking: trackingNumber, label: labelUrl, cost } = extractFromResponse(pj))
       if (trackingNumber) break
     }
   }
 
   if (!trackingNumber) throw new Error('Skydropx no devolvió número de guía tras esperar')
 
-  return { shipmentId, trackingNumber, labelUrl, carrier }
+  return { shipmentId, trackingNumber, labelUrl, carrier, cost }
 }
 
 function mapRates(rates: Record<string, unknown>[], quotationId: string): ShippingRate[] {

@@ -73,6 +73,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const addr = order.shipping_address as Record<string, string> | null
   const sc = STATUS_COLOR[order.status] ?? { bg: '#f0efe9', text: '#6b6a64' }
   const isTest = (order as Record<string, unknown>).is_test as boolean
+  const skydropxShipmentId = (order as Record<string, unknown>).skydropx_shipment_id as string | null ?? null
+  const skydropxCostMxn = (order as Record<string, unknown>).skydropx_cost_mxn as number | null ?? null
 
   const readiness = !order.tracking_number
     ? await checkShipmentReadiness(order.id).catch(() => null)
@@ -164,7 +166,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               {order.notes && <Row label="notas" value={order.notes} />}
             </InfoCard>
 
-            {/* Envío */}
+            {/* Dirección de envío */}
             {addr && (
               <InfoCard title="dirección de envío">
                 <Row label="calle"    value={addr.street} />
@@ -172,12 +174,40 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 <Row label="C.P."     value={addr.zip} />
                 <Row label="ciudad"   value={addr.city} />
                 <Row label="estado"   value={addr.state} />
-                {order.tracking_number && (
-                  <Row label="guía" value={
-                    <span style={{ fontFamily: 'monospace', fontSize: 13, background: 'rgba(0,58,135,0.06)', padding: '2px 8px', borderRadius: 4, color: '#003a87' }}>
-                      {order.tracking_number}
+              </InfoCard>
+            )}
+
+            {/* Detalles del envío Skydropx */}
+            {order.tracking_number && (
+              <InfoCard title="envío">
+                {order.shipping_carrier && <Row label="paquetería" value={order.shipping_carrier} />}
+                <Row label="guía" value={
+                  <span style={{ fontFamily: 'monospace', fontSize: 13, background: 'rgba(0,58,135,0.06)', padding: '2px 8px', borderRadius: 4, color: '#003a87' }}>
+                    {order.tracking_number}
+                  </span>
+                } />
+                {skydropxCostMxn != null && (
+                  <Row label="costo Skydropx" value={
+                    <span style={{ fontFamily: 'monospace' }}>
+                      {(skydropxCostMxn / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
                     </span>
                   } />
+                )}
+                {skydropxShipmentId && (
+                  <Row label="shipment ID" value={
+                    <span style={{ fontFamily: 'monospace', fontSize: 12, color: S }}>{skydropxShipmentId}</span>
+                  } />
+                )}
+                {(order as Record<string, unknown>).label_url && (
+                  <div style={{ marginTop: 10 }}>
+                    <a
+                      href={(order as Record<string, unknown>).label_url as string}
+                      target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: 13, color: '#003a87', fontWeight: 600, textDecoration: 'none' }}
+                    >
+                      descargar etiqueta PDF ↗
+                    </a>
+                  </div>
                 )}
               </InfoCard>
             )}
@@ -201,6 +231,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               shippingMxn={order.shipping_mxn ?? 0}
               shippingCarrier={order.shipping_carrier ?? null}
               labelUrl={(order as Record<string, unknown>).label_url as string ?? null}
+              skydropxShipmentId={skydropxShipmentId}
               initialCustomerName={order.customer_name ?? null}
               initialCustomerEmail={order.customer_email}
               initialCustomerPhone={order.customer_phone ?? null}

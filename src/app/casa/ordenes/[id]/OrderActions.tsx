@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { updateOrderStatus, updateTrackingNumber, createSkydropxShipment, getSkydropxRatesForOrder, deleteOrder, updateOrderDetails } from './actions'
-import type { ShippingRate } from '@/lib/skydropx'
+import { updateOrderStatus, updateTrackingNumber, createSkydropxShipment, getSkydropxRatesForOrder, deleteOrder, updateOrderDetails, fetchSkydropxShipmentStatus, cancelSkydropxShipmentLocal } from './actions'
+import type { ShippingRate, ShipmentStatus } from '@/lib/skydropx'
 import type { ReadinessItem } from './actions'
 
 const STATUS_OPTIONS = [
@@ -31,6 +31,26 @@ const lbl: React.CSSProperties = {
   fontSize: 11, fontWeight: 600, color: M, letterSpacing: '0.03em',
 }
 
+function getCarrierTrackingUrl(carrier: string, tracking: string): string {
+  const c = carrier.toLowerCase()
+  if (c.includes('dhl'))           return `https://www.dhl.com/mx-es/home/tracking.html?tracking-id=${tracking}&submit=1`
+  if (c.includes('fedex'))         return `https://www.fedex.com/apps/fedextrack/?tracknumbers=${tracking}`
+  if (c.includes('ups'))           return `https://www.ups.com/track?tracknum=${tracking}&loc=es_MX`
+  if (c.includes('estafeta'))      return `https://www.estafeta.com/herramientas/rastreo?guia=${tracking}`
+  if (c.includes('redpack'))       return `https://www.redpack.com.mx/es/rastreo/?guias=${tracking}`
+  if (c.includes('paquetexpress')) return `https://www.paquetexpress.com.mx/rastreo?guia=${tracking}`
+  return ''
+}
+
+const WORKFLOW_LABEL: Record<string, string> = {
+  success: 'guía generada',
+  in_progress: 'procesando',
+  error: 'error',
+  cancelled: 'cancelada',
+  delivered: 'entregada',
+  in_transit: 'en tránsito',
+}
+
 export default function OrderActions({
   orderId,
   currentStatus,
@@ -39,6 +59,7 @@ export default function OrderActions({
   shippingMxn,
   shippingCarrier,
   labelUrl: initialLabelUrl,
+  skydropxShipmentId,
   initialCustomerName,
   initialCustomerEmail,
   initialCustomerPhone,
@@ -53,6 +74,7 @@ export default function OrderActions({
   shippingMxn: number
   shippingCarrier: string | null
   labelUrl: string | null
+  skydropxShipmentId: string | null
   initialCustomerName: string | null
   initialCustomerEmail: string
   initialCustomerPhone: string | null
@@ -82,9 +104,37 @@ export default function OrderActions({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [protection, setProtection] = useState(false)
+  const [shipmentStatus, setShipmentStatus] = useState<ShipmentStatus | null>(null)
+  const [pendingTrack, startTrack] = useTransition()
+  const [trackError, setTrackError] = useState<string | null>(null)
+  const [pendingCancel, startCancel] = useTransition()
+  const [confirmCancelShipment, setConfirmCancelShipment] = useState(false)
+  const [cancelShipmentError, setCancelShipmentError] = useState<string | null>(null)
 
   const hasTracking = !!tracking
   const hasRateId = !!shippingRateId
+
+  function handleTrackShipment() {
+    setTrackError(null)
+    startTrack(async () => {
+      const { data, error } = await fetchSkydropxShipmentStatus(orderId)
+      if (error) { setTrackError(error); return }
+      if (data) setShipmentStatus(data)
+    })
+  }
+
+  function handleCancelShipment() {
+    setCancelShipmentError(null)
+    startCancel(async () => {
+      const { error } = await cancelSkydropxShipmentLocal(orderId)
+      if (error) { setCancelShipmentError(error); setConfirmCancelShipment(false); return }
+      setTracking('')
+      setStatus('paid')
+      setLabelUrl(null)
+      setShipmentStatus(null)
+      setConfirmCancelShipment(false)
+    })
+  }
 
   function handleStatusSave() {
     startStatus(async () => {
@@ -226,6 +276,70 @@ export default function OrderActions({
           </a>
         )}
       </div>
+
+      {/* Rastrear envío */}
+      {hasTracking && skydropxShipmentId && (
+        <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, padding: '20px 24px' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 14 }}>
+            rastreo del envío
+          </div>
+
+          {shipmentStatus && (
+            <div style={{ marginBottom: 14, padding: '10px 14px', background: '#f6f5f1', borderRadius: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: M }}>estado</span>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+                  background: shipmentStatus.workflowStatus === 'success' ? 'rgba(26,107,53,0.1)' : shipmentStatus.workflowStatus === 'error' ? 'rgba(255,1,0,0.08)' : 'rgba(0,58,135,0.08)',
+                  color: shipmentStatus.workflowStatus === 'success' ? '#1a6b35' : shipmentStatus.workflowStatus === 'error' ? '#cc0000' : '#003a87',
+                  textTransform: 'uppercase', letterSpacing: '0.04em',
+                }}>
+                  {WORKFLOW_LABEL[shipmentStatus.workflowStatus] ?? shipmentStatus.workflowStatus}
+                </span>
+              </div>
+              {shipmentStatus.carrier && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 12, color: M }}>paquetería</span>
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>{shipmentStatus.carrier}</span>
+                </div>
+              )}
+              {shipmentStatus.cost != null && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 12, color: M }}>costo Skydropx</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'monospace' }}>
+                    {shipmentStatus.cost.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={handleTrackShipment}
+              disabled={pendingTrack}
+              className="adm-btn-primary"
+              style={{ flex: 1, height: 36, fontSize: 13 }}
+            >
+              {pendingTrack ? 'consultando…' : shipmentStatus ? 'actualizar' : 'consultar estado'}
+            </button>
+            {shippingCarrier && tracking && getCarrierTrackingUrl(shippingCarrier, tracking) && (
+              <a
+                href={getCarrierTrackingUrl(shippingCarrier, tracking)}
+                target="_blank" rel="noopener noreferrer"
+                style={{ height: 36, padding: '0 14px', display: 'flex', alignItems: 'center', fontSize: 13, border: `1px solid ${B}`, borderRadius: 4, background: '#fff', color: '#003a87', fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}
+              >
+                rastrear en {shippingCarrier} ↗
+              </a>
+            )}
+          </div>
+          {trackError && (
+            <p style={{ fontSize: 12, color: '#cc0000', margin: '10px 0 0', padding: '8px 12px', background: 'rgba(255,1,0,0.05)', borderRadius: 4, border: '1px solid rgba(255,1,0,0.15)' }}>
+              {trackError}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Crear guía Skydropx */}
       {!hasTracking && (
@@ -436,42 +550,85 @@ export default function OrderActions({
         )}
       </div>
 
-      {/* Eliminar orden */}
+      {/* Zona de peligro */}
       <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, padding: '16px 20px' }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>zona de peligro</div>
-        {!confirmDelete ? (
-          <button
-            onClick={() => setConfirmDelete(true)}
-            style={{ width: '100%', height: 36, background: 'rgba(255,1,0,0.06)', border: '1px solid rgba(255,1,0,0.2)', borderRadius: 4, color: '#cc0000', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
-          >
-            eliminar orden
-          </button>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <p style={{ fontSize: 13, color: '#cc0000', margin: 0 }}>
-              ¿seguro? esta acción es permanente y no se puede deshacer.
-            </p>
-            <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+          {/* Cancelar guía */}
+          {hasTracking && (
+            !confirmCancelShipment ? (
               <button
-                onClick={handleDelete}
-                disabled={pendingDelete}
-                style={{ flex: 1, height: 36, background: '#ff0100', border: 'none', borderRadius: 4, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
+                onClick={() => setConfirmCancelShipment(true)}
+                style={{ width: '100%', height: 36, background: 'rgba(255,1,0,0.06)', border: '1px solid rgba(255,1,0,0.2)', borderRadius: 4, color: '#cc0000', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
               >
-                {pendingDelete ? 'eliminando…' : 'sí, eliminar'}
+                cancelar guía de envío
               </button>
-              <button
-                onClick={() => setConfirmDelete(false)}
-                disabled={pendingDelete}
-                style={{ height: 36, padding: '0 14px', border: `1px solid ${B}`, borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 13, color: M }}
-              >
-                cancelar
-              </button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px', background: 'rgba(255,1,0,0.04)', borderRadius: 4, border: '1px solid rgba(255,1,0,0.15)' }}>
+                <p style={{ fontSize: 13, color: '#cc0000', margin: 0, fontWeight: 600 }}>
+                  ¿cancelar la guía?
+                </p>
+                <p style={{ fontSize: 12, color: M, margin: 0 }}>
+                  Esto borra la guía de esta orden localmente y regresa el estado a <strong>pagado</strong>. La guía en Skydropx sigue activa — cancélala también en el panel de Skydropx para evitar cargos.
+                </p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={handleCancelShipment}
+                    disabled={pendingCancel}
+                    style={{ flex: 1, height: 34, background: '#ff0100', border: 'none', borderRadius: 4, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
+                  >
+                    {pendingCancel ? 'cancelando…' : 'sí, cancelar guía'}
+                  </button>
+                  <button
+                    onClick={() => setConfirmCancelShipment(false)}
+                    disabled={pendingCancel}
+                    style={{ height: 34, padding: '0 14px', border: `1px solid ${B}`, borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 13, color: M }}
+                  >
+                    no
+                  </button>
+                </div>
+                {cancelShipmentError && <p style={{ fontSize: 12, color: '#cc0000', margin: 0 }}>{cancelShipmentError}</p>}
+              </div>
+            )
+          )}
+
+          {/* Eliminar orden */}
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              style={{ width: '100%', height: 36, background: 'rgba(255,1,0,0.06)', border: '1px solid rgba(255,1,0,0.2)', borderRadius: 4, color: '#cc0000', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
+            >
+              eliminar orden
+            </button>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <p style={{ fontSize: 13, color: '#cc0000', margin: 0 }}>
+                ¿seguro? esta acción es permanente y no se puede deshacer.
+              </p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={handleDelete}
+                  disabled={pendingDelete}
+                  style={{ flex: 1, height: 36, background: '#ff0100', border: 'none', borderRadius: 4, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
+                >
+                  {pendingDelete ? 'eliminando…' : 'sí, eliminar'}
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={pendingDelete}
+                  style={{ height: 36, padding: '0 14px', border: `1px solid ${B}`, borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 13, color: M }}
+                >
+                  cancelar
+                </button>
+              </div>
+              {deleteError && (
+                <p style={{ fontSize: 12, color: '#cc0000', margin: 0 }}>{deleteError}</p>
+              )}
             </div>
-            {deleteError && (
-              <p style={{ fontSize: 12, color: '#cc0000', margin: 0 }}>{deleteError}</p>
-            )}
-          </div>
-        )}
+          )}
+
+        </div>
       </div>
 
     </div>
