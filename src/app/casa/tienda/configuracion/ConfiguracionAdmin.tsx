@@ -10,7 +10,9 @@ import {
   addPackaging, updatePackaging, deletePackaging, reorderPackaging,
   saveSkydropxConfig, toggleSkydropx, testShippingQuote,
   saveShipping, savePolicies, saveStripeConfig, saveSkydropxExtra,
+  fetchSkydropxPackageTypes,
 } from './actions'
+import type { PackageType } from '@/lib/skydropx'
 import ZipSelector from '@/components/ZipSelector'
 import AdminShell from '../../AdminShell'
 
@@ -179,6 +181,9 @@ function PackagingList({ items }: { items: PackagingType[] }) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [pkgTypes, setPkgTypes] = useState<PackageType[]>([])
+  const [pkgTypesLoading, startPkgTypesTransition] = useTransition()
+  const [pkgTypesError, setPkgTypesError] = useState<string | null>(null)
   const router = useRouter()
   const refresh = () => router.refresh()
 
@@ -187,14 +192,49 @@ function PackagingList({ items }: { items: PackagingType[] }) {
     letterSpacing: '0.07em', textTransform: 'uppercase',
   }
 
+  function handleLoadPkgTypes() {
+    setPkgTypesError(null)
+    startPkgTypesTransition(async () => {
+      const { types, error } = await fetchSkydropxPackageTypes()
+      if (error) { setPkgTypesError(error); return }
+      setPkgTypes(types ?? [])
+    })
+  }
+
   function DimFields({ pkg }: { pkg?: PackagingType }) {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: 10 }}>
-        <label className="adm-lbl">nombre<input name="name" required defaultValue={pkg?.name ?? ''} className="adm-inp" /></label>
-        <label className="adm-lbl">largo cm<input name="length_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.length_cm ?? ''} className="adm-inp" /></label>
-        <label className="adm-lbl">ancho cm<input name="width_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.width_cm ?? ''} className="adm-inp" /></label>
-        <label className="adm-lbl">alto cm<input name="height_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.height_cm ?? ''} className="adm-inp" /></label>
-        <label className="adm-lbl">peso g<input name="weight_grams" type="number" min="0" required defaultValue={pkg?.weight_grams ?? ''} className="adm-inp" /></label>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: 10 }}>
+          <label className="adm-lbl">nombre<input name="name" required defaultValue={pkg?.name ?? ''} className="adm-inp" /></label>
+          <label className="adm-lbl">largo cm<input name="length_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.length_cm ?? ''} className="adm-inp" /></label>
+          <label className="adm-lbl">ancho cm<input name="width_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.width_cm ?? ''} className="adm-inp" /></label>
+          <label className="adm-lbl">alto cm<input name="height_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.height_cm ?? ''} className="adm-inp" /></label>
+          <label className="adm-lbl">peso g<input name="weight_grams" type="number" min="0" required defaultValue={pkg?.weight_grams ?? ''} className="adm-inp" /></label>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <label className="adm-lbl">
+            tipo de paquete skydropx
+            {pkgTypes.length > 0 ? (
+              <select name="skydropx_package_type" defaultValue={pkg?.skydropx_package_type ?? ''} className="adm-inp">
+                <option value="">— sin asignar —</option>
+                {pkgTypes.map(t => <option key={t.id} value={t.id}>{t.name} ({t.id})</option>)}
+              </select>
+            ) : (
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input name="skydropx_package_type" defaultValue={pkg?.skydropx_package_type ?? ''} placeholder="ej. box, parcel…" className="adm-inp" style={{ flex: 1 }} />
+                <button type="button" onClick={handleLoadPkgTypes} disabled={pkgTypesLoading}
+                  className="adm-btn-secondary" style={{ fontSize: 11, padding: '6px 10px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  {pkgTypesLoading ? '…' : 'cargar de Skydropx'}
+                </button>
+              </div>
+            )}
+            {pkgTypesError && <span style={{ fontSize: 11, color: '#cc0000' }}>{pkgTypesError}</span>}
+          </label>
+          <label className="adm-lbl">
+            contenido (consignment note)
+            <input name="consignment_note" defaultValue={pkg?.consignment_note ?? 'Merch'} placeholder="ej. Ropa y accesorios" className="adm-inp" />
+          </label>
+        </div>
       </div>
     )
   }
@@ -230,7 +270,12 @@ function PackagingList({ items }: { items: PackagingType[] }) {
                     <button type="button" disabled={idx === 0} onClick={() => startTransition(async () => { await reorderPackaging(pkg.id, 'up'); refresh() })} className="adm-btn-icon"><IconChevUp /></button>
                     <button type="button" disabled={idx === items.length - 1} onClick={() => startTransition(async () => { await reorderPackaging(pkg.id, 'down'); refresh() })} className="adm-btn-icon"><IconChevDown /></button>
                   </div>
-                  <span style={{ fontSize: 14, color: '#0a0a0a', fontWeight: 600 }}>{pkg.name}</span>
+                  <div>
+                    <span style={{ fontSize: 14, color: '#0a0a0a', fontWeight: 600 }}>{pkg.name}</span>
+                    {pkg.skydropx_package_type && (
+                      <span style={{ fontSize: 11, color: M, marginLeft: 8 }}>sky: {pkg.skydropx_package_type}</span>
+                    )}
+                  </div>
                   <span style={{ fontSize: 13, color: M }}>{pkg.length_cm}</span>
                   <span style={{ fontSize: 13, color: M }}>{pkg.width_cm}</span>
                   <span style={{ fontSize: 13, color: M }}>{pkg.height_cm}</span>

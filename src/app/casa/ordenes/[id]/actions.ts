@@ -53,17 +53,19 @@ async function buildOrderShipmentData(orderId: string) {
   const productIds = (order.order_items as { product_id: string | null }[])
     .map(i => i.product_id).filter(Boolean) as string[]
 
-  let parcel = { weight_kg: 0.5, length_cm: 30, width_cm: 20, height_cm: 10 }
+  let parcel = { weight_kg: 0.5, length_cm: 30, width_cm: 20, height_cm: 10, packageType: '', consignmentNote: 'Merch' }
   if (productIds.length > 0) {
     const { data: product } = await supabaseAdmin
       .from('products').select('packaging_type_id, weight_grams').eq('id', productIds[0]).single()
     if (product?.packaging_type_id) {
       const { data: pkg } = await supabaseAdmin
-        .from('packaging_types').select('weight_grams, length_cm, width_cm, height_cm').eq('id', product.packaging_type_id).single()
+        .from('packaging_types').select('weight_grams, length_cm, width_cm, height_cm, skydropx_package_type, consignment_note').eq('id', product.packaging_type_id).single()
       if (pkg) {
         parcel = {
           weight_kg: Math.max(0.01, (product.weight_grams ?? pkg.weight_grams) / 1000),
           length_cm: Number(pkg.length_cm), width_cm: Number(pkg.width_cm), height_cm: Number(pkg.height_cm),
+          packageType: pkg.skydropx_package_type ?? '',
+          consignmentNote: pkg.consignment_note || 'Merch',
         }
       }
     }
@@ -141,6 +143,8 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
       reference: order.customer_name ?? 'Cliente',
     }
 
+    if (!parcel.packageType) return { error: 'configura el tipo de paquete Skydropx en el embalaje del producto antes de crear la guía' }
+
     const result = await createShipment({
       clientId: settings.skydropx_client_id,
       clientSecret: settings.skydropx_client_secret,
@@ -148,7 +152,8 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
       addressFrom,
       addressTo,
       parcel,
-      contentDescription: 'Merch GALLO',
+      packageType: parcel.packageType,
+      contentDescription: parcel.consignmentNote,
     })
 
     await supabaseAdmin.from('orders').update({

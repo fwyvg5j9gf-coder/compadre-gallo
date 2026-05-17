@@ -31,6 +31,30 @@ async function getAccessToken(clientId: string, clientSecret: string): Promise<s
   return json.access_token as string
 }
 
+export type PackageType = { id: string; name: string }
+
+export async function getPackageTypes(clientId: string, clientSecret: string): Promise<PackageType[]> {
+  const token = await getAccessToken(
+    clientId.replace(/\s+/g, ''),
+    clientSecret.replace(/\s+/g, ''),
+  )
+  const res = await fetch(`${BASE}/api/v1/package_types`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    cache: 'no-store',
+  })
+  if (!res.ok) return []
+  const json = await res.json()
+  const items: Record<string, unknown>[] = json?.data ?? json ?? []
+  return items.map(i => ({
+    id: String((i as Record<string, unknown>).id ?? (i as Record<string, unknown>).type ?? ''),
+    name: String(
+      ((i as Record<string, unknown>).attributes as Record<string, unknown>)?.name ??
+      (i as Record<string, unknown>).name ??
+      (i as Record<string, unknown>).id ?? ''
+    ),
+  })).filter(i => i.id)
+}
+
 export async function getShippingRates({
   clientId,
   clientSecret,
@@ -152,7 +176,7 @@ type Address = {
 }
 
 export async function createShipment({
-  clientId, clientSecret, rateId, addressFrom, addressTo, parcel, contentDescription,
+  clientId, clientSecret, rateId, addressFrom, addressTo, parcel, packageType, contentDescription,
 }: {
   clientId: string
   clientSecret: string
@@ -160,6 +184,7 @@ export async function createShipment({
   addressFrom: Address
   addressTo: Address
   parcel: { weight_kg: number; length_cm: number; width_cm: number; height_cm: number }
+  packageType: string
   contentDescription?: string
 }): Promise<ShipmentResult> {
   const token = await getAccessToken(
@@ -199,8 +224,8 @@ export async function createShipment({
         length: Math.max(1, Math.round(parcel.length_cm)),
         width: Math.max(1, Math.round(parcel.width_cm)),
         height: Math.max(1, Math.round(parcel.height_cm)),
-        package_type: 'box',
-        consignment_note: contentDescription ?? 'Merch GALLO',
+        package_type: packageType,
+        consignment_note: contentDescription ?? 'Merch',
       }],
     },
   }

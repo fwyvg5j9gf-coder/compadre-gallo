@@ -18,6 +18,8 @@ export type PackagingType = {
   height_cm: number
   sort_order: number
   created_at: string
+  skydropx_package_type: string
+  consignment_note: string
 }
 
 export type Product = {

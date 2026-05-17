@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
-import { getShippingRates } from '@/lib/skydropx'
-import type { ShippingRate } from '@/lib/skydropx'
+import { getShippingRates, getPackageTypes } from '@/lib/skydropx'
+import type { ShippingRate, PackageType } from '@/lib/skydropx'
 import { requireAdminOrThrow as requireAdmin } from '@/lib/auth.server'
 
 // ── Categorías ────────────────────────────────────────────────────────────────
@@ -102,6 +102,8 @@ export async function addPackaging(formData: FormData) {
     length_cm: parseFloat(formData.get('length_cm') as string),
     width_cm: parseFloat(formData.get('width_cm') as string),
     height_cm: parseFloat(formData.get('height_cm') as string),
+    skydropx_package_type: (formData.get('skydropx_package_type') as string ?? '').trim(),
+    consignment_note: (formData.get('consignment_note') as string ?? 'Merch').trim() || 'Merch',
     sort_order: (max?.sort_order ?? -1) + 1,
   })
   if (error) throw new Error(error.message)
@@ -117,6 +119,8 @@ export async function updatePackaging(id: string, formData: FormData) {
     length_cm: parseFloat(formData.get('length_cm') as string),
     width_cm: parseFloat(formData.get('width_cm') as string),
     height_cm: parseFloat(formData.get('height_cm') as string),
+    skydropx_package_type: (formData.get('skydropx_package_type') as string ?? '').trim(),
+    consignment_note: (formData.get('consignment_note') as string ?? 'Merch').trim() || 'Merch',
   }).eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/casa/tienda/configuracion')
@@ -225,6 +229,33 @@ export async function saveStripeConfig(formData: FormData) {
     stripe_markup_pct:    parseFloat((formData.get('markup_pct') as string) || '0'),
     updated_at: new Date().toISOString(),
   }).eq('id', 1)
+  if (error) throw new Error(error.message)
+  revalidatePath('/casa/tienda/configuracion')
+}
+
+export async function fetchSkydropxPackageTypes(): Promise<{ types?: PackageType[]; error?: string }> {
+  await requireAdmin()
+  const { data: settings } = await supabaseAdmin
+    .from('store_settings')
+    .select('skydropx_client_id, skydropx_client_secret')
+    .single()
+  if (!settings?.skydropx_client_id || !settings.skydropx_client_secret) {
+    return { error: 'configura las credenciales de Skydropx primero' }
+  }
+  try {
+    const types = await getPackageTypes(settings.skydropx_client_id, settings.skydropx_client_secret)
+    return { types }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'error consultando Skydropx' }
+  }
+}
+
+export async function updatePackagingSkydropx(id: string, skydropxPackageType: string, consignmentNote: string) {
+  await requireAdmin()
+  const { error } = await supabaseAdmin
+    .from('packaging_types')
+    .update({ skydropx_package_type: skydropxPackageType, consignment_note: consignmentNote.trim() || 'Merch' })
+    .eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/casa/tienda/configuracion')
 }
