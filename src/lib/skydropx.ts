@@ -259,17 +259,36 @@ export async function getConsignmentNotePackagings(clientId: string, clientSecre
 export async function getConsignmentNoteClasses(clientId: string, clientSecret: string): Promise<SatCode[]> {
   try {
     const token = await getAccessToken(cleanId(clientId), cleanId(clientSecret))
-    const res = await fetch(`${BASE}/shipments/consignment_notes`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-      cache: 'no-store',
-    })
-    if (!res.ok) return []
-    const json = await res.json()
-    const items: Record<string, unknown>[] = json?.data ?? json ?? []
-    return items.map(i => ({
-      id: String((i as Record<string, unknown>).consignment_note ?? ''),
-      name: String((i as Record<string, unknown>).description ?? ''),
-    })).filter(i => i.id)
+    const all: SatCode[] = []
+    let page = 1
+
+    while (true) {
+      const res = await fetch(`${BASE}/shipments/consignment_notes?page=${page}&per_page=100`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+        cache: 'no-store',
+      })
+      if (!res.ok) break
+      const json = await res.json()
+      const items: Record<string, unknown>[] = json?.data ?? (Array.isArray(json) ? json : [])
+      if (items.length === 0) break
+
+      for (const i of items) {
+        // Skydropx returns either {consignment_note, description} or {code, name} depending on version
+        const id   = String(i.consignment_note ?? i.code ?? i.id ?? '')
+        const name = String(i.description ?? i.name ?? '')
+        if (id) all.push({ id, name })
+      }
+
+      // Detect pagination: meta.last_page, meta.total_pages, or fewer items than requested
+      const meta = json?.meta as Record<string, unknown> | undefined
+      const lastPage = Number(meta?.last_page ?? meta?.total_pages ?? 0)
+      if (lastPage > 0 && page >= lastPage) break
+      if (items.length < 100) break
+      if (page >= 50) break  // safety cap at 5000 entries
+      page++
+    }
+
+    return all
   } catch { return [] }
 }
 
