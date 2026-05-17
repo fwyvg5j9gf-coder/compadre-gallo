@@ -281,7 +281,9 @@ export async function createShipment({
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`SkyDropX ${res.status}: ${text.slice(0, 400)}`)
+    const parcel0 = body.parcels[0]
+    const debug = `[enviado→ pkg_type:${parcel0.package_type} note:${parcel0.consignment_note} shipment_pkg_code:${body.shipment.consignment_note_packaging_code} shipment_cls_code:${body.shipment.consignment_note_class_code}]`
+    throw new Error(`SkyDropX ${res.status}: ${text.slice(0, 400)} ${debug}`)
   }
 
   const json = await res.json()
