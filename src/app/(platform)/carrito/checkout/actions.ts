@@ -244,7 +244,11 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
   Promise.allSettled([
     sendOrderConfirmation(orderForEmail),
     sendAdminNewOrder(orderForEmail),
-  ]).catch(console.error)
+  ]).then(results => {
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') console.error(`[email ${i}] failed:`, r.reason)
+    })
+  })
 
   return { orderId: order.id, folioNumber: order.folio_number }
   } catch (e) {
