@@ -10,9 +10,9 @@ import {
   addPackaging, updatePackaging, deletePackaging, reorderPackaging,
   saveSkydropxConfig, toggleSkydropx, testShippingQuote,
   saveShipping, savePolicies, saveStripeConfig, saveSkydropxExtra,
-  fetchSkydropxPackageTypes,
+  fetchSkydropxPackagings, fetchSkydropxClasses,
 } from './actions'
-import type { PackageType } from '@/lib/skydropx'
+import type { SatCode } from '@/lib/skydropx'
 import ZipSelector from '@/components/ZipSelector'
 import AdminShell from '../../AdminShell'
 
@@ -181,9 +181,10 @@ function PackagingList({ items }: { items: PackagingType[] }) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const [pkgTypes, setPkgTypes] = useState<PackageType[]>([])
-  const [pkgTypesLoading, startPkgTypesTransition] = useTransition()
-  const [pkgTypesError, setPkgTypesError] = useState<string | null>(null)
+  const [packagings, setPackagings] = useState<SatCode[]>([])
+  const [classes, setClasses] = useState<SatCode[]>([])
+  const [satLoading, startSatTransition] = useTransition()
+  const [satError, setSatError] = useState<string | null>(null)
   const router = useRouter()
   const refresh = () => router.refresh()
 
@@ -192,12 +193,13 @@ function PackagingList({ items }: { items: PackagingType[] }) {
     letterSpacing: '0.07em', textTransform: 'uppercase',
   }
 
-  function handleLoadPkgTypes() {
-    setPkgTypesError(null)
-    startPkgTypesTransition(async () => {
-      const { types, error } = await fetchSkydropxPackageTypes()
-      if (error) { setPkgTypesError(error); return }
-      setPkgTypes(types ?? [])
+  function handleLoadSatCodes() {
+    setSatError(null)
+    startSatTransition(async () => {
+      const [pkgRes, clsRes] = await Promise.all([fetchSkydropxPackagings(), fetchSkydropxClasses()])
+      if (pkgRes.error || clsRes.error) { setSatError(pkgRes.error ?? clsRes.error ?? 'error'); return }
+      setPackagings(pkgRes.codes ?? [])
+      setClasses(clsRes.codes ?? [])
     })
   }
 
@@ -211,28 +213,40 @@ function PackagingList({ items }: { items: PackagingType[] }) {
           <label className="adm-lbl">alto cm<input name="height_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.height_cm ?? ''} className="adm-inp" /></label>
           <label className="adm-lbl">peso g<input name="weight_grams" type="number" min="0" required defaultValue={pkg?.weight_grams ?? ''} className="adm-inp" /></label>
         </div>
+        <div style={{ marginBottom: 4 }}>
+          <button type="button" onClick={handleLoadSatCodes} disabled={satLoading}
+            className="adm-btn-secondary" style={{ fontSize: 11, padding: '5px 10px' }}>
+            {satLoading ? 'cargando…' : 'cargar catálogos SAT de Skydropx'}
+          </button>
+          {satError && <span style={{ fontSize: 11, color: '#cc0000', marginLeft: 8 }}>{satError}</span>}
+          {(packagings.length > 0 || classes.length > 0) && (
+            <span style={{ fontSize: 11, color: '#1a6b35', marginLeft: 8 }}>
+              {packagings.length} embalajes · {classes.length} clases cargadas
+            </span>
+          )}
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <label className="adm-lbl">
-            tipo de paquete skydropx
-            {pkgTypes.length > 0 ? (
+            código embalaje SAT (consignment_note_packaging_code)
+            {packagings.length > 0 ? (
               <select name="skydropx_package_type" defaultValue={pkg?.skydropx_package_type ?? ''} className="adm-inp">
-                <option value="">— sin asignar —</option>
-                {pkgTypes.map(t => <option key={t.id} value={t.id}>{t.name} ({t.id})</option>)}
+                <option value="">— selecciona —</option>
+                {packagings.map(c => <option key={c.id} value={c.id}>{c.id} — {c.name}</option>)}
               </select>
             ) : (
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <input name="skydropx_package_type" defaultValue={pkg?.skydropx_package_type ?? ''} placeholder="ej. box, parcel…" className="adm-inp" style={{ flex: 1 }} />
-                <button type="button" onClick={handleLoadPkgTypes} disabled={pkgTypesLoading}
-                  className="adm-btn-secondary" style={{ fontSize: 11, padding: '6px 10px', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                  {pkgTypesLoading ? '…' : 'cargar de Skydropx'}
-                </button>
-              </div>
+              <input name="skydropx_package_type" defaultValue={pkg?.skydropx_package_type ?? ''} placeholder="ej. 4G" className="adm-inp" />
             )}
-            {pkgTypesError && <span style={{ fontSize: 11, color: '#cc0000' }}>{pkgTypesError}</span>}
           </label>
           <label className="adm-lbl">
-            contenido (consignment note)
-            <input name="consignment_note" defaultValue={pkg?.consignment_note ?? 'Merch'} placeholder="ej. Ropa y accesorios" className="adm-inp" />
+            código clase SAT (consignment_note_class_code)
+            {classes.length > 0 ? (
+              <select name="consignment_note" defaultValue={pkg?.consignment_note ?? ''} className="adm-inp">
+                <option value="">— selecciona —</option>
+                {classes.map(c => <option key={c.id} value={c.id}>{c.id} — {c.name}</option>)}
+              </select>
+            ) : (
+              <input name="consignment_note" defaultValue={pkg?.consignment_note ?? ''} placeholder="ej. 53131600" className="adm-inp" />
+            )}
           </label>
         </div>
       </div>

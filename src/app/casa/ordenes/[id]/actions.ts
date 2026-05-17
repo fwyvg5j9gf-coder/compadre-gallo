@@ -143,7 +143,8 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
       reference: order.customer_name ?? 'Cliente',
     }
 
-    if (!parcel.packageType) return { error: 'configura el tipo de paquete Skydropx en el embalaje del producto antes de crear la guía' }
+    if (!parcel.packageType) return { error: 'configura el código de embalaje SAT (Skydropx) en el tipo de embalaje del producto' }
+    if (!parcel.consignmentNote) return { error: 'configura el código de clase SAT (Skydropx) en el tipo de embalaje del producto' }
 
     const result = await createShipment({
       clientId: settings.skydropx_client_id,
@@ -152,8 +153,8 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
       addressFrom,
       addressTo,
       parcel,
-      packageType: parcel.packageType,
-      contentDescription: parcel.consignmentNote,
+      packagingCode: parcel.packageType,
+      classCode: parcel.consignmentNote,
     })
 
     await supabaseAdmin.from('orders').update({

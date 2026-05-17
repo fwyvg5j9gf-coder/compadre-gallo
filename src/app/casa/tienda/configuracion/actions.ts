@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
-import { getShippingRates, getPackageTypes } from '@/lib/skydropx'
-import type { ShippingRate, PackageType } from '@/lib/skydropx'
+import { getShippingRates, getConsignmentNotePackagings, getConsignmentNoteClasses } from '@/lib/skydropx'
+import type { ShippingRate, SatCode } from '@/lib/skydropx'
 import { requireAdminOrThrow as requireAdmin } from '@/lib/auth.server'
 
 // ── Categorías ────────────────────────────────────────────────────────────────
@@ -233,31 +233,30 @@ export async function saveStripeConfig(formData: FormData) {
   revalidatePath('/casa/tienda/configuracion')
 }
 
-export async function fetchSkydropxPackageTypes(): Promise<{ types?: PackageType[]; error?: string }> {
-  await requireAdmin()
+async function getSkydropxCredentials() {
   const { data: settings } = await supabaseAdmin
-    .from('store_settings')
-    .select('skydropx_client_id, skydropx_client_secret')
-    .single()
-  if (!settings?.skydropx_client_id || !settings.skydropx_client_secret) {
-    return { error: 'configura las credenciales de Skydropx primero' }
-  }
-  try {
-    const types = await getPackageTypes(settings.skydropx_client_id, settings.skydropx_client_secret)
-    return { types }
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'error consultando Skydropx' }
-  }
+    .from('store_settings').select('skydropx_client_id, skydropx_client_secret').single()
+  if (!settings?.skydropx_client_id || !settings.skydropx_client_secret)
+    throw new Error('configura las credenciales de Skydropx primero')
+  return { clientId: settings.skydropx_client_id, clientSecret: settings.skydropx_client_secret }
 }
 
-export async function updatePackagingSkydropx(id: string, skydropxPackageType: string, consignmentNote: string) {
+export async function fetchSkydropxPackagings(): Promise<{ codes?: SatCode[]; error?: string }> {
   await requireAdmin()
-  const { error } = await supabaseAdmin
-    .from('packaging_types')
-    .update({ skydropx_package_type: skydropxPackageType, consignment_note: consignmentNote.trim() || 'Merch' })
-    .eq('id', id)
-  if (error) throw new Error(error.message)
-  revalidatePath('/casa/tienda/configuracion')
+  try {
+    const { clientId, clientSecret } = await getSkydropxCredentials()
+    const codes = await getConsignmentNotePackagings(clientId, clientSecret)
+    return { codes }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'error consultando Skydropx' } }
+}
+
+export async function fetchSkydropxClasses(): Promise<{ codes?: SatCode[]; error?: string }> {
+  await requireAdmin()
+  try {
+    const { clientId, clientSecret } = await getSkydropxCredentials()
+    const codes = await getConsignmentNoteClasses(clientId, clientSecret)
+    return { codes }
+  } catch (e) { return { error: e instanceof Error ? e.message : 'error consultando Skydropx' } }
 }
 
 export async function saveSkydropxExtra(formData: FormData) {

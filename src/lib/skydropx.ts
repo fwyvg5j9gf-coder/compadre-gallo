@@ -175,8 +175,46 @@ type Address = {
   reference?: string
 }
 
+// ── Catálogos SAT (Carta Porte) ───────────────────────────────────────────────
+
+export type SatCode = { id: string; name: string }
+
+export async function getConsignmentNotePackagings(clientId: string, clientSecret: string): Promise<SatCode[]> {
+  try {
+    const token = await getAccessToken(clientId.replace(/\s+/g, ''), clientSecret.replace(/\s+/g, ''))
+    const res = await fetch(`${BASE}/api/v1/consignment_notes/packagings`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      cache: 'no-store',
+    })
+    if (!res.ok) return []
+    const json = await res.json()
+    const items: Record<string, unknown>[] = json?.data ?? json ?? []
+    return items.map(i => {
+      const attrs = (i.attributes ?? i) as Record<string, unknown>
+      return { id: String(i.id ?? attrs.code ?? ''), name: String(attrs.name ?? attrs.description ?? i.id ?? '') }
+    }).filter(i => i.id)
+  } catch { return [] }
+}
+
+export async function getConsignmentNoteClasses(clientId: string, clientSecret: string): Promise<SatCode[]> {
+  try {
+    const token = await getAccessToken(clientId.replace(/\s+/g, ''), clientSecret.replace(/\s+/g, ''))
+    const res = await fetch(`${BASE}/api/v1/consignment_notes/classes`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      cache: 'no-store',
+    })
+    if (!res.ok) return []
+    const json = await res.json()
+    const items: Record<string, unknown>[] = json?.data ?? json ?? []
+    return items.map(i => {
+      const attrs = (i.attributes ?? i) as Record<string, unknown>
+      return { id: String(i.id ?? attrs.code ?? ''), name: String(attrs.name ?? attrs.description ?? i.id ?? '') }
+    }).filter(i => i.id)
+  } catch { return [] }
+}
+
 export async function createShipment({
-  clientId, clientSecret, rateId, addressFrom, addressTo, parcel, packageType, contentDescription,
+  clientId, clientSecret, rateId, addressFrom, addressTo, parcel, packagingCode, classCode,
 }: {
   clientId: string
   clientSecret: string
@@ -184,8 +222,8 @@ export async function createShipment({
   addressFrom: Address
   addressTo: Address
   parcel: { weight_kg: number; length_cm: number; width_cm: number; height_cm: number }
-  packageType: string
-  contentDescription?: string
+  packagingCode: string
+  classCode: string
 }): Promise<ShipmentResult> {
   const token = await getAccessToken(
     clientId.replace(/\s+/g, ''),
@@ -195,6 +233,8 @@ export async function createShipment({
   const body = {
     shipment: {
       rate_id: rateId,
+      consignment_note_packaging_code: packagingCode,
+      consignment_note_class_code: classCode,
       address_from: {
         name: addressFrom.name,
         email: addressFrom.email ?? '',
@@ -219,15 +259,15 @@ export async function createShipment({
         street1: addressTo.street.trim(),
         reference: addressTo.reference ?? addressTo.name,
       },
-      parcels: [{
-        weight: Math.max(0.01, parcel.weight_kg),
-        length: Math.max(1, Math.round(parcel.length_cm)),
-        width: Math.max(1, Math.round(parcel.width_cm)),
-        height: Math.max(1, Math.round(parcel.height_cm)),
-        package_type: packageType,
-        consignment_note: contentDescription ?? 'Merch',
-      }],
     },
+    parcels: [{
+      weight: Math.max(0.01, parcel.weight_kg),
+      mass_unit: 'KG',
+      distance_unit: 'CM',
+      length: Math.max(1, Math.round(parcel.length_cm)),
+      width: Math.max(1, Math.round(parcel.width_cm)),
+      height: Math.max(1, Math.round(parcel.height_cm)),
+    }],
   }
 
   const res = await fetch(`${BASE}/api/v1/shipments`, {
