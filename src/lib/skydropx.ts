@@ -267,6 +267,8 @@ export async function createShipment({
       length: Math.max(1, Math.round(parcel.length_cm)),
       width: Math.max(1, Math.round(parcel.width_cm)),
       height: Math.max(1, Math.round(parcel.height_cm)),
+      package_type: packagingCode,
+      consignment_note: classCode,
     }],
   }
 
