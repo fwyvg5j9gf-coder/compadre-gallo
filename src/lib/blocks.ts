@@ -14,8 +14,27 @@ export type Block = {
   type: BlockType
   content: Record<string, string>
   draft_content: Record<string, string> | null
+  spacing_bottom: number
   visible: boolean
   sort_order: number
+}
+
+export type NavLink     = { label: string; href: string }
+export type NavSettings = { links: NavLink[] }
+export type FooterLink  = { label: string; href: string }
+export type FooterSettings = { email: string; copyright: string; links: FooterLink[] }
+
+export const DEFAULT_NAV_LINKS: NavLink[] = [
+  { label: 'artistas', href: '/artistas' },
+  { label: 'preventa', href: '/preventa' },
+  { label: 'tienda',   href: '/tienda'   },
+  { label: 'cuenta',   href: '/cuenta'   },
+]
+
+export const DEFAULT_FOOTER: FooterSettings = {
+  email:     'info@compadregallo.com',
+  copyright: '© 2026 gallo records',
+  links:     [{ label: 'prensa', href: '#' }, { label: 'privacidad', href: '#' }],
 }
 
 export const BLOCK_META: Record<BlockType, { label: string; description: string; pages: string[] }> = {

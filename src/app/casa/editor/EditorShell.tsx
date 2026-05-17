@@ -1,8 +1,14 @@
 'use client'
 
 import { useState, useTransition, useRef, useEffect } from 'react'
-import { updateBlock, toggleBlockVisible, moveBlock, deleteBlock, addBlock, getBlockUploadUrl, publishPage } from './actions'
-import { BLOCK_META, BLOCK_FIELDS, type Block, type BlockType } from '@/lib/blocks'
+import {
+  updateBlock, updateBlockSpacing, toggleBlockVisible, moveBlock, deleteBlock,
+  addBlock, getBlockUploadUrl, publishPage, saveSiteSettings,
+} from './actions'
+import {
+  BLOCK_META, BLOCK_FIELDS, type Block, type BlockType,
+  type NavSettings, type FooterSettings, type NavLink, type FooterLink,
+} from '@/lib/blocks'
 
 const B = '#e8e7e1', M = '#6b6a64', S = '#9a9994'
 
@@ -17,6 +23,16 @@ const DEVICES = [
   { key: 'tablet',   label: 'tablet',     width: 768 },
   { key: 'desktop',  label: 'escritorio', width: '100%' as const },
 ]
+
+const SPACING_OPTS = [
+  { label: '─', val: 0 },
+  { label: 'S',  val: 24 },
+  { label: 'M',  val: 48 },
+  { label: 'L',  val: 96 },
+  { label: 'XL', val: 192 },
+]
+
+type ViewMode = 'blocks' | 'header' | 'footer'
 
 // ── Image field ────────────────────────────────────────────────────────────────
 function ImageField({ value, onChange }: { value: string; onChange: (url: string) => void }) {
@@ -79,14 +95,15 @@ function AddBlockModal({ pageKey, onClose, onAdded }: { pageKey: string; onClose
   )
 }
 
-// ── Block edit panel — auto-save on change ─────────────────────────────────────
+// ── Block edit panel ───────────────────────────────────────────────────────────
 function BlockEditPanel({
-  block, pageKey, onSaved, onLocalChange,
+  block, pageKey, onSaved, onLocalChange, onSpacingChanged,
 }: {
   block: Block
   pageKey: string
   onSaved: (newContent: Record<string, string>) => void
   onLocalChange: (newContent: Record<string, string>) => void
+  onSpacingChanged: (id: string, spacing: number) => void
 }) {
   const [values, setValues] = useState<Record<string, string>>(block.draft_content ?? block.content)
   const [, start] = useTransition()
@@ -94,14 +111,12 @@ function BlockEditPanel({
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const fields = BLOCK_FIELDS[block.type] ?? []
 
-  // Reset if block changes (navigating between blocks)
   useEffect(() => { setValues(block.draft_content ?? block.content) }, [block.id])
 
   function set(key: string, val: string) {
     const next = { ...values, [key]: val }
     setValues(next)
     onLocalChange(next)
-
     clearTimeout(debounceRef.current)
     setStatus('saving')
     debounceRef.current = setTimeout(() => {
@@ -116,29 +131,50 @@ function BlockEditPanel({
 
   useEffect(() => () => clearTimeout(debounceRef.current), [])
 
-  if (!fields.length) return (
-    <div style={{ padding: 20, fontSize: 13, color: M, fontStyle: 'italic' }}>
-      Este bloque no tiene campos editables — su contenido viene de la base de datos.
-    </div>
-  )
-
   return (
     <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Status bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 20 }}>
-        {status === 'saving' && (
-          <>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ffe200', animation: 'pulse 1s infinite' }} />
-            <span style={{ fontSize: 11, color: '#7a6600' }}>guardando...</span>
-          </>
-        )}
-        {status === 'saved' && (
-          <>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#1a6b35' }} />
-            <span style={{ fontSize: 11, color: '#1a6b35' }}>borrador guardado</span>
-          </>
-        )}
+      {/* Spacing */}
+      <div>
+        <label style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
+          espaciado inferior
+        </label>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {SPACING_OPTS.map(opt => (
+            <button key={opt.val} onClick={() => onSpacingChanged(block.id, opt.val)}
+              style={{
+                height: 28, padding: '0 8px', fontSize: 11, fontWeight: 700,
+                background: (block.spacing_bottom ?? 0) === opt.val ? '#003a87' : '#f6f5f1',
+                color: (block.spacing_bottom ?? 0) === opt.val ? '#fff' : M,
+                border: `1px solid ${(block.spacing_bottom ?? 0) === opt.val ? '#003a87' : B}`,
+                borderRadius: 4, cursor: 'pointer',
+              }}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {fields.length > 0 && <div style={{ borderTop: `1px solid ${B}` }} />}
+
+      {/* Status */}
+      {fields.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 16 }}>
+          {status === 'saving' && (
+            <><div style={{ width: 6, height: 6, borderRadius: '50%', background: '#ffe200', animation: 'pulse 1s infinite' }} />
+            <span style={{ fontSize: 11, color: '#7a6600' }}>guardando...</span></>
+          )}
+          {status === 'saved' && (
+            <><div style={{ width: 6, height: 6, borderRadius: '50%', background: '#1a6b35' }} />
+            <span style={{ fontSize: 11, color: '#1a6b35' }}>borrador guardado</span></>
+          )}
+        </div>
+      )}
+
+      {fields.length === 0 && (
+        <div style={{ fontSize: 13, color: M, fontStyle: 'italic' }}>
+          Este bloque no tiene campos editables — su contenido viene de la base de datos.
+        </div>
+      )}
 
       {fields.map(f => (
         <div key={f.key}>
@@ -168,7 +204,7 @@ function BlockEditPanel({
 }
 
 // ── Block row ──────────────────────────────────────────────────────────────────
-function BlockRow({ block, pageKey, index, total, onEdit, isEditing, onSaved, onLocalChange, onVisibilityToggled, onMoved, onDeleted }:
+function BlockRow({ block, pageKey, index, total, onEdit, isEditing, onSaved, onLocalChange, onVisibilityToggled, onMoved, onDeleted, onSpacingChanged }:
   {
     block: Block; pageKey: string; index: number; total: number
     onEdit: () => void; isEditing: boolean
@@ -177,6 +213,7 @@ function BlockRow({ block, pageKey, index, total, onEdit, isEditing, onSaved, on
     onVisibilityToggled: (id: string, visible: boolean) => void
     onMoved: (id: string, dir: -1 | 1) => void
     onDeleted: (id: string) => void
+    onSpacingChanged: (id: string, spacing: number) => void
   }) {
   const [pending, start] = useTransition()
   const meta = BLOCK_META[block.type]
@@ -186,12 +223,10 @@ function BlockRow({ block, pageKey, index, total, onEdit, isEditing, onSaved, on
     onVisibilityToggled(block.id, next)
     start(() => toggleBlockVisible(block.id, pageKey, next))
   }
-
   function runMove(dir: -1 | 1) {
     onMoved(block.id, dir)
     start(() => moveBlock(block.id, pageKey, dir))
   }
-
   function runDelete() {
     if (!confirm('¿Eliminar este bloque?')) return
     onDeleted(block.id)
@@ -233,24 +268,147 @@ function BlockRow({ block, pageKey, index, total, onEdit, isEditing, onSaved, on
           pageKey={pageKey}
           onSaved={onSaved}
           onLocalChange={onLocalChange}
+          onSpacingChanged={onSpacingChanged}
         />
       )}
     </div>
   )
 }
 
+// ── Link list editor (shared between nav and footer extra links) ────────────────
+function LinkListEditor({ links, onChange }: { links: (NavLink | FooterLink)[]; onChange: (links: (NavLink | FooterLink)[]) => void }) {
+  function update(i: number, field: 'label' | 'href', val: string) {
+    const next = links.map((l, idx) => idx === i ? { ...l, [field]: val } : l)
+    onChange(next)
+  }
+  function move(i: number, dir: -1 | 1) {
+    const next = [...links]
+    ;[next[i], next[i + dir]] = [next[i + dir], next[i]]
+    onChange(next)
+  }
+  function remove(i: number) { onChange(links.filter((_, idx) => idx !== i)) }
+  function add() { onChange([...links, { label: '', href: '' }]) }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {links.map((l, i) => (
+        <div key={i} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <input value={l.label} onChange={e => update(i, 'label', e.target.value)}
+            placeholder="nombre" className="adm-inp" style={{ flex: 1, height: 30, fontSize: 12 }} />
+          <input value={l.href} onChange={e => update(i, 'href', e.target.value)}
+            placeholder="/ruta" className="adm-inp" style={{ flex: 1.5, height: 30, fontSize: 12 }} />
+          <button onClick={() => move(i, -1)} disabled={i === 0} className="adm-btn-icon"
+            style={{ height: 24, width: 20, fontSize: 10, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>↑</button>
+          <button onClick={() => move(i, 1)} disabled={i === links.length - 1} className="adm-btn-icon"
+            style={{ height: 24, width: 20, fontSize: 10, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>↓</button>
+          <button onClick={() => remove(i)} className="adm-btn-icon"
+            style={{ height: 24, width: 20, fontSize: 11, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cc0000', flexShrink: 0 }}>✕</button>
+        </div>
+      ))}
+      <button onClick={add} className="adm-btn-secondary"
+        style={{ height: 30, fontSize: 11, marginTop: 2 }}>+ agregar link</button>
+    </div>
+  )
+}
+
+// ── Globals panels ─────────────────────────────────────────────────────────────
+function NavPanel({ settings, onRefreshPreview }: { settings: NavSettings; onRefreshPreview: () => void }) {
+  const [links, setLinks] = useState<NavLink[]>(settings.links)
+  const [saving, startSave] = useTransition()
+  const [saved, setSaved] = useState(false)
+
+  function save() {
+    startSave(async () => {
+      await saveSiteSettings('nav', { links })
+      setSaved(true)
+      onRefreshPreview()
+      setTimeout(() => setSaved(false), 2500)
+    })
+  }
+
+  return (
+    <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16, flex: 1, overflowY: 'auto' }}>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#0a0a0a', marginBottom: 4 }}>links de navegación</div>
+        <div style={{ fontSize: 11, color: M }}>cambios van directo a live al guardar</div>
+      </div>
+      <LinkListEditor links={links} onChange={setLinks as (l: (NavLink | FooterLink)[]) => void} />
+      <button onClick={save} disabled={saving} className="adm-btn-primary" style={{ height: 36, fontSize: 12, marginTop: 4 }}>
+        {saving ? 'guardando…' : 'guardar y publicar'}
+      </button>
+      {saved && <span style={{ fontSize: 11, color: '#1a6b35', textAlign: 'center' }}>guardado ✓ — nav actualizada en live</span>}
+    </div>
+  )
+}
+
+function FooterPanel({ settings, onRefreshPreview }: { settings: FooterSettings; onRefreshPreview: () => void }) {
+  const [email, setEmail]       = useState(settings.email)
+  const [copyright, setCopyright] = useState(settings.copyright)
+  const [links, setLinks]       = useState<FooterLink[]>(settings.links)
+  const [saving, startSave]     = useTransition()
+  const [saved, setSaved]       = useState(false)
+
+  function save() {
+    startSave(async () => {
+      await saveSiteSettings('footer', { email, copyright, links })
+      setSaved(true)
+      onRefreshPreview()
+      setTimeout(() => setSaved(false), 2500)
+    })
+  }
+
+  return (
+    <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16, flex: 1, overflowY: 'auto' }}>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#0a0a0a', marginBottom: 4 }}>pie de página</div>
+        <div style={{ fontSize: 11, color: M }}>cambios van directo a live al guardar</div>
+      </div>
+
+      <div>
+        <label style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>email de contacto</label>
+        <input value={email} onChange={e => setEmail(e.target.value)}
+          placeholder="info@ejemplo.com" className="adm-inp" style={{ width: '100%', height: 34, fontSize: 13 }} />
+      </div>
+
+      <div>
+        <label style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 5 }}>copyright</label>
+        <input value={copyright} onChange={e => setCopyright(e.target.value)}
+          placeholder="© 2026 tu empresa" className="adm-inp" style={{ width: '100%', height: 34, fontSize: 13 }} />
+      </div>
+
+      <div>
+        <label style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>links adicionales</label>
+        <LinkListEditor links={links} onChange={setLinks as (l: (NavLink | FooterLink)[]) => void} />
+      </div>
+
+      <button onClick={save} disabled={saving} className="adm-btn-primary" style={{ height: 36, fontSize: 12 }}>
+        {saving ? 'guardando…' : 'guardar y publicar'}
+      </button>
+      {saved && <span style={{ fontSize: 11, color: '#1a6b35', textAlign: 'center' }}>guardado ✓ — footer actualizado en live</span>}
+    </div>
+  )
+}
+
 // ── Main shell ─────────────────────────────────────────────────────────────────
-export default function EditorShell({ initialBlocks }: { initialBlocks: Block[] }) {
-  const [blocks, setBlocks] = useState(initialBlocks)
-  const [pageKey, setPageKey] = useState('home')
-  const [device, setDevice] = useState<'mobile' | 'tablet' | 'desktop'>('desktop')
-  const [editingId, setEditingId] = useState<string | null>(null)
+export default function EditorShell({
+  initialBlocks, navSettings, footerSettings,
+}: {
+  initialBlocks: Block[]
+  navSettings: NavSettings
+  footerSettings: FooterSettings
+}) {
+  const [blocks, setBlocks]         = useState(initialBlocks)
+  const [pageKey, setPageKey]       = useState('home')
+  const [device, setDevice]         = useState<'mobile' | 'tablet' | 'desktop'>('desktop')
+  const [viewMode, setViewMode]     = useState<ViewMode>('blocks')
+  const [editingId, setEditingId]   = useState<string | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
-  const [hasDraft, setHasDraft] = useState(() => initialBlocks.some(b => b.draft_content !== null))
-  const [publishing, startPublish] = useTransition()
-  const iframeRef = useRef<HTMLIFrameElement>(null)
-  const previewTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const [hasDraft, setHasDraft]     = useState(() => initialBlocks.some(b => b.draft_content !== null))
+  const [publishing, startPublish]  = useTransition()
+  const [, startSpacing]            = useTransition()
+  const iframeRef                   = useRef<HTMLIFrameElement>(null)
+  const previewTimerRef             = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const page    = PAGES.find(p => p.key === pageKey)!
   const devConf = DEVICES.find(d => d.key === device)!
@@ -263,7 +421,6 @@ export default function EditorShell({ initialBlocks }: { initialBlocks: Block[] 
       if (iframeRef.current?.contentWindow) {
         iframeRef.current.contentWindow.location.reload()
       } else {
-        // fallback: remount iframe
         const iframe = iframeRef.current
         if (iframe) { iframe.src = iframe.src }
       }
@@ -271,11 +428,8 @@ export default function EditorShell({ initialBlocks }: { initialBlocks: Block[] 
     }, delay)
   }
 
-  // Reload iframe when page changes
   useEffect(() => {
-    if (iframeRef.current) {
-      iframeRef.current.src = page.path
-    }
+    if (iframeRef.current) iframeRef.current.src = page.path
   }, [pageKey])
 
   function handleBlockSaved(blockId: string, newContent: Record<string, string>) {
@@ -284,19 +438,19 @@ export default function EditorShell({ initialBlocks }: { initialBlocks: Block[] 
     refreshPreview()
   }
 
-  function handleVisibilityToggled(id: string, visible: boolean) {
-    setBlocks(prev => prev.map(b => b.id === id ? { ...b, visible } : b))
+  function handleVisibilityToggled(id: string, vis: boolean) {
+    setBlocks(prev => prev.map(b => b.id === id ? { ...b, visible: vis } : b))
     refreshPreview(600)
   }
 
   function handleMoved(id: string, dir: -1 | 1) {
     setBlocks(prev => {
-      const page = prev.filter(b => b.page_key === pageKey)
+      const pg   = prev.filter(b => b.page_key === pageKey)
       const rest = prev.filter(b => b.page_key !== pageKey)
-      const idx = page.findIndex(b => b.id === id)
+      const idx  = pg.findIndex(b => b.id === id)
       const swap = idx + dir
-      if (swap < 0 || swap >= page.length) return prev
-      const next = [...page]
+      if (swap < 0 || swap >= pg.length) return prev
+      const next = [...pg]
       ;[next[idx], next[swap]] = [next[swap], next[idx]]
       return [...rest, ...next]
     })
@@ -308,6 +462,12 @@ export default function EditorShell({ initialBlocks }: { initialBlocks: Block[] 
     refreshPreview(600)
   }
 
+  function handleSpacingChanged(id: string, spacing_bottom: number) {
+    setBlocks(prev => prev.map(b => b.id === id ? { ...b, spacing_bottom } : b))
+    startSpacing(() => updateBlockSpacing(id, spacing_bottom))
+    refreshPreview(300)
+  }
+
   function handlePublish() {
     startPublish(async () => {
       await publishPage(pageKey)
@@ -317,44 +477,60 @@ export default function EditorShell({ initialBlocks }: { initialBlocks: Block[] 
     })
   }
 
+  // ── Sidebar button helper ────────────────────────────────────────────────────
+  function SideBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+    return (
+      <button onClick={onClick} style={{
+        padding: '9px 16px', background: active ? 'rgba(255,255,255,0.08)' : 'none',
+        border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 12, fontWeight: 600,
+        color: active ? '#fff' : 'rgba(255,255,255,0.45)',
+        borderLeft: `2px solid ${active ? '#00c4df' : 'transparent'}`,
+        transition: 'all 120ms',
+      }}>
+        {children}
+      </button>
+    )
+  }
+
+  // ── Right panel header helper ────────────────────────────────────────────────
+  const rightTitle = viewMode === 'header' ? 'cabecera' : viewMode === 'footer' ? 'pie de página' : `bloques · ${page.label}`
+
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
 
-      {/* ── Left sidebar ─────────────────────────────────────────────────── */}
+      {/* ── Left sidebar ───────────────────────────────────────────────────── */}
       <div style={{ width: 160, background: '#0a0a0a', display: 'flex', flexDirection: 'column', flexShrink: 0, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+
         <div style={{ padding: '14px 16px 6px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>páginas</div>
         {PAGES.map(p => (
-          <button key={p.key} onClick={() => { setPageKey(p.key); setEditingId(null) }}
-            style={{
-              padding: '10px 16px', background: pageKey === p.key ? 'rgba(255,255,255,0.08)' : 'none',
-              border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 13, fontWeight: 600,
-              color: pageKey === p.key ? '#fff' : 'rgba(255,255,255,0.45)',
-              borderLeft: `2px solid ${pageKey === p.key ? '#003a87' : 'transparent'}`,
-              transition: 'all 120ms',
-            }}>
+          <SideBtn key={p.key} active={viewMode === 'blocks' && pageKey === p.key}
+            onClick={() => { setPageKey(p.key); setViewMode('blocks'); setEditingId(null) }}>
             {p.label}
-          </button>
+          </SideBtn>
         ))}
 
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', margin: '8px 0' }} />
 
-        <div style={{ padding: '6px 16px 6px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>dispositivo</div>
+        <div style={{ padding: '6px 16px 4px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>dispositivo</div>
         {DEVICES.map(d => (
-          <button key={d.key} onClick={() => setDevice(d.key as typeof device)}
-            style={{
-              padding: '8px 16px', background: device === d.key ? 'rgba(255,255,255,0.08)' : 'none',
-              border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 12,
-              color: device === d.key ? '#fff' : 'rgba(255,255,255,0.4)',
-              transition: 'all 120ms',
-            }}>
+          <SideBtn key={d.key} active={device === d.key} onClick={() => setDevice(d.key as typeof device)}>
             {d.label}
-          </button>
+          </SideBtn>
         ))}
+
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', margin: '8px 0' }} />
+
+        <div style={{ padding: '6px 16px 4px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>globales</div>
+        <SideBtn active={viewMode === 'header'} onClick={() => { setViewMode('header'); setEditingId(null) }}>
+          cabecera
+        </SideBtn>
+        <SideBtn active={viewMode === 'footer'} onClick={() => { setViewMode('footer'); setEditingId(null) }}>
+          pie de página
+        </SideBtn>
       </div>
 
-      {/* ── Center: iframe preview ────────────────────────────────────────── */}
+      {/* ── Center: iframe preview ──────────────────────────────────────────── */}
       <div style={{ flex: 1, background: '#1e1e1c', display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'auto', padding: '16px 0' }}>
-        {/* address bar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, background: 'rgba(255,255,255,0.06)', padding: '6px 14px', borderRadius: 8, minWidth: 220 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: previewLoading ? '#ffe200' : '#1a6b35', transition: 'background 200ms', flexShrink: 0 }} />
           <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace', flex: 1 }}>{page.path}</span>
@@ -363,7 +539,6 @@ export default function EditorShell({ initialBlocks }: { initialBlocks: Block[] 
             title="Actualizar preview">↻</button>
         </div>
 
-        {/* iframe container */}
         <div style={{
           width: devConf.width === '100%' ? 'calc(100% - 32px)' : devConf.width,
           background: '#fff', borderRadius: 8, overflow: 'hidden',
@@ -375,79 +550,79 @@ export default function EditorShell({ initialBlocks }: { initialBlocks: Block[] 
             <div style={{
               position: 'absolute', top: 0, left: 0, right: 0, height: 2,
               background: 'linear-gradient(90deg, #003a87, #00c4df, #ffe200)',
-              animation: 'slideIn 1s ease-in-out',
-              zIndex: 10,
+              animation: 'slideIn 1s ease-in-out', zIndex: 10,
             }} />
           )}
-          <iframe
-            ref={iframeRef}
-            src={page.path}
-            style={{
-              width: '100%',
-              height: device === 'mobile' ? 844 : device === 'tablet' ? 1024 : 800,
-              border: 'none', display: 'block',
-              opacity: previewLoading ? 0.6 : 1,
-              transition: 'opacity 200ms',
-            }}
-          />
+          <iframe ref={iframeRef} src={page.path} style={{
+            width: '100%',
+            height: device === 'mobile' ? 844 : device === 'tablet' ? 1024 : 800,
+            border: 'none', display: 'block',
+            opacity: previewLoading ? 0.6 : 1, transition: 'opacity 200ms',
+          }} />
         </div>
       </div>
 
-      {/* ── Right: blocks panel ───────────────────────────────────────────── */}
+      {/* ── Right panel ────────────────────────────────────────────────────── */}
       <div style={{ width: 300, background: '#fff', borderLeft: `1px solid ${B}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+
+        {/* Header */}
         <div style={{ padding: '14px 20px', borderBottom: `1px solid ${B}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#0a0a0a' }}>bloques · {page.label}</span>
-            {hasDraft && (
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#0a0a0a' }}>{rightTitle}</span>
+            {viewMode === 'blocks' && hasDraft && (
               <span style={{ fontSize: 10, fontWeight: 700, background: '#ffe200', color: '#5a4800', padding: '2px 6px', borderRadius: 4, letterSpacing: '0.04em', flexShrink: 0 }}>
                 BORRADOR
               </span>
             )}
           </div>
-          <button
-            onClick={handlePublish}
-            disabled={!hasDraft || publishing}
-            style={{
-              padding: '5px 12px', fontSize: 11, fontWeight: 700,
-              background: hasDraft ? '#003a87' : '#e8e7e1',
-              color: hasDraft ? '#fff' : '#9a9994',
-              border: 'none', borderRadius: 6, cursor: hasDraft ? 'pointer' : 'default',
-              transition: 'all 150ms', flexShrink: 0,
-            }}
-          >
-            {publishing ? 'publicando…' : 'publicar'}
-          </button>
-        </div>
-
-        <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {visible.length === 0 && (
-            <div style={{ fontSize: 13, color: S, fontStyle: 'italic', textAlign: 'center', paddingTop: 32 }}>
-              esta página no tiene bloques todavía.
-            </div>
+          {viewMode === 'blocks' && (
+            <button onClick={handlePublish} disabled={!hasDraft || publishing}
+              style={{
+                padding: '5px 12px', fontSize: 11, fontWeight: 700,
+                background: hasDraft ? '#003a87' : '#e8e7e1',
+                color: hasDraft ? '#fff' : '#9a9994',
+                border: 'none', borderRadius: 6,
+                cursor: hasDraft ? 'pointer' : 'default', transition: 'all 150ms', flexShrink: 0,
+              }}>
+              {publishing ? 'publicando…' : 'publicar'}
+            </button>
           )}
-          {visible.map((b, i) => (
-            <BlockRow
-              key={b.id}
-              block={b}
-              pageKey={pageKey}
-              index={i}
-              total={visible.length}
-              isEditing={editingId === b.id}
-              onEdit={() => setEditingId(editingId === b.id ? null : b.id)}
-              onSaved={(newContent) => handleBlockSaved(b.id, newContent)}
-              onLocalChange={(newContent) => setBlocks(prev => prev.map(x => x.id === b.id ? { ...x, content: newContent } : x))}
-              onVisibilityToggled={handleVisibilityToggled}
-              onMoved={handleMoved}
-              onDeleted={handleDeleted}
-            />
-          ))}
         </div>
 
-        <div style={{ padding: 12, borderTop: `1px solid ${B}` }}>
-          <button onClick={() => setShowAddModal(true)} className="adm-btn-primary" style={{ width: '100%', height: 38, fontSize: 13 }}>
-            + agregar bloque
-          </button>
-        </div>
+        {/* Body */}
+        {viewMode === 'blocks' ? (
+          <>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {visible.length === 0 && (
+                <div style={{ fontSize: 13, color: S, fontStyle: 'italic', textAlign: 'center', paddingTop: 32 }}>
+                  esta página no tiene bloques todavía.
+                </div>
+              )}
+              {visible.map((b, i) => (
+                <BlockRow
+                  key={b.id} block={b} pageKey={pageKey} index={i} total={visible.length}
+                  isEditing={editingId === b.id}
+                  onEdit={() => setEditingId(editingId === b.id ? null : b.id)}
+                  onSaved={(newContent) => handleBlockSaved(b.id, newContent)}
+                  onLocalChange={(newContent) => setBlocks(prev => prev.map(x => x.id === b.id ? { ...x, content: newContent } : x))}
+                  onVisibilityToggled={handleVisibilityToggled}
+                  onMoved={handleMoved}
+                  onDeleted={handleDeleted}
+                  onSpacingChanged={handleSpacingChanged}
+                />
+              ))}
+            </div>
+            <div style={{ padding: 12, borderTop: `1px solid ${B}` }}>
+              <button onClick={() => setShowAddModal(true)} className="adm-btn-primary" style={{ width: '100%', height: 38, fontSize: 13 }}>
+                + agregar bloque
+              </button>
+            </div>
+          </>
+        ) : viewMode === 'header' ? (
+          <NavPanel settings={navSettings} onRefreshPreview={() => refreshPreview(800)} />
+        ) : (
+          <FooterPanel settings={footerSettings} onRefreshPreview={() => refreshPreview(800)} />
+        )}
       </div>
 
       {showAddModal && (
@@ -459,14 +634,8 @@ export default function EditorShell({ initialBlocks }: { initialBlocks: Block[] 
       )}
 
       <style>{`
-        @keyframes slideIn {
-          from { transform: translateX(-100%); }
-          to   { transform: translateX(0); }
-        }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50%       { opacity: 0.3; }
-        }
+        @keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
       `}</style>
     </div>
   )

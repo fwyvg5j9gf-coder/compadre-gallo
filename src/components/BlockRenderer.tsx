@@ -103,15 +103,19 @@ export default function BlockRenderer({ block }: { block: Block }) {
   if (!block.visible) return null
   const c = block.content
 
+  let inner: React.ReactNode
   switch (block.type) {
-    case 'hero-mascot':  return <HeroMascotBlock c={c} />
-    case 'cta-split':    return <CtaSplitBlock c={c} />
-    case 'page-header':  return <PageHeaderBlock c={c} />
-    case 'text-block':   return <TextBlockBlock c={c} />
-    case 'image-block':  return <ImageBlockBlock c={c} />
-    case 'banner-cta':   return <BannerCtaBlock c={c} />
+    case 'hero-mascot':  inner = <HeroMascotBlock c={c} />; break
+    case 'cta-split':    inner = <CtaSplitBlock c={c} />; break
+    case 'page-header':  inner = <PageHeaderBlock c={c} />; break
+    case 'text-block':   inner = <TextBlockBlock c={c} />; break
+    case 'image-block':  inner = <ImageBlockBlock c={c} />; break
+    case 'banner-cta':   inner = <BannerCtaBlock c={c} />; break
     case 'artist-grid':
-    case 'product-grid': return null // rendered by parent page
+    case 'product-grid': return null
     default:             return null
   }
+
+  if (!block.spacing_bottom) return <>{inner}</>
+  return <div style={{ paddingBottom: block.spacing_bottom }}>{inner}</div>
 }

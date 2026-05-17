@@ -85,6 +85,24 @@ export async function addBlock(pageKey: string, type: BlockType) {
   reval(pageKey)
 }
 
+export async function updateBlockSpacing(id: string, spacing_bottom: number) {
+  await requireAdmin()
+  await supabaseAdmin.from('page_blocks')
+    .update({ spacing_bottom, updated_at: new Date().toISOString() })
+    .eq('id', id)
+}
+
+export async function saveSiteSettings(key: string, value: Record<string, unknown>) {
+  await requireAdmin()
+  await supabaseAdmin.from('site_settings')
+    .upsert({ key, value, updated_at: new Date().toISOString() })
+  // Nav/footer appear on every page — revalidate all public routes
+  revalidatePath('/')
+  revalidatePath('/artistas')
+  revalidatePath('/tienda')
+  revalidatePath('/preventa')
+}
+
 export async function getBlockUploadUrl(filename: string) {
   await requireAdmin()
   const ext  = filename.split('.').pop() ?? 'jpg'

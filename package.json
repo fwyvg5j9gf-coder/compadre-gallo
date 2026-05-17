@@ -20,7 +20,8 @@
     "react-easy-crop": "^5.5.7",
     "resend": "^6.12.3",
     "shared-data": "^1.0.5",
-    "stripe": "^22.1.1"
+    "stripe": "^22.1.1",
+    "svix": "^1.93.0"
   },
   "devDependencies": {
     "@types/node": "^20",

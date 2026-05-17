@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
+import type { NavLink } from '@/lib/blocks';
 
-const links = [
-  { href: '/artistas',  label: 'artistas' },
-  { href: '/preventa',  label: 'preventa' },
-  { href: '/tienda',    label: 'tienda'   },
-  { href: '/cuenta',    label: 'cuenta'   },
+const FALLBACK_LINKS: NavLink[] = [
+  { href: '/artistas', label: 'artistas' },
+  { href: '/preventa', label: 'preventa' },
+  { href: '/tienda',   label: 'tienda'   },
+  { href: '/cuenta',   label: 'cuenta'   },
 ];
 
 const IconCart = () => (
@@ -20,9 +21,10 @@ const IconCart = () => (
   </svg>
 )
 
-export default function Nav() {
+export default function Nav({ links }: { links?: NavLink[] }) {
   const pathname = usePathname();
   const { totalItems, openCart } = useCart();
+  const navLinks = links ?? FALLBACK_LINKS;
 
   return (
     <nav className="nav">
@@ -34,7 +36,7 @@ export default function Nav() {
         <span className="l5">o</span>
       </Link>
       <div className="nav-links">
-        {links.map(l => {
+        {navLinks.map(l => {
           const active = pathname.startsWith(l.href);
           return (
             <Link
