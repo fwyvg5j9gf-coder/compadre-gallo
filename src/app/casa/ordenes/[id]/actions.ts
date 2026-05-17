@@ -5,6 +5,23 @@ import { supabaseAdmin } from '@/lib/supabase.server'
 import { requireAdmin } from '@/lib/auth.server'
 import { createShipment, getShippingRates, getShipmentStatus, type ShippingRate, type ShipmentStatus } from '@/lib/skydropx'
 
+export type SkydropxEvent = {
+  type: 'created' | 'cancelled'
+  at: string
+  tracking?: string
+  carrier?: string
+  cost_mxn?: number
+  shipment_id?: string
+  label_url?: string
+}
+
+async function appendSkydropxEvent(orderId: string, event: SkydropxEvent) {
+  const { data } = await supabaseAdmin.from('orders').select('skydropx_events').eq('id', orderId).single()
+  const events: SkydropxEvent[] = (data?.skydropx_events as SkydropxEvent[] | null) ?? []
+  events.push(event)
+  await supabaseAdmin.from('orders').update({ skydropx_events: events }).eq('id', orderId)
+}
+
 const VALID_STATUSES = ['pending', 'paid', 'shipped', 'delivered', 'refunded', 'failed'] as const
 
 export async function updateOrderStatus(orderId: string, status: string) {
@@ -296,14 +313,26 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
       protection,
     })
 
+    const costMxn = result.cost != null ? Math.round(result.cost * 100) : null
+
     await supabaseAdmin.from('orders').update({
       tracking_number: result.trackingNumber,
       skydropx_shipment_id: result.shipmentId,
       label_url: result.labelUrl,
-      skydropx_cost_mxn: result.cost != null ? Math.round(result.cost * 100) : null,
+      skydropx_cost_mxn: costMxn,
       status: 'shipped',
       updated_at: new Date().toISOString(),
     }).eq('id', orderId)
+
+    await appendSkydropxEvent(orderId, {
+      type: 'created',
+      at: new Date().toISOString(),
+      tracking: result.trackingNumber,
+      carrier: result.carrier,
+      cost_mxn: result.cost ?? undefined,
+      shipment_id: result.shipmentId,
+      label_url: result.labelUrl ?? undefined,
+    })
 
     revalidatePath(`/casa/ordenes/${orderId}`)
     revalidatePath('/casa/ordenes')
@@ -340,6 +369,12 @@ export async function fetchSkydropxShipmentStatus(orderId: string): Promise<Ship
 export async function cancelSkydropxShipmentLocal(orderId: string): Promise<{ error?: string }> {
   try {
     await requireAdmin()
+
+    await appendSkydropxEvent(orderId, {
+      type: 'cancelled',
+      at: new Date().toISOString(),
+    })
+
     await supabaseAdmin.from('orders').update({
       tracking_number: null,
       skydropx_shipment_id: null,
@@ -348,6 +383,7 @@ export async function cancelSkydropxShipmentLocal(orderId: string): Promise<{ er
       status: 'paid',
       updated_at: new Date().toISOString(),
     }).eq('id', orderId)
+
     revalidatePath(`/casa/ordenes/${orderId}`)
     revalidatePath('/casa/ordenes')
     return {}

@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateOrderStatus, updateTrackingNumber, createSkydropxShipment, getSkydropxRatesForOrder, deleteOrder, updateOrderDetails, fetchSkydropxShipmentStatus, cancelSkydropxShipmentLocal } from './actions'
 import type { ShippingRate, ShipmentStatus } from '@/lib/skydropx'
-import type { ReadinessItem } from './actions'
+import type { ReadinessItem, SkydropxEvent } from './actions'
 
 const STATUS_OPTIONS = [
   { value: 'pending',   label: 'pendiente' },
@@ -60,6 +60,7 @@ export default function OrderActions({
   shippingCarrier,
   labelUrl: initialLabelUrl,
   skydropxShipmentId,
+  skydropxEvents,
   initialCustomerName,
   initialCustomerEmail,
   initialCustomerPhone,
@@ -81,6 +82,7 @@ export default function OrderActions({
   initialNotes: string | null
   initialAddress: Record<string, string> | null
   shipmentReadiness: { ready: boolean; items: ReadinessItem[] } | null
+  skydropxEvents: SkydropxEvent[]
 }) {
   const router = useRouter()
   const [status, setStatus] = useState(currentStatus)
@@ -290,7 +292,7 @@ export default function OrderActions({
       </div>
 
       {/* Rastrear envío */}
-      {hasTracking && skydropxShipmentId && (
+      {hasTracking && (
         <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, padding: '20px 24px' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 14 }}>
             rastreo del envío
@@ -327,22 +329,27 @@ export default function OrderActions({
           )}
 
           <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={handleTrackShipment}
-              disabled={pendingTrack}
-              className="adm-btn-primary"
-              style={{ flex: 1, height: 36, fontSize: 13 }}
-            >
-              {pendingTrack ? 'consultando…' : shipmentStatus ? 'actualizar' : 'consultar estado'}
-            </button>
+            {skydropxShipmentId && (
+              <button
+                onClick={handleTrackShipment}
+                disabled={pendingTrack}
+                className="adm-btn-primary"
+                style={{ flex: 1, height: 36, fontSize: 13 }}
+              >
+                {pendingTrack ? 'consultando…' : shipmentStatus ? 'actualizar' : 'consultar estado'}
+              </button>
+            )}
             {shippingCarrier && tracking && getCarrierTrackingUrl(shippingCarrier, tracking) && (
               <a
                 href={getCarrierTrackingUrl(shippingCarrier, tracking)}
                 target="_blank" rel="noopener noreferrer"
-                style={{ height: 36, padding: '0 14px', display: 'flex', alignItems: 'center', fontSize: 13, border: `1px solid ${B}`, borderRadius: 4, background: '#fff', color: '#003a87', fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}
+                style={{ height: 36, padding: '0 14px', display: 'flex', alignItems: 'center', fontSize: 13, border: `1px solid ${B}`, borderRadius: 4, background: '#fff', color: '#003a87', fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap', flex: skydropxShipmentId ? undefined : 1 }}
               >
                 rastrear en {shippingCarrier} ↗
               </a>
+            )}
+            {!skydropxShipmentId && !shippingCarrier && (
+              <p style={{ fontSize: 12, color: M, margin: 0, fontStyle: 'italic' }}>guía registrada manualmente — sin API de Skydropx</p>
             )}
           </div>
           {trackError && (

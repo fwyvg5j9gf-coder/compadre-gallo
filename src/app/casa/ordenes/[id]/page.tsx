@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase.server'
 import AdminShell from '../../AdminShell'
 import OrderActions from './OrderActions'
 import { checkShipmentReadiness } from './actions'
-import type { ReadinessItem } from './actions'
+import type { ReadinessItem, SkydropxEvent } from './actions'
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'pendiente', paid: 'pagado', shipped: 'enviado',
@@ -75,6 +75,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const isTest = (order as Record<string, unknown>).is_test as boolean
   const skydropxShipmentId = (order as Record<string, unknown>).skydropx_shipment_id as string | null ?? null
   const skydropxCostMxn = (order as Record<string, unknown>).skydropx_cost_mxn as number | null ?? null
+  const skydropxEvents = ((order as Record<string, unknown>).skydropx_events as SkydropxEvent[] | null) ?? []
 
   const readiness = !order.tracking_number
     ? await checkShipmentReadiness(order.id).catch(() => null)
@@ -178,35 +179,80 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             )}
 
             {/* Detalles del envío Skydropx */}
-            {order.tracking_number && (
+            {(order.tracking_number || skydropxEvents.length > 0) && (
               <InfoCard title="envío">
-                {order.shipping_carrier && <Row label="paquetería" value={order.shipping_carrier} />}
-                <Row label="guía" value={
-                  <span style={{ fontFamily: 'monospace', fontSize: 13, background: 'rgba(0,58,135,0.06)', padding: '2px 8px', borderRadius: 4, color: '#003a87' }}>
-                    {order.tracking_number}
-                  </span>
-                } />
-                {skydropxCostMxn != null && (
-                  <Row label="costo Skydropx" value={
-                    <span style={{ fontFamily: 'monospace' }}>
-                      {(skydropxCostMxn / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
-                    </span>
-                  } />
+                {order.tracking_number && (
+                  <>
+                    {order.shipping_carrier && <Row label="paquetería" value={order.shipping_carrier} />}
+                    <Row label="guía" value={
+                      <span style={{ fontFamily: 'monospace', fontSize: 13, background: 'rgba(0,58,135,0.06)', padding: '2px 8px', borderRadius: 4, color: '#003a87' }}>
+                        {order.tracking_number}
+                      </span>
+                    } />
+                    {skydropxCostMxn != null && (
+                      <Row label="costo Skydropx" value={
+                        <span style={{ fontFamily: 'monospace' }}>
+                          {(skydropxCostMxn / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
+                        </span>
+                      } />
+                    )}
+                    {skydropxShipmentId && (
+                      <Row label="shipment ID" value={
+                        <span style={{ fontFamily: 'monospace', fontSize: 12, color: S }}>{skydropxShipmentId}</span>
+                      } />
+                    )}
+                    {(order as Record<string, unknown>).label_url && (
+                      <div style={{ marginTop: 10 }}>
+                        <a
+                          href={(order as Record<string, unknown>).label_url as string}
+                          target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: 13, color: '#003a87', fontWeight: 600, textDecoration: 'none' }}
+                        >
+                          descargar etiqueta PDF ↗
+                        </a>
+                      </div>
+                    )}
+                  </>
                 )}
-                {skydropxShipmentId && (
-                  <Row label="shipment ID" value={
-                    <span style={{ fontFamily: 'monospace', fontSize: 12, color: S }}>{skydropxShipmentId}</span>
-                  } />
-                )}
-                {(order as Record<string, unknown>).label_url && (
-                  <div style={{ marginTop: 10 }}>
-                    <a
-                      href={(order as Record<string, unknown>).label_url as string}
-                      target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: 13, color: '#003a87', fontWeight: 600, textDecoration: 'none' }}
-                    >
-                      descargar etiqueta PDF ↗
-                    </a>
+
+                {skydropxEvents.length > 0 && (
+                  <div style={{ marginTop: order.tracking_number ? 16 : 0, paddingTop: order.tracking_number ? 16 : 0, borderTop: order.tracking_number ? `1px solid ${B}` : 'none' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 10 }}>
+                      historial
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {[...skydropxEvents].reverse().map((ev, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 12, fontSize: 13, alignItems: 'flex-start' }}>
+                          <span style={{
+                            flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, marginTop: 1,
+                            textTransform: 'uppercase', letterSpacing: '0.04em',
+                            background: ev.type === 'created' ? 'rgba(26,107,53,0.1)' : 'rgba(255,1,0,0.08)',
+                            color: ev.type === 'created' ? '#1a6b35' : '#cc0000',
+                          }}>
+                            {ev.type === 'created' ? 'creada' : 'cancelada'}
+                          </span>
+                          <div style={{ flex: 1 }}>
+                            {ev.tracking && (
+                              <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#003a87', marginRight: 8 }}>{ev.tracking}</span>
+                            )}
+                            {ev.carrier && <span style={{ color: M, marginRight: 8 }}>{ev.carrier}</span>}
+                            {ev.cost_mxn != null && (
+                              <span style={{ fontFamily: 'monospace', fontWeight: 700, marginRight: 8 }}>
+                                {ev.cost_mxn.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
+                              </span>
+                            )}
+                            <div style={{ fontSize: 11, color: S, marginTop: 2 }}>
+                              {new Date(ev.at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </div>
+                          {ev.label_url && (
+                            <a href={ev.label_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#003a87', textDecoration: 'none', flexShrink: 0, marginTop: 1 }}>
+                              PDF ↗
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </InfoCard>
@@ -238,6 +284,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               initialNotes={order.notes ?? null}
               initialAddress={addr}
               shipmentReadiness={readiness}
+              skydropxEvents={skydropxEvents}
             />
           </div>
 
