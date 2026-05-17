@@ -312,22 +312,34 @@ export async function createShipment({
   const shipmentId = String(data?.id ?? attrs?.id ?? '')
   const carrier = String(attrs?.carrier_name ?? attrs?.carrier ?? attrs?.provider_display_name ?? '')
 
-  let trackingNumber = String(attrs?.tracking_number ?? attrs?.tracking ?? '')
-  let labelUrl: string | null = attrs?.label_url ?? attrs?.label ?? null
+  // tracking y label viven en lugares distintos según el estado:
+  // - master_tracking_number en data.attributes (disponible al finalizar)
+  // - tracking_number y label_url en included[type=package].attributes
+  function extractFromResponse(j: Record<string, unknown>) {
+    const d = (j?.data ?? j) as Record<string, unknown>
+    const a = (d?.attributes ?? d) as Record<string, unknown>
+    const tracking = String(a?.master_tracking_number ?? a?.tracking_number ?? a?.tracking ?? '')
+    const pkgIncluded = ((j?.included ?? []) as Record<string, unknown>[])
+      .find(i => (i as Record<string, unknown>).type === 'package')
+    const pkgAttrs = (pkgIncluded as Record<string, unknown> | undefined)?.attributes as Record<string, unknown> | undefined
+    const label: string | null = pkgAttrs?.label_url as string ?? a?.label_url as string ?? null
+    const trackingFinal = tracking || String(pkgAttrs?.tracking_number ?? '')
+    return { tracking: trackingFinal, label }
+  }
 
-  // Shipment comienza como "in_progress"; la guía llega en polling
+  let { tracking: trackingNumber, label: labelUrl } = extractFromResponse(json)
+
+  // Shipment comienza como "in_progress"; la guía llega al completarse
   if (!trackingNumber && shipmentId) {
-    for (let i = 0; i < 8; i++) {
-      await new Promise(r => setTimeout(r, 2000))
+    for (let i = 0; i < 10; i++) {
+      await new Promise(r => setTimeout(r, 3000))
       const pollRes = await fetch(`${BASE}/shipments/${shipmentId}`, {
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
         cache: 'no-store',
       })
       if (!pollRes.ok) break
-      const pj = await pollRes.json()
-      const pa = (pj?.data ?? pj)?.attributes ?? (pj?.data ?? pj)
-      trackingNumber = String(pa?.tracking_number ?? pa?.tracking ?? '')
-      labelUrl = pa?.label_url ?? pa?.label ?? null
+      const pj = await pollRes.json() as Record<string, unknown>
+      ;({ tracking: trackingNumber, label: labelUrl } = extractFromResponse(pj))
       if (trackingNumber) break
     }
   }
