@@ -63,6 +63,10 @@ export type StoreSettings = {
   skydropx_client_secret: string
   skydropx_markup_pct: number
   skydropx_allowed_carriers: string[]
+  origin_name: string
+  origin_street: string
+  origin_phone: string
+  origin_email: string
   origin_zip: string
   origin_state: string
   origin_city: string

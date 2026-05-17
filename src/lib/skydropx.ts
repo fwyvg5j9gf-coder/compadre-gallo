@@ -148,6 +148,7 @@ type Address = {
   city: string
   colonia: string
   street: string
+  reference?: string
 }
 
 export async function createShipment({
@@ -178,7 +179,8 @@ export async function createShipment({
         area_level1: addressFrom.state.trim(),
         area_level2: addressFrom.city.trim(),
         area_level3: addressFrom.colonia.trim(),
-        address1: addressFrom.street.trim(),
+        street1: addressFrom.street.trim(),
+        reference: addressFrom.reference ?? addressFrom.name,
       },
       address_to: {
         name: addressTo.name,
@@ -189,15 +191,17 @@ export async function createShipment({
         area_level1: addressTo.state.trim(),
         area_level2: addressTo.city.trim(),
         area_level3: addressTo.colonia.trim(),
-        address1: addressTo.street.trim(),
+        street1: addressTo.street.trim(),
+        reference: addressTo.reference ?? addressTo.name,
       },
       parcels: [{
         weight: Math.max(0.01, parcel.weight_kg),
         length: Math.max(1, Math.round(parcel.length_cm)),
         width: Math.max(1, Math.round(parcel.width_cm)),
         height: Math.max(1, Math.round(parcel.height_cm)),
+        package_type: 'box',
+        consignment_note: contentDescription ?? 'Merch GALLO',
       }],
-      content_description: contentDescription ?? 'Merch GALLO',
     },
   }
 

@@ -38,7 +38,7 @@ async function buildOrderShipmentData(orderId: string) {
 
   const { data: settings } = await supabaseAdmin
     .from('store_settings')
-    .select('skydropx_client_id, skydropx_client_secret, origin_zip, origin_state, origin_city, origin_colonia, skydropx_enabled')
+    .select('skydropx_client_id, skydropx_client_secret, origin_zip, origin_state, origin_city, origin_colonia, origin_street, origin_phone, origin_email, origin_name, skydropx_enabled')
     .single()
   if (!settings?.skydropx_enabled) throw new Error('Skydropx no está habilitado en ajustes de la tienda')
   if (!settings.skydropx_client_id) throw new Error('falta la clave de cliente de Skydropx en configuración')
@@ -46,6 +46,9 @@ async function buildOrderShipmentData(orderId: string) {
   if (!settings.origin_zip) throw new Error('falta el código postal de origen en configuración')
   if (!settings.origin_state) throw new Error('falta el estado de origen en configuración')
   if (!settings.origin_city) throw new Error('falta la ciudad de origen en configuración')
+  if (!settings.origin_street) throw new Error('falta la calle de origen en configuración de Skydropx')
+  if (!settings.origin_phone) throw new Error('falta el teléfono de origen en configuración de Skydropx')
+  if (!settings.origin_email) throw new Error('falta el email de origen en configuración de Skydropx')
 
   const productIds = (order.order_items as { product_id: string | null }[])
     .map(i => i.product_id).filter(Boolean) as string[]
@@ -116,17 +119,26 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
     if (!rateId) return { error: 'no hay tarifa seleccionada para crear la guía' }
 
     const addressFrom = {
-      name: 'GALLO', email: '', phone: '',
-      postalCode: settings.origin_zip, state: settings.origin_state,
-      city: settings.origin_city, colonia: settings.origin_colonia ?? '', street: '',
+      name: settings.origin_name || 'GALLO',
+      email: settings.origin_email,
+      phone: settings.origin_phone,
+      postalCode: settings.origin_zip,
+      state: settings.origin_state,
+      city: settings.origin_city,
+      colonia: settings.origin_colonia ?? '',
+      street: settings.origin_street,
+      reference: settings.origin_name || 'GALLO',
     }
     const addressTo = {
       name: order.customer_name ?? 'Cliente',
       email: order.customer_email ?? '',
       phone: order.customer_phone ?? '',
       postalCode: addr.zip,
-      state: addr.state ?? '', city: addr.city ?? '',
-      colonia: addr.colonia ?? '', street: addr.street ?? '',
+      state: addr.state ?? '',
+      city: addr.city ?? '',
+      colonia: addr.colonia ?? '',
+      street: addr.street ?? '',
+      reference: order.customer_name ?? 'Cliente',
     }
 
     const result = await createShipment({

@@ -370,7 +370,25 @@ function SkydropxSection({ settings, packaging }: { settings: StoreSettings; pac
         </div>
 
         <div>
-          <div className="adm-lbl" style={{ marginBottom: 10 }}>dirección de origen (gallo)</div>
+          <div className="adm-lbl" style={{ marginBottom: 10 }}>remitente (origen)</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <label className="adm-lbl">
+              nombre del remitente
+              <input name="origin_name" type="text" defaultValue={settings.origin_name} placeholder="GALLO" className="adm-inp" />
+            </label>
+            <label className="adm-lbl">
+              calle y número
+              <input name="origin_street" type="text" defaultValue={settings.origin_street} placeholder="Av. Insurgentes 123" className="adm-inp" />
+            </label>
+            <label className="adm-lbl">
+              teléfono
+              <input name="origin_phone" type="tel" defaultValue={settings.origin_phone} placeholder="5512345678" className="adm-inp" />
+            </label>
+            <label className="adm-lbl">
+              email
+              <input name="origin_email" type="email" defaultValue={settings.origin_email} placeholder="envios@compadregallo.com" className="adm-inp" />
+            </label>
+          </div>
           <ZipSelector
             nameZip="origin_zip" nameState="origin_state" nameCity="origin_city" nameColonia="origin_colonia"
             defaultZip={settings.origin_zip} defaultState={settings.origin_state}

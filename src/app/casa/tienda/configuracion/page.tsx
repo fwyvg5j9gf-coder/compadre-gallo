@@ -10,6 +10,7 @@ const DEFAULT_SETTINGS: StoreSettings = {
   return_policy: '', shipping_policy: '',
   skydropx_enabled: false, skydropx_client_id: '', skydropx_client_secret: '',
   skydropx_markup_pct: 0, skydropx_allowed_carriers: [],
+  origin_name: 'GALLO', origin_street: '', origin_phone: '', origin_email: '',
   origin_zip: '', origin_state: '', origin_city: '', origin_colonia: '',
   stripe_test_mode: true, stripe_pk_test: '', stripe_sk_test: '',
   stripe_pk_live: '', stripe_sk_live: '', stripe_webhook_secret: '',

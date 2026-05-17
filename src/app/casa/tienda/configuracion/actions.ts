@@ -151,11 +151,15 @@ export async function reorderPackaging(id: string, direction: 'up' | 'down') {
 export async function saveSkydropxConfig(formData: FormData) {
   await requireAdmin()
   const { error } = await supabaseAdmin.from('store_settings').update({
-    skydropx_client_id: (formData.get('client_id') as string).replace(/\s+/g, ''),
+    skydropx_client_id:     (formData.get('client_id') as string).replace(/\s+/g, ''),
     skydropx_client_secret: (formData.get('client_secret') as string).replace(/\s+/g, ''),
-    origin_zip: (formData.get('origin_zip') as string).trim(),
-    origin_state: (formData.get('origin_state') as string).trim(),
-    origin_city: (formData.get('origin_city') as string).trim(),
+    origin_name:    (formData.get('origin_name') as string ?? '').trim(),
+    origin_street:  (formData.get('origin_street') as string ?? '').trim(),
+    origin_phone:   (formData.get('origin_phone') as string ?? '').trim(),
+    origin_email:   (formData.get('origin_email') as string ?? '').trim(),
+    origin_zip:     (formData.get('origin_zip') as string).trim(),
+    origin_state:   (formData.get('origin_state') as string).trim(),
+    origin_city:    (formData.get('origin_city') as string).trim(),
     origin_colonia: (formData.get('origin_colonia') as string ?? '').trim(),
     updated_at: new Date().toISOString(),
   }).eq('id', 1)
