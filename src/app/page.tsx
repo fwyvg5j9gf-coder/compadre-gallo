@@ -1,3 +1,4 @@
+import { draftMode } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import type { Block } from '@/lib/blocks'
 import BlockRenderer from '@/components/BlockRenderer'
@@ -6,6 +7,8 @@ import LandingHero from '@/components/LandingHero'
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
+  const { isEnabled: isDraft } = await draftMode()
+
   const { data } = await supabaseAdmin
     .from('page_blocks')
     .select('*')
@@ -13,7 +16,10 @@ export default async function HomePage() {
     .eq('visible', true)
     .order('sort_order')
 
-  const blocks = (data ?? []) as Block[]
+  const blocks = (data ?? []).map((b: Block) => ({
+    ...b,
+    content: isDraft && b.draft_content ? b.draft_content : b.content,
+  })) as Block[]
 
   // Unified full-screen landing when the page starts with hero-mascot + cta-split
   const heroIdx = blocks.findIndex(b => b.type === 'hero-mascot')

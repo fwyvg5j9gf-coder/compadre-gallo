@@ -1,3 +1,4 @@
+import { draftMode } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import { mapArtist } from '@/lib/mapArtist'
 import type { Block } from '@/lib/blocks'
@@ -7,6 +8,8 @@ import ArtistasClient from './ArtistasClient'
 export const dynamic = 'force-dynamic'
 
 export default async function ArtistasPage() {
+  const { isEnabled: isDraft } = await draftMode()
+
   const [blocksRes, artistsRes] = await Promise.all([
     supabaseAdmin.from('page_blocks').select('*').eq('page_key', 'artistas').eq('visible', true).order('sort_order'),
     supabaseAdmin
@@ -17,7 +20,10 @@ export default async function ArtistasPage() {
       .order('created_at'),
   ])
 
-  const blocks  = (blocksRes.data  ?? []) as Block[]
+  const blocks  = (blocksRes.data ?? []).map((b: Block) => ({
+    ...b,
+    content: isDraft && b.draft_content ? b.draft_content : b.content,
+  })) as Block[]
   const artists = (artistsRes.data ?? []).map(a => mapArtist(a as Parameters<typeof mapArtist>[0]))
 
   return (

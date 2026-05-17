@@ -13,6 +13,7 @@ export type Block = {
   page_key: string
   type: BlockType
   content: Record<string, string>
+  draft_content: Record<string, string> | null
   visible: boolean
   sort_order: number
 }

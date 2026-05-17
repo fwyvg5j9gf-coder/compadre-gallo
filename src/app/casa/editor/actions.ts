@@ -16,11 +16,31 @@ function reval(pageKey: string) {
   revalidatePath('/casa/editor')
 }
 
-export async function updateBlock(id: string, pageKey: string, content: Record<string, string>) {
+export async function updateBlock(id: string, _pageKey: string, content: Record<string, string>) {
   await requireAdmin()
   await supabaseAdmin.from('page_blocks')
-    .update({ content, updated_at: new Date().toISOString() })
+    .update({ draft_content: content, updated_at: new Date().toISOString() })
     .eq('id', id)
+  // No revalidatePath — changes stay in draft until publishPage()
+}
+
+export async function publishPage(pageKey: string) {
+  await requireAdmin()
+  const { data: blocks } = await supabaseAdmin
+    .from('page_blocks')
+    .select('id, draft_content')
+    .eq('page_key', pageKey)
+    .not('draft_content', 'is', null)
+
+  if (!blocks?.length) return
+
+  await Promise.all(
+    blocks.map(b =>
+      supabaseAdmin.from('page_blocks')
+        .update({ content: b.draft_content, draft_content: null, updated_at: new Date().toISOString() })
+        .eq('id', b.id)
+    )
+  )
   reval(pageKey)
 }
 

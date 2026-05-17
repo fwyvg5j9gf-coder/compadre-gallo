@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef, useEffect } from 'react'
-import { updateBlock, toggleBlockVisible, moveBlock, deleteBlock, addBlock, getBlockUploadUrl } from './actions'
+import { updateBlock, toggleBlockVisible, moveBlock, deleteBlock, addBlock, getBlockUploadUrl, publishPage } from './actions'
 import { BLOCK_META, BLOCK_FIELDS, type Block, type BlockType } from '@/lib/blocks'
 
 const B = '#e8e7e1', M = '#6b6a64', S = '#9a9994'
@@ -88,14 +88,14 @@ function BlockEditPanel({
   onSaved: (newContent: Record<string, string>) => void
   onLocalChange: (newContent: Record<string, string>) => void
 }) {
-  const [values, setValues] = useState<Record<string, string>>(block.content)
+  const [values, setValues] = useState<Record<string, string>>(block.draft_content ?? block.content)
   const [, start] = useTransition()
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const fields = BLOCK_FIELDS[block.type] ?? []
 
   // Reset if block changes (navigating between blocks)
-  useEffect(() => { setValues(block.content) }, [block.id])
+  useEffect(() => { setValues(block.draft_content ?? block.content) }, [block.id])
 
   function set(key: string, val: string) {
     const next = { ...values, [key]: val }
@@ -135,7 +135,7 @@ function BlockEditPanel({
         {status === 'saved' && (
           <>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#1a6b35' }} />
-            <span style={{ fontSize: 11, color: '#1a6b35' }}>guardado — preview actualizado</span>
+            <span style={{ fontSize: 11, color: '#1a6b35' }}>borrador guardado</span>
           </>
         )}
       </div>
@@ -232,6 +232,8 @@ export default function EditorShell({ initialBlocks }: { initialBlocks: Block[] 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [hasDraft, setHasDraft] = useState(() => initialBlocks.some(b => b.draft_content !== null))
+  const [publishing, startPublish] = useTransition()
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const previewTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -262,8 +264,18 @@ export default function EditorShell({ initialBlocks }: { initialBlocks: Block[] 
   }, [pageKey])
 
   function handleBlockSaved(blockId: string, newContent: Record<string, string>) {
-    setBlocks(prev => prev.map(b => b.id === blockId ? { ...b, content: newContent } : b))
+    setBlocks(prev => prev.map(b => b.id === blockId ? { ...b, draft_content: newContent } : b))
+    setHasDraft(true)
     refreshPreview()
+  }
+
+  function handlePublish() {
+    startPublish(async () => {
+      await publishPage(pageKey)
+      setBlocks(prev => prev.map(b => b.page_key === pageKey ? { ...b, draft_content: null } : b))
+      setHasDraft(false)
+      refreshPreview(600)
+    })
   }
 
   function handleBlockAction() {
@@ -348,9 +360,28 @@ export default function EditorShell({ initialBlocks }: { initialBlocks: Block[] 
 
       {/* ── Right: blocks panel ───────────────────────────────────────────── */}
       <div style={{ width: 300, background: '#fff', borderLeft: `1px solid ${B}`, display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
-        <div style={{ padding: '14px 20px', borderBottom: `1px solid ${B}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#0a0a0a' }}>bloques · {page.label}</span>
-          <span style={{ fontSize: 11, color: S }}>{visible.length}</span>
+        <div style={{ padding: '14px 20px', borderBottom: `1px solid ${B}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#0a0a0a' }}>bloques · {page.label}</span>
+            {hasDraft && (
+              <span style={{ fontSize: 10, fontWeight: 700, background: '#ffe200', color: '#5a4800', padding: '2px 6px', borderRadius: 4, letterSpacing: '0.04em', flexShrink: 0 }}>
+                BORRADOR
+              </span>
+            )}
+          </div>
+          <button
+            onClick={handlePublish}
+            disabled={!hasDraft || publishing}
+            style={{
+              padding: '5px 12px', fontSize: 11, fontWeight: 700,
+              background: hasDraft ? '#003a87' : '#e8e7e1',
+              color: hasDraft ? '#fff' : '#9a9994',
+              border: 'none', borderRadius: 6, cursor: hasDraft ? 'pointer' : 'default',
+              transition: 'all 150ms', flexShrink: 0,
+            }}
+          >
+            {publishing ? 'publicando…' : 'publicar'}
+          </button>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
