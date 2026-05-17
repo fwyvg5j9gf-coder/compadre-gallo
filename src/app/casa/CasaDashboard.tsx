@@ -232,8 +232,85 @@ function DesarrolloBlock() {
   )
 }
 
+// ── Tipos ──────────────────────────────────────────────────────────────────────
+type ArtistSnap = {
+  id: string; name: string; city: string | null; genre: string | null
+  image_url: string | null; bg_color: string; stripe_color: string
+  is_published: boolean; shows_count: number; tasks_pending: number
+}
+
+// ── Sección de artistas ────────────────────────────────────────────────────────
+function ArtistasSection({ artists }: { artists: ArtistSnap[] }) {
+  if (artists.length === 0) return null
+  return (
+    <div style={{ marginBottom: 40 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          artistas · acceso rápido
+        </div>
+        <a href="/casa/artistas" style={{ fontSize: 12, color: M, textDecoration: 'none' }}>
+          ver todos →
+        </a>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+        {artists.map(a => (
+          <a
+            key={a.id}
+            href={`/casa/artistas/${a.id}`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              background: '#fff', border: `1px solid ${B}`, borderRadius: 8,
+              padding: '14px 16px', textDecoration: 'none',
+              transition: 'border-color 140ms, box-shadow 140ms',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = '#0a0a0a'
+              e.currentTarget.style.boxShadow = '0 2px 12px -4px rgba(10,10,10,0.1)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = B
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+          >
+            {/* Avatar */}
+            <div style={{
+              width: 40, height: 40, borderRadius: 6, flexShrink: 0,
+              background: a.bg_color, overflow: 'hidden', position: 'relative',
+            }}>
+              {a.image_url ? (
+                <img src={a.image_url} alt={a.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ position: 'absolute', bottom: 6, left: 6, width: 14, height: 2.5, background: a.stripe_color, borderRadius: 2 }} />
+              )}
+            </div>
+
+            {/* Info */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#0a0a0a', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {a.name}
+              </div>
+              <div style={{ fontSize: 11, color: M, marginTop: 2, display: 'flex', gap: 8 }}>
+                {a.shows_count > 0 && <span>{a.shows_count} show{a.shows_count !== 1 ? 's' : ''}</span>}
+                {a.tasks_pending > 0 && (
+                  <span style={{ color: '#cc0000', fontWeight: 600 }}>{a.tasks_pending} tarea{a.tasks_pending !== 1 ? 's' : ''}</span>
+                )}
+                {a.tasks_pending === 0 && a.shows_count === 0 && <span style={{ fontStyle: 'italic' }}>sin actividad</span>}
+              </div>
+            </div>
+
+            {/* Flecha */}
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke={S} strokeWidth="1.5" style={{ flexShrink: 0 }}>
+              <path d="M3 7h8M7 3l4 4-4 4"/>
+            </svg>
+          </a>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Dashboard principal ────────────────────────────────────────────────────────
-export default function CasaDashboard({ email, firstName }: { email: string; firstName: string }) {
+export default function CasaDashboard({ email, firstName, artists = [] }: { email: string; firstName: string; artists?: ArtistSnap[] }) {
   return (
     <AdminShell
       crumb="casa"
@@ -256,6 +333,8 @@ export default function CasaDashboard({ email, firstName }: { email: string; fir
             desde aquí controlas todo lo que aparece en compadregallo.com
           </p>
         </div>
+
+        <ArtistasSection artists={artists} />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
           {CARDS.map(card => (
