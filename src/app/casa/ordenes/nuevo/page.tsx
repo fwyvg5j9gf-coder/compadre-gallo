@@ -9,8 +9,7 @@ export default async function NuevoOrdenPage() {
 
   const { data: products } = await supabaseAdmin
     .from('products')
-    .select('id, name, price_mxn, weight_grams, product_variants(id, size, stock)')
-    .eq('is_published', true)
+    .select('id, name, price_mxn, weight_grams, is_published, product_variants(id, size, stock)')
     .order('name')
 
   return <NuevoOrden products={products ?? []} />

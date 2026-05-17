@@ -10,6 +10,7 @@ type ProductOption = {
   name: string
   price_mxn: number
   weight_grams: number | null
+  is_published: boolean
   product_variants: { id: string; size: string; stock: number }[]
 }
 
@@ -63,7 +64,7 @@ function ItemRow({
         <select value={item.productId} onChange={e => selectProduct(e.target.value)} style={inp}>
           <option value="">— seleccionar —</option>
           {products.map(p => (
-            <option key={p.id} value={p.id}>{p.name}</option>
+            <option key={p.id} value={p.id}>{p.is_published ? '' : '[borrador] '}{p.name}</option>
           ))}
         </select>
       </label>
