@@ -246,7 +246,13 @@ export async function createShipment({
   const quotJson = quotRes.ok ? await quotRes.json() : null
   const quotPackages: Record<string, unknown>[] = quotJson?.packages ?? []
 
-  const satFields = { package_type: packagingCode, consignment_note: classCode }
+  const satFields = {
+    package_type: packagingCode,
+    consignment_note: classCode,
+    package_protected: false,
+    declared_value: null,
+    protection_value: null,
+  }
 
   const packages: Record<string, unknown>[] = quotPackages.length > 0
     ? quotPackages.map(pkg => ({ ...pkg, ...satFields }))
