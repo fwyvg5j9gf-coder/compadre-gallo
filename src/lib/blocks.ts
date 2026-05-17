@@ -71,7 +71,9 @@ export const BLOCK_FIELDS: Record<BlockType, { key: string; label: string; type:
     { key: 'title',   label: 'Título',   type: 'text' },
   ],
   'artist-grid':  [],
-  'product-grid': [],
+  'product-grid': [
+    { key: 'tagline', label: 'Frase al pie del catálogo', type: 'textarea' },
+  ],
   'text-block': [
     { key: 'heading', label: 'Heading',   type: 'text' },
     { key: 'body',    label: 'Cuerpo',    type: 'textarea' },

@@ -6,9 +6,14 @@ import {
   addBlock, getBlockUploadUrl, publishPage, saveSiteSettings,
 } from './actions'
 import {
+  addCategory, updateCategory, deleteCategory, reorderCategory,
+} from '@/app/casa/tienda/configuracion/actions'
+import {
   BLOCK_META, BLOCK_FIELDS, type Block, type BlockType,
   type NavSettings, type FooterSettings, type NavLink, type FooterLink,
 } from '@/lib/blocks'
+
+type Category = { id: string; name: string }
 
 const B = '#e8e7e1', M = '#6b6a64', S = '#9a9994'
 
@@ -95,15 +100,114 @@ function AddBlockModal({ pageKey, onClose, onAdded }: { pageKey: string; onClose
   )
 }
 
+// ── Categories panel (only for product-grid blocks) ───────────────────────────
+function CategoriesPanel({ categories, onRefreshPreview }: { categories: Category[]; onRefreshPreview: () => void }) {
+  const [items, setItems]     = useState<Category[]>(categories)
+  const [newName, setNewName] = useState('')
+  const [editingId, setEditingId]   = useState<string | null>(null)
+  const [editingName, setEditingName] = useState('')
+  const [pending, start]      = useTransition()
+
+  function refresh() { onRefreshPreview() }
+
+  function add() {
+    if (!newName.trim()) return
+    const name = newName.trim().toLowerCase().replace(/\s+/g, '-')
+    const optimistic = { id: `_tmp_${Date.now()}`, name }
+    setItems(prev => [...prev, optimistic])
+    setNewName('')
+    start(async () => {
+      await addCategory(name)
+      refresh()
+    })
+  }
+
+  function update(id: string) {
+    const name = editingName.trim().toLowerCase().replace(/\s+/g, '-')
+    setItems(prev => prev.map(c => c.id === id ? { ...c, name } : c))
+    setEditingId(null)
+    start(async () => { await updateCategory(id, name); refresh() })
+  }
+
+  function remove(id: string) {
+    setItems(prev => prev.filter(c => c.id !== id))
+    start(async () => { await deleteCategory(id); refresh() })
+  }
+
+  function move(id: string, dir: 'up' | 'down') {
+    setItems(prev => {
+      const idx = prev.findIndex(c => c.id === id)
+      const swap = dir === 'up' ? idx - 1 : idx + 1
+      if (swap < 0 || swap >= prev.length) return prev
+      const next = [...prev]
+      ;[next[idx], next[swap]] = [next[swap], next[idx]]
+      return next
+    })
+    start(async () => { await reorderCategory(id, dir); refresh() })
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+        <label style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          categorías
+        </label>
+        <span style={{ fontSize: 10, color: M }}>también en /configuracion</span>
+      </div>
+
+      <div style={{ border: `1px solid ${B}`, borderRadius: 6, overflow: 'hidden' }}>
+        {items.length === 0 && (
+          <div style={{ padding: '10px 12px', fontSize: 12, color: M, fontStyle: 'italic' }}>sin categorías</div>
+        )}
+        {items.map((cat, i) => (
+          <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderBottom: i < items.length - 1 ? `1px solid ${B}` : 'none', background: '#fff' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flexShrink: 0 }}>
+              <button disabled={i === 0 || pending} onClick={() => move(cat.id, 'up')} className="adm-btn-icon" style={{ height: 14, width: 18, fontSize: 9, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↑</button>
+              <button disabled={i === items.length - 1 || pending} onClick={() => move(cat.id, 'down')} className="adm-btn-icon" style={{ height: 14, width: 18, fontSize: 9, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↓</button>
+            </div>
+            {editingId === cat.id ? (
+              <>
+                <input autoFocus value={editingName} onChange={e => setEditingName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') update(cat.id); if (e.key === 'Escape') setEditingId(null) }}
+                  className="adm-inp" style={{ flex: 1, height: 26, fontSize: 12 }} />
+                <button onClick={() => update(cat.id)} className="adm-btn-secondary" style={{ height: 26, fontSize: 11, padding: '0 8px' }}>ok</button>
+                <button onClick={() => setEditingId(null)} className="adm-btn-icon" style={{ height: 26, width: 24, fontSize: 12, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+              </>
+            ) : (
+              <>
+                <span style={{ flex: 1, fontSize: 13, color: '#0a0a0a' }}>{cat.name}</span>
+                <button onClick={() => { setEditingId(cat.id); setEditingName(cat.name) }} className="adm-btn-icon" style={{ height: 24, width: 24, fontSize: 11, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✎</button>
+                <button onClick={() => remove(cat.id)} className="adm-btn-icon" style={{ height: 24, width: 24, fontSize: 11, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cc0000' }}>✕</button>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input value={newName} onChange={e => setNewName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') add() }}
+          placeholder="nueva categoría" className="adm-inp" style={{ flex: 1, height: 30, fontSize: 12 }} />
+        <button disabled={!newName.trim() || pending} onClick={add}
+          className="adm-btn-primary" style={{ height: 30, padding: '0 12px', fontSize: 12 }}>
+          agregar
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Block edit panel ───────────────────────────────────────────────────────────
 function BlockEditPanel({
-  block, pageKey, onSaved, onLocalChange, onSpacingChanged,
+  block, pageKey, onSaved, onLocalChange, onSpacingChanged, onRefreshPreview, categories,
 }: {
   block: Block
   pageKey: string
   onSaved: (newContent: Record<string, string>) => void
   onLocalChange: (newContent: Record<string, string>) => void
   onSpacingChanged: (id: string, spacing: number) => void
+  onRefreshPreview: () => void
+  categories: Category[]
 }) {
   const [values, setValues] = useState<Record<string, string>>(block.draft_content ?? block.content)
   const [, start] = useTransition()
@@ -170,7 +274,14 @@ function BlockEditPanel({
         </div>
       )}
 
-      {fields.length === 0 && (
+      {block.type === 'product-grid' && (
+        <>
+          <div style={{ borderTop: `1px solid ${B}` }} />
+          <CategoriesPanel categories={categories} onRefreshPreview={onRefreshPreview} />
+        </>
+      )}
+
+      {fields.length === 0 && block.type !== 'product-grid' && (
         <div style={{ fontSize: 13, color: M, fontStyle: 'italic' }}>
           Este bloque no tiene campos editables — su contenido viene de la base de datos.
         </div>
@@ -204,7 +315,7 @@ function BlockEditPanel({
 }
 
 // ── Block row ──────────────────────────────────────────────────────────────────
-function BlockRow({ block, pageKey, index, total, onEdit, isEditing, onSaved, onLocalChange, onVisibilityToggled, onMoved, onDeleted, onSpacingChanged }:
+function BlockRow({ block, pageKey, index, total, onEdit, isEditing, onSaved, onLocalChange, onVisibilityToggled, onMoved, onDeleted, onSpacingChanged, onRefreshPreview, categories }:
   {
     block: Block; pageKey: string; index: number; total: number
     onEdit: () => void; isEditing: boolean
@@ -214,6 +325,8 @@ function BlockRow({ block, pageKey, index, total, onEdit, isEditing, onSaved, on
     onMoved: (id: string, dir: -1 | 1) => void
     onDeleted: (id: string) => void
     onSpacingChanged: (id: string, spacing: number) => void
+    onRefreshPreview: () => void
+    categories: Category[]
   }) {
   const [pending, start] = useTransition()
   const meta = BLOCK_META[block.type]
@@ -269,6 +382,8 @@ function BlockRow({ block, pageKey, index, total, onEdit, isEditing, onSaved, on
           onSaved={onSaved}
           onLocalChange={onLocalChange}
           onSpacingChanged={onSpacingChanged}
+          onRefreshPreview={onRefreshPreview}
+          categories={categories}
         />
       )}
     </div>
@@ -391,13 +506,15 @@ function FooterPanel({ settings, onRefreshPreview }: { settings: FooterSettings;
 
 // ── Main shell ─────────────────────────────────────────────────────────────────
 export default function EditorShell({
-  initialBlocks, navSettings, footerSettings,
+  initialBlocks, navSettings, footerSettings, initialCategories,
 }: {
   initialBlocks: Block[]
   navSettings: NavSettings
   footerSettings: FooterSettings
+  initialCategories: Category[]
 }) {
   const [blocks, setBlocks]         = useState(initialBlocks)
+  const [categories]                = useState(initialCategories)
   const [pageKey, setPageKey]       = useState('home')
   const [device, setDevice]         = useState<'mobile' | 'tablet' | 'desktop'>('desktop')
   const [viewMode, setViewMode]     = useState<ViewMode>('blocks')
@@ -609,6 +726,8 @@ export default function EditorShell({
                   onMoved={handleMoved}
                   onDeleted={handleDeleted}
                   onSpacingChanged={handleSpacingChanged}
+                  onRefreshPreview={() => refreshPreview(600)}
+                  categories={categories}
                 />
               ))}
             </div>

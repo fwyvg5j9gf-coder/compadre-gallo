@@ -111,9 +111,11 @@ function ProductCard({ product }: { product: Product }) {
 export default function TiendaClient({
   products,
   categories,
+  tagline,
 }: {
   products: Product[]
   categories: string[]
+  tagline?: string
 }) {
   const allCategories = ['todo', ...categories]
   const [active, setActive] = useState('todo')
@@ -150,7 +152,7 @@ export default function TiendaClient({
 
       <section className="section section-alt" style={{ textAlign: 'center', paddingTop: 'var(--space-7)', paddingBottom: 'var(--space-7)' }}>
         <p style={{ color: 'var(--fg-muted)', fontStyle: 'italic', maxWidth: '40ch', margin: '0 auto' }}>
-          todo es tiraje limitado. cuando se acaba, se acaba.
+          {tagline ?? 'todo es tiraje limitado. cuando se acaba, se acaba.'}
         </p>
       </section>
     </>

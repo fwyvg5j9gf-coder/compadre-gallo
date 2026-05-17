@@ -20,11 +20,13 @@ export default async function TiendaPage() {
     content: isDraft && b.draft_content ? b.draft_content : b.content,
   })) as Block[]
 
+  const tagline = blocks.find(b => b.type === 'product-grid')?.content.tagline
+
   return (
     <>
       {blocks.map(b =>
         b.type === 'product-grid'
-          ? <TiendaClient key={b.id} products={productsRes.data ?? []} categories={(categoriesRes.data ?? []).map(c => c.name)} />
+          ? <TiendaClient key={b.id} products={productsRes.data ?? []} categories={(categoriesRes.data ?? []).map(c => c.name)} tagline={tagline} />
           : <BlockRenderer key={b.id} block={b} />
       )}
     </>

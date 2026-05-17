@@ -15,9 +15,10 @@ export default async function EditorPage() {
 
   await (await draftMode()).enable()
 
-  const [blocksRes, settingsRes] = await Promise.all([
+  const [blocksRes, settingsRes, categoriesRes] = await Promise.all([
     supabaseAdmin.from('page_blocks').select('*').order('sort_order'),
     supabaseAdmin.from('site_settings').select('key, value'),
+    supabaseAdmin.from('store_categories').select('id, name').order('sort_order'),
   ])
 
   const blocks = (blocksRes.data ?? []) as Block[]
@@ -28,12 +29,15 @@ export default async function EditorPage() {
   const navSettings:    NavSettings    = (rawSettings.nav    as NavSettings)    ?? { links: DEFAULT_NAV_LINKS }
   const footerSettings: FooterSettings = (rawSettings.footer as FooterSettings) ?? DEFAULT_FOOTER
 
+  const categories = (categoriesRes.data ?? []) as { id: string; name: string }[]
+
   return (
     <AdminShell crumb="editor" crumbHref="/casa/editor">
       <EditorShell
         initialBlocks={blocks}
         navSettings={navSettings}
         footerSettings={footerSettings}
+        initialCategories={categories}
       />
     </AdminShell>
   )
