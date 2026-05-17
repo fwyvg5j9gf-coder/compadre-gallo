@@ -8,7 +8,7 @@ export type ShippingRate = {
   days: number | null
 }
 
-const BASE = 'https://api-pro.skydropx.com'
+const BASE = 'https://app.skydropx.com'
 
 async function getAccessToken(clientId: string, clientSecret: string): Promise<string> {
   const params = new URLSearchParams({
