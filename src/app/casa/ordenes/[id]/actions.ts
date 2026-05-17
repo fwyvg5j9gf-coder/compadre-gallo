@@ -149,15 +149,15 @@ export async function getSkydropxRatesForOrder(orderId: string): Promise<RatesRe
 export type ShipmentActionResult = { trackingNumber: string; labelUrl: string | null; carrier: string }
 export type ShipmentResult = { data?: ShipmentActionResult; error?: string }
 
-export async function createSkydropxShipment(orderId: string, overrideRateId?: string): Promise<ShipmentResult> {
+export async function createSkydropxShipment(orderId: string, overrideRateId?: string, overrideQuotationId?: string): Promise<ShipmentResult> {
   try {
     await requireAdmin()
     const { order, settings, parcel, addr } = await buildOrderShipmentData(orderId)
 
     if (order.tracking_number) return { error: 'esta orden ya tiene guía de envío' }
 
-    const rateId = overrideRateId ?? order.shipping_rate_id
-    if (!rateId) return { error: 'no hay tarifa seleccionada para crear la guía' }
+    if (!parcel.packageType) return { error: 'configura el código de embalaje SAT (Skydropx) en el tipo de embalaje del producto' }
+    if (!parcel.consignmentNote) return { error: 'configura el código de clase SAT (Skydropx) en el tipo de embalaje del producto' }
 
     const addressFrom = {
       name: settings.origin_name || 'GALLO',
@@ -182,13 +182,40 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
       reference: order.customer_name ?? 'Cliente',
     }
 
-    if (!parcel.packageType) return { error: 'configura el código de embalaje SAT (Skydropx) en el tipo de embalaje del producto' }
-    if (!parcel.consignmentNote) return { error: 'configura el código de clase SAT (Skydropx) en el tipo de embalaje del producto' }
+    // Si no tenemos quotation_id fresco, re-cotizamos para obtenerlo
+    let rateId = overrideRateId ?? order.shipping_rate_id
+    let quotationId = overrideQuotationId ?? ''
+
+    if (!quotationId) {
+      const freshRates = await getShippingRates({
+        clientId: settings.skydropx_client_id,
+        clientSecret: settings.skydropx_client_secret,
+        originZip: settings.origin_zip,
+        originState: settings.origin_state,
+        originCity: settings.origin_city,
+        originColonia: settings.origin_colonia ?? '',
+        destZip: addr.zip,
+        destState: addr.state ?? '',
+        destCity: addr.city ?? '',
+        destColonia: addr.colonia ?? '',
+        parcel,
+      })
+      if (freshRates.length === 0) return { error: 'no se obtuvieron tarifas para re-cotizar' }
+
+      // Usar el rate previamente seleccionado si existe, si no el más barato
+      const matched = rateId ? freshRates.find(r => r.rate_id === rateId) : null
+      const chosen = matched ?? freshRates[0]
+      rateId = chosen.rate_id
+      quotationId = chosen.quotation_id
+    }
+
+    if (!rateId) return { error: 'no hay tarifa seleccionada para crear la guía' }
 
     const result = await createShipment({
       clientId: settings.skydropx_client_id,
       clientSecret: settings.skydropx_client_secret,
       rateId,
+      quotationId,
       addressFrom,
       addressTo,
       parcel,

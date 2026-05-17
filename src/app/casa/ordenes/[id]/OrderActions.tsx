@@ -135,11 +135,11 @@ export default function OrderActions({
     })
   }
 
-  function handleCreateShipment(rateId?: string) {
+  function handleCreateShipment(rateId?: string, quotationId?: string) {
     setShipmentError(null)
     setGuideStep('creating')
     startShipment(async () => {
-      const { data, error } = await createSkydropxShipment(orderId, rateId)
+      const { data, error } = await createSkydropxShipment(orderId, rateId, quotationId)
       if (error) {
         setShipmentError(error)
         setGuideStep('idle')
@@ -301,7 +301,7 @@ export default function OrderActions({
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
-                  onClick={() => selectedRate && handleCreateShipment(selectedRate.rate_id)}
+                  onClick={() => selectedRate && handleCreateShipment(selectedRate.rate_id, selectedRate.quotation_id)}
                   disabled={!selectedRate || pendingShipment}
                   className="adm-btn-primary" style={{ flex: 1, height: 36, fontSize: 13 }}
                 >

@@ -2,6 +2,7 @@
 
 export type ShippingRate = {
   rate_id: string
+  quotation_id: string
   carrier: string
   service_level: string
   total_mxn: number
@@ -118,10 +119,11 @@ export async function getShippingRates({
   const created = await createRes.json()
 
   if (created?.is_completed && Array.isArray(created?.rates)) {
-    return mapRates(created.rates)
+    const qid = String(created?.id ?? created?.data?.id ?? '')
+    return mapRates(created.rates, qid)
   }
 
-  const quotationId = created?.data?.id ?? created?.id
+  const quotationId = String(created?.data?.id ?? created?.id ?? '')
   if (!quotationId) throw new Error(`SkyDropX: sin ID de cotización`)
 
   // Polling — máx 6 intentos × 1.5s = 9s
@@ -137,7 +139,7 @@ export async function getShippingRates({
     const attrs = data?.attributes ?? data
     const isCompleted = attrs?.is_completed ?? false
     const rawRates: Record<string, unknown>[] = attrs?.rates ?? data?.rates ?? []
-    if (isCompleted || rawRates.length > 0) return mapRates(rawRates)
+    if (isCompleted || rawRates.length > 0) return mapRates(rawRates, quotationId)
   }
 
   return []
@@ -203,11 +205,12 @@ export async function getConsignmentNoteClasses(clientId: string, clientSecret: 
 }
 
 export async function createShipment({
-  clientId, clientSecret, rateId, addressFrom, addressTo, parcel, packagingCode, classCode,
+  clientId, clientSecret, rateId, quotationId, addressFrom, addressTo, parcel, packagingCode, classCode,
 }: {
   clientId: string
   clientSecret: string
   rateId: string
+  quotationId: string
   addressFrom: Address
   addressTo: Address
   parcel: { weight_kg: number; length_cm: number; width_cm: number; height_cm: number }
@@ -229,6 +232,7 @@ export async function createShipment({
   }
 
   const body = {
+    quotation_id: quotationId,
     rate_id: rateId,
     address_from: {
       name: addressFrom.name,
@@ -285,11 +289,12 @@ export async function createShipment({
   return { shipmentId, trackingNumber, labelUrl, carrier }
 }
 
-function mapRates(rates: Record<string, unknown>[]): ShippingRate[] {
+function mapRates(rates: Record<string, unknown>[], quotationId: string): ShippingRate[] {
   return rates
     .filter(r => r.success !== false)
     .map(r => ({
       rate_id: String(r.id ?? ''),
+      quotation_id: quotationId,
       carrier: String(r.provider_display_name ?? r.provider_name ?? r.carrier ?? ''),
       service_level: String(r.provider_service_name ?? r.service_level ?? ''),
       total_mxn: parseFloat(String(r.total ?? r.amount ?? 0)),
