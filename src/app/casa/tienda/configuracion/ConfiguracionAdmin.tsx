@@ -10,7 +10,7 @@ import {
   addPackaging, updatePackaging, deletePackaging, reorderPackaging,
   saveSkydropxConfig, toggleSkydropx, testShippingQuote,
   saveShipping, savePolicies, saveStripeConfig, saveSkydropxExtra,
-  fetchSkydropxPackagings, fetchSkydropxClasses,
+  fetchSkydropxPackagings, fetchSkydropxClasses, fetchSkydropxBalance,
 } from './actions'
 import type { SatCode } from '@/lib/skydropx'
 import ZipSelector from '@/components/ZipSelector'
@@ -345,7 +345,16 @@ function SkydropxSection({ settings, packaging }: { settings: StoreSettings; pac
   const [testRates, setTestRates] = useState<ShippingRate[] | null>(null)
   const [testError, setTestError] = useState<string | null>(null)
   const [testPending, startTestTransition] = useTransition()
+  const [balance, setBalance] = useState<number | null>(null)
+  const [balancePending, startBalanceTransition] = useTransition()
   const router = useRouter()
+
+  function handleRefreshBalance() {
+    startBalanceTransition(async () => {
+      const res = await fetchSkydropxBalance()
+      if (res.balance !== undefined) setBalance(res.balance)
+    })
+  }
 
   function handleToggle(val: boolean) {
     setEnabled(val)
@@ -394,12 +403,25 @@ function SkydropxSection({ settings, packaging }: { settings: StoreSettings; pac
             transition: 'left 200ms', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
           }} />
         </button>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: '#0a0a0a' }}>{enabled ? 'skydropx activado' : 'skydropx desactivado'}</div>
           <div style={{ fontSize: 12, color: M, marginTop: 2 }}>
             {enabled ? 'cotizaciones en tiempo real en el checkout' : 'se usan las tarifas manuales de envíos'}
           </div>
         </div>
+        {enabled && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
+            {balance !== null && (
+              <span style={{ fontSize: 13, fontWeight: 700, color: balance < 200 ? '#ff0100' : '#1a6b35', fontVariantNumeric: 'tabular-nums' }}>
+                {balance.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
+              </span>
+            )}
+            <button type="button" onClick={handleRefreshBalance} disabled={balancePending}
+              style={{ fontSize: 11, color: M, background: 'none', border: `1px solid ${B}`, borderRadius: 4, padding: '4px 10px', cursor: 'pointer' }}>
+              {balancePending ? '…' : balance === null ? 'ver saldo' : 'actualizar'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Credenciales */}

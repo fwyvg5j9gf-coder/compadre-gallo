@@ -3,6 +3,8 @@ import { redirect, notFound } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import AdminShell from '../../AdminShell'
 import OrderActions from './OrderActions'
+import { checkShipmentReadiness } from './actions'
+import type { ReadinessItem } from './actions'
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'pendiente', paid: 'pagado', shipped: 'enviado',
@@ -71,6 +73,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const addr = order.shipping_address as Record<string, string> | null
   const sc = STATUS_COLOR[order.status] ?? { bg: '#f0efe9', text: '#6b6a64' }
   const isTest = (order as Record<string, unknown>).is_test as boolean
+
+  const readiness = !order.tracking_number
+    ? await checkShipmentReadiness(order.id).catch(() => null)
+    : null
 
   return (
     <AdminShell
@@ -200,6 +206,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               initialCustomerPhone={order.customer_phone ?? null}
               initialNotes={order.notes ?? null}
               initialAddress={addr}
+              shipmentReadiness={readiness}
             />
           </div>
 

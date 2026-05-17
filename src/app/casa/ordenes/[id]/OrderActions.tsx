@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateOrderStatus, updateTrackingNumber, createSkydropxShipment, getSkydropxRatesForOrder, deleteOrder, updateOrderDetails } from './actions'
 import type { ShippingRate } from '@/lib/skydropx'
+import type { ReadinessItem } from './actions'
 
 const STATUS_OPTIONS = [
   { value: 'pending',   label: 'pendiente' },
@@ -43,6 +44,7 @@ export default function OrderActions({
   initialCustomerPhone,
   initialNotes,
   initialAddress,
+  shipmentReadiness,
 }: {
   orderId: string
   currentStatus: string
@@ -56,6 +58,7 @@ export default function OrderActions({
   initialCustomerPhone: string | null
   initialNotes: string | null
   initialAddress: Record<string, string> | null
+  shipmentReadiness: { ready: boolean; items: ReadinessItem[] } | null
 }) {
   const router = useRouter()
   const [status, setStatus] = useState(currentStatus)
@@ -229,6 +232,28 @@ export default function OrderActions({
           <div style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 14 }}>
             skydropx
           </div>
+
+          {/* Readiness checklist */}
+          {shipmentReadiness && (
+            <div style={{ marginBottom: 16, border: `1px solid ${shipmentReadiness.ready ? '#c8e6c9' : B}`, borderRadius: 6, overflow: 'hidden' }}>
+              <div style={{ padding: '8px 12px', background: shipmentReadiness.ready ? '#f1f8f2' : '#f6f5f1', display: 'flex', alignItems: 'center', gap: 8, borderBottom: `1px solid ${shipmentReadiness.ready ? '#c8e6c9' : B}` }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: shipmentReadiness.ready ? '#1a6b35' : '#cc4400' }}>
+                  {shipmentReadiness.ready ? '✓ lista para generar guía' : '✗ faltan datos para generar guía'}
+                </span>
+              </div>
+              <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {shipmentReadiness.items.map((item, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, fontSize: 12 }}>
+                    <span style={{ color: item.ok ? '#1a6b35' : '#cc4400', flexShrink: 0, lineHeight: '18px' }}>{item.ok ? '✓' : '✗'}</span>
+                    <span style={{ color: item.ok ? M : '#0a0a0a', fontWeight: item.ok ? 400 : 500 }}>{item.label}</span>
+                    {!item.ok && item.detail && (
+                      <span style={{ color: '#cc4400', fontSize: 11, marginLeft: 2 }}>— {item.detail}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Info de envío del cliente */}
           <div style={{ marginBottom: 16, padding: '10px 14px', background: '#f6f5f1', borderRadius: 4, fontSize: 13 }}>

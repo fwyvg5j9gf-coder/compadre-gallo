@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
-import { getShippingRates, getConsignmentNotePackagings, getConsignmentNoteClasses } from '@/lib/skydropx'
+import { getShippingRates, getConsignmentNotePackagings, getConsignmentNoteClasses, getBalance } from '@/lib/skydropx'
 import type { ShippingRate, SatCode } from '@/lib/skydropx'
 import { requireAdminOrThrow as requireAdmin } from '@/lib/auth.server'
 
@@ -239,6 +239,15 @@ async function getSkydropxCredentials() {
   if (!settings?.skydropx_client_id || !settings.skydropx_client_secret)
     throw new Error('configura las credenciales de Skydropx primero')
   return { clientId: settings.skydropx_client_id, clientSecret: settings.skydropx_client_secret }
+}
+
+export async function fetchSkydropxBalance(): Promise<{ balance?: number; currency?: string; error?: string }> {
+  await requireAdmin()
+  try {
+    const { clientId, clientSecret } = await getSkydropxCredentials()
+    const data = await getBalance(clientId, clientSecret)
+    return data
+  } catch (e) { return { error: e instanceof Error ? e.message : 'error consultando saldo' } }
 }
 
 export async function fetchSkydropxPackagings(): Promise<{ codes?: SatCode[]; error?: string }> {

@@ -116,6 +116,80 @@ async function buildOrderShipmentData(orderId: string) {
   return { order, settings, parcel, addr }
 }
 
+// ── Readiness check (sin llamar a Skydropx) ──────────────────────────────────
+
+export type ReadinessItem = { label: string; ok: boolean; detail?: string }
+
+export async function checkShipmentReadiness(orderId: string): Promise<{ ready: boolean; items: ReadinessItem[] }> {
+  await requireAdmin()
+
+  const [{ data: order }, { data: settings }] = await Promise.all([
+    supabaseAdmin.from('orders').select('*, order_items(product_id)').eq('id', orderId).single(),
+    supabaseAdmin.from('store_settings').select(
+      'skydropx_enabled, skydropx_client_id, skydropx_client_secret, origin_zip, origin_state, origin_city, origin_colonia, origin_street, origin_phone, origin_email'
+    ).single(),
+  ])
+
+  const addr = (order?.shipping_address ?? null) as Record<string, string> | null
+
+  // SAT codes
+  let packageType = '', consignmentNote = ''
+  const productIds = ((order?.order_items ?? []) as { product_id: string | null }[])
+    .map(i => i.product_id).filter(Boolean) as string[]
+  if (productIds.length > 0) {
+    const { data: product } = await supabaseAdmin
+      .from('products').select('packaging_type_id').eq('id', productIds[0]).single()
+    if (product?.packaging_type_id) {
+      const { data: pkg } = await supabaseAdmin
+        .from('packaging_types').select('skydropx_package_type, consignment_note').eq('id', product.packaging_type_id).single()
+      packageType = pkg?.skydropx_package_type ?? ''
+      consignmentNote = pkg?.consignment_note ?? ''
+    }
+  }
+
+  const isNumericSat = (v: string) => /^\d{8}$/.test(v.trim())
+
+  const items: ReadinessItem[] = [
+    {
+      label: 'skydropx habilitado',
+      ok: !!settings?.skydropx_enabled,
+    },
+    {
+      label: 'credenciales',
+      ok: !!(settings?.skydropx_client_id && settings?.skydropx_client_secret),
+      detail: !settings?.skydropx_client_id ? 'falta client_id' : !settings?.skydropx_client_secret ? 'falta client_secret' : undefined,
+    },
+    {
+      label: 'origen configurado',
+      ok: !!(settings?.origin_zip && settings?.origin_state && settings?.origin_city && settings?.origin_street && settings?.origin_phone && settings?.origin_email),
+      detail: ['origin_zip','origin_state','origin_city','origin_street','origin_phone','origin_email']
+        .filter(k => !settings?.[k as keyof typeof settings]).map(k => k.replace('origin_', '')).join(', ') || undefined,
+    },
+    {
+      label: 'dirección del cliente',
+      ok: !!(addr?.zip && addr?.state && addr?.city && addr?.street),
+      detail: !addr ? 'sin dirección' : ['zip','state','city','street'].filter(k => !addr[k]).join(', ') || undefined,
+    },
+    {
+      label: 'contacto del cliente',
+      ok: !!(order?.customer_name && order?.customer_phone),
+      detail: !order?.customer_name ? 'falta nombre' : !order?.customer_phone ? 'falta teléfono' : undefined,
+    },
+    {
+      label: 'código SAT de empaque',
+      ok: !!packageType,
+      detail: !packageType ? 'configura skydropx_package_type en el tipo de embalaje del producto' : packageType,
+    },
+    {
+      label: 'código SAT de producto',
+      ok: isNumericSat(consignmentNote),
+      detail: !consignmentNote ? 'configura consignment_note en el tipo de embalaje' : !isNumericSat(consignmentNote) ? `"${consignmentNote}" no es un código UNSPSC válido` : consignmentNote,
+    },
+  ]
+
+  return { ready: items.every(i => i.ok), items }
+}
+
 // ── Cotizar (para órdenes sin rate_id de Skydropx) ──────────────────────────
 
 export type RatesResult = { rates: ShippingRate[]; error?: string }
