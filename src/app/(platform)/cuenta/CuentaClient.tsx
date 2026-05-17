@@ -182,15 +182,10 @@ function ArtistSubCard({
     const wasSubscribed = isSubscribed
     onToggle(artist.id, wasSubscribed)  // optimistic
     startTransition(async () => {
-      try {
-        if (wasSubscribed) {
-          await unsubscribeFromArtist(artist.id)
-        } else {
-          await subscribeToArtist(artist.id, email)
-        }
-      } catch {
-        onToggle(artist.id, !wasSubscribed)  // rollback on error
-      }
+      const { error } = wasSubscribed
+        ? await unsubscribeFromArtist(artist.id)
+        : await subscribeToArtist(artist.id, email)
+      if (error) onToggle(artist.id, !wasSubscribed)  // rollback on error
     })
   }
 
@@ -252,12 +247,9 @@ function UsernameModal({ onDone }: { onDone: (saved?: string) => void }) {
   const submit = () => {
     setError('')
     startTransition(async () => {
-      try {
-        await saveUsername(value)
-        onDone(preview)
-      } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : 'error al guardar')
-      }
+      const { error } = await saveUsername(value)
+      if (error) { setError(error); return }
+      onDone(preview)
     })
   }
 
@@ -367,12 +359,15 @@ export default function CuentaClient({
 
   const [address, setAddress] = useState<Record<string, string>>(savedAddress ?? EMPTY_ADDRESS)
   const [addressSaved, setAddressSaved] = useState(false)
+  const [addressError, setAddressError] = useState<string | null>(null)
   const [addressPending, startAddressTransition] = useTransition()
 
   const handleSaveAddress = () => {
     setAddressSaved(false)
+    setAddressError(null)
     startAddressTransition(async () => {
-      await saveAddress(address)
+      const { error } = await saveAddress(address)
+      if (error) { setAddressError(error); return }
       setAddressSaved(true)
     })
   }
@@ -618,6 +613,9 @@ export default function CuentaClient({
                 </button>
                 {addressSaved && (
                   <span style={{ fontSize: 13, color: '#1a6b35' }}>dirección guardada</span>
+                )}
+                {addressError && (
+                  <span style={{ fontSize: 13, color: 'var(--gallo-red)' }}>{addressError}</span>
                 )}
               </div>
             </div>

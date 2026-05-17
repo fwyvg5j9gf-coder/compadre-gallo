@@ -300,31 +300,31 @@ export default function CheckoutMerch({
   const handlePaymentSuccess = useCallback((piId: string) => {
     if (!savedData) return
     startCreateOrder(async () => {
-      try {
-        const { orderId, folioNumber } = await createOrder({
-          name: savedData.name,
-          email: savedData.email,
-          phone: savedData.phone,
-          street: savedData.street,
-          zip: savedData.zipInfo.zip,
-          state: savedData.zipInfo.estado,
-          city: savedData.zipInfo.municipio,
-          colonia: savedData.zipInfo.colonia,
-          notes: savedData.notes,
-          shippingRateId: savedData.shippingRateId,
-          shippingCarrier: savedData.shippingCarrier,
-          shippingMxn: savedData.shippingMxn,
-          stripePaymentId: piId,
-          items,
-          saveAddressForUser: savedData.saveAddress,
-        })
-        clearCart()
-        setOrderResult({ orderId, folioNumber })
-        setStep('done')
-      } catch (err) {
-        setSubmitError(err instanceof Error ? err.message : 'error al registrar el pedido')
+      const { orderId, folioNumber, error: orderErr } = await createOrder({
+        name: savedData.name,
+        email: savedData.email,
+        phone: savedData.phone,
+        street: savedData.street,
+        zip: savedData.zipInfo.zip,
+        state: savedData.zipInfo.estado,
+        city: savedData.zipInfo.municipio,
+        colonia: savedData.zipInfo.colonia,
+        notes: savedData.notes,
+        shippingRateId: savedData.shippingRateId,
+        shippingCarrier: savedData.shippingCarrier,
+        shippingMxn: savedData.shippingMxn,
+        stripePaymentId: piId,
+        items,
+        saveAddressForUser: savedData.saveAddress,
+      })
+      if (orderErr || !orderId || !folioNumber) {
+        setSubmitError(orderErr ?? 'error al registrar el pedido')
         setStep('shipping')
+        return
       }
+      clearCart()
+      setOrderResult({ orderId, folioNumber })
+      setStep('done')
     })
   }, [savedData, items, clearCart])
 

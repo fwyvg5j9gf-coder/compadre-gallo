@@ -81,7 +81,10 @@ export type CheckoutPayload = {
   saveAddressForUser?: boolean
 }
 
-export async function createOrder(payload: CheckoutPayload): Promise<{ orderId: string; folioNumber: number }> {
+export type OrderResult = { orderId?: string; folioNumber?: number; error?: string }
+
+export async function createOrder(payload: CheckoutPayload): Promise<OrderResult> {
+  try {
   const { auth } = await import('@clerk/nextjs/server')
   const Stripe = (await import('stripe')).default
 
@@ -99,7 +102,7 @@ export async function createOrder(payload: CheckoutPayload): Promise<{ orderId: 
 
   const pi = await stripe.paymentIntents.retrieve(payload.stripePaymentId)
   if (pi.status !== 'succeeded') {
-    throw new Error('el pago no está confirmado')
+    return { error: 'el pago no está confirmado, intenta de nuevo o contacta soporte' }
   }
 
   // ── 2. Fetch real prices from DB (ignore client-submitted prices) ────────────
@@ -125,7 +128,7 @@ export async function createOrder(payload: CheckoutPayload): Promise<{ orderId: 
       .eq('id', item.variantId)
       .single()
     if (!variant || variant.stock < item.qty) {
-      throw new Error(`sin stock suficiente para: ${item.name}`)
+      return { error: `sin stock suficiente para: ${item.name}. actualiza tu carrito e intenta de nuevo` }
     }
   }
 
@@ -161,7 +164,7 @@ export async function createOrder(payload: CheckoutPayload): Promise<{ orderId: 
     .select('id, folio_number')
     .single()
 
-  if (error || !order) throw new Error('error creando la orden')
+  if (error || !order) return { error: 'tu pago fue procesado pero hubo un error al registrar la orden. contacta soporte con tu ID de pago: ' + payload.stripePaymentId }
 
   // ── 5. Insert order items ────────────────────────────────────────────────────
   await supabaseAdmin.from('order_items').insert(
@@ -228,4 +231,7 @@ export async function createOrder(payload: CheckoutPayload): Promise<{ orderId: 
   ]).catch(console.error)
 
   return { orderId: order.id, folioNumber: order.folio_number }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'error inesperado al procesar el pedido' }
+  }
 }
