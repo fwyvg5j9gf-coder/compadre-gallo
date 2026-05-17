@@ -274,7 +274,22 @@ export async function createShipment({
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`SkyDropX ${res.status}: ${text.slice(0, 500)}\nBODY: ${bodyStr.slice(0, 800)}`)
+    // Diagnóstico: ver qué IDs acepta Skydropx en sus catálogos
+    const [pkgTypes, cnClasses, cnPkgs] = await Promise.all([
+      fetch(`${BASE}/package_types`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }, cache: 'no-store' })
+        .then(r => r.json()).then(j => JSON.stringify((j?.data ?? j ?? []).slice(0, 5))).catch(() => 'err'),
+      fetch(`${BASE}/consignment_notes/classes`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }, cache: 'no-store' })
+        .then(r => r.json()).then(j => JSON.stringify((j?.data ?? j ?? []).slice(0, 5))).catch(() => 'err'),
+      fetch(`${BASE}/consignment_notes/packagings`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }, cache: 'no-store' })
+        .then(r => r.json()).then(j => JSON.stringify((j?.data ?? j ?? []).slice(0, 5))).catch(() => 'err'),
+    ])
+    throw new Error(
+      `SkyDropX ${res.status}: ${text.slice(0, 300)}\n` +
+      `BODY: ${bodyStr.slice(0, 600)}\n` +
+      `PKG_TYPES[0-4]: ${pkgTypes}\n` +
+      `CN_CLASSES[0-4]: ${cnClasses}\n` +
+      `CN_PACKAGINGS[0-4]: ${cnPkgs}`
+    )
   }
 
   const json = await res.json()
