@@ -123,7 +123,10 @@ export default function OrderActions({
     startTrack(async () => {
       const { data, error } = await fetchSkydropxShipmentStatus(orderId)
       if (error) { setTrackError(error); return }
-      if (data) setShipmentStatus(data)
+      if (data) {
+        setShipmentStatus(data)
+        if (data.labelUrl && !labelUrl) setLabelUrl(data.labelUrl)
+      }
     })
   }
 

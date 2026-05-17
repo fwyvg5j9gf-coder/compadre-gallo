@@ -121,14 +121,25 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
 
   // ── 3. Validate stock availability ──────────────────────────────────────────
   for (const item of payload.items) {
-    if (!item.variantId) continue
-    const { data: variant } = await supabaseAdmin
-      .from('product_variants')
-      .select('stock')
-      .eq('id', item.variantId)
-      .single()
-    if (!variant || variant.stock < item.qty) {
-      return { error: `sin stock suficiente para: ${item.name}. actualiza tu carrito e intenta de nuevo` }
+    if (item.variantId) {
+      const { data: variant } = await supabaseAdmin
+        .from('product_variants')
+        .select('stock')
+        .eq('id', item.variantId)
+        .single()
+      if (!variant || variant.stock < item.qty) {
+        return { error: `sin stock suficiente para: ${item.name}. actualiza tu carrito e intenta de nuevo` }
+      }
+    } else {
+      // Producto sin variantes — verificar stock directo del producto
+      const { data: prod } = await supabaseAdmin
+        .from('products')
+        .select('stock')
+        .eq('id', item.productId)
+        .single()
+      if (!prod || prod.stock < item.qty) {
+        return { error: `sin stock suficiente para: ${item.name}. actualiza tu carrito e intenta de nuevo` }
+      }
     }
   }
 
@@ -181,13 +192,18 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
 
   // ── 6. Atomic stock decrement ────────────────────────────────────────────────
   for (const item of payload.items) {
-    if (!item.variantId) continue
-    const { error: stockErr } = await supabaseAdmin.rpc('decrement_stock', {
-      p_variant_id: item.variantId,
-      p_qty: item.qty,
-    })
-    if (stockErr) {
-      console.error('[createOrder] stock decrement failed:', stockErr.message)
+    if (item.variantId) {
+      const { error: stockErr } = await supabaseAdmin.rpc('decrement_stock', {
+        p_variant_id: item.variantId,
+        p_qty: item.qty,
+      })
+      if (stockErr) console.error('[createOrder] variant stock decrement failed:', stockErr.message)
+    } else {
+      const { error: stockErr } = await supabaseAdmin.rpc('decrement_product_stock', {
+        p_product_id: item.productId,
+        p_qty: item.qty,
+      })
+      if (stockErr) console.error('[createOrder] product stock decrement failed:', stockErr.message)
     }
   }
 

@@ -320,6 +320,7 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
       skydropx_shipment_id: result.shipmentId,
       label_url: result.labelUrl,
       skydropx_cost_mxn: costMxn,
+      shipping_carrier: result.carrier || null,
       status: 'shipped',
       updated_at: new Date().toISOString(),
     }).eq('id', orderId)
@@ -333,6 +334,14 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
       shipment_id: result.shipmentId,
       label_url: result.labelUrl ?? undefined,
     })
+
+    // Notificar al cliente que su pedido está en camino (fire-and-forget)
+    const { data: orderForEmail } = await supabaseAdmin
+      .from('orders').select('customer_email, customer_name, folio_number').eq('id', orderId).single()
+    if (orderForEmail) {
+      const { sendShipmentNotification } = await import('@/lib/emails')
+      sendShipmentNotification(orderForEmail, result.trackingNumber, result.carrier || null).catch(console.error)
+    }
 
     revalidatePath(`/casa/ordenes/${orderId}`)
     revalidatePath('/casa/ordenes')
@@ -350,7 +359,7 @@ export type ShipmentStatusResult = { data?: ShipmentStatus; error?: string }
 export async function fetchSkydropxShipmentStatus(orderId: string): Promise<ShipmentStatusResult> {
   try {
     await requireAdmin()
-    const { data: order } = await supabaseAdmin.from('orders').select('skydropx_shipment_id').eq('id', orderId).single()
+    const { data: order } = await supabaseAdmin.from('orders').select('skydropx_shipment_id, label_url').eq('id', orderId).single()
     if (!order?.skydropx_shipment_id) return { error: 'esta orden no tiene shipment ID de Skydropx' }
 
     const { data: settings } = await supabaseAdmin
@@ -358,6 +367,13 @@ export async function fetchSkydropxShipmentStatus(orderId: string): Promise<Ship
     if (!settings?.skydropx_client_id) return { error: 'faltan credenciales de Skydropx' }
 
     const status = await getShipmentStatus(settings.skydropx_client_id, settings.skydropx_client_secret, order.skydropx_shipment_id)
+
+    // Si la orden no tiene label_url pero Skydropx sí lo devuelve, guardarlo
+    if (status.labelUrl && !order.label_url) {
+      await supabaseAdmin.from('orders').update({ label_url: status.labelUrl }).eq('id', orderId)
+      revalidatePath(`/casa/ordenes/${orderId}`)
+    }
+
     return { data: status }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'error al consultar el estado del envío' }

@@ -390,10 +390,10 @@ export async function createShipment({
 
   let { tracking: trackingNumber, label: labelUrl, cost } = extractFromResponse(json)
 
-  // Shipment comienza como "in_progress"; la guía llega al completarse
-  if (!trackingNumber && shipmentId) {
-    for (let i = 0; i < 10; i++) {
-      await new Promise(r => setTimeout(r, 3000))
+  // Shipment comienza como "in_progress"; la guía y la etiqueta llegan al completarse
+  if ((!trackingNumber || !labelUrl) && shipmentId) {
+    for (let i = 0; i < 12; i++) {
+      await new Promise(r => setTimeout(r, 2500))
       const pollRes = await fetch(`${BASE}/shipments/${shipmentId}`, {
         headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
         cache: 'no-store',
@@ -401,7 +401,8 @@ export async function createShipment({
       if (!pollRes.ok) break
       const pj = await pollRes.json() as Record<string, unknown>
       ;({ tracking: trackingNumber, label: labelUrl, cost } = extractFromResponse(pj))
-      if (trackingNumber) break
+      if (trackingNumber && labelUrl) break
+      if (trackingNumber && i >= 4) break  // si hay guía pero no etiqueta tras ~10s, continúa
     }
   }
 

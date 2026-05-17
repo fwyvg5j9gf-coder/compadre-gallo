@@ -104,6 +104,47 @@ export async function sendOrderConfirmation(order: OrderWithItems) {
   })
 }
 
+export async function sendShipmentNotification(order: {
+  customer_email: string
+  customer_name: string | null
+  folio_number: number
+}, trackingNumber: string, carrier: string | null) {
+  await getResend().emails.send({
+    from: FROM,
+    to: order.customer_email,
+    subject: `tu pedido ${folio(order.folio_number)} está en camino`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family:sans-serif;background:#f6f5f1;margin:0;padding:40px 16px">
+  <div style="max-width:540px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e8e7e1">
+    <div style="background:#0a0a0a;padding:24px 32px">
+      <span style="font-size:28px;font-weight:900;letter-spacing:-0.05em">
+        <span style="color:#003a87">g</span><span style="color:#00c4df">a</span><span style="color:#ffd49a">l</span><span style="color:#ff0100">l</span><span style="color:#ffe200">o</span>
+      </span>
+    </div>
+    <div style="padding:32px">
+      <h2 style="margin:0 0 8px;font-size:22px;color:#0a0a0a">ya va en camino, ${escapeHtml(order.customer_name ?? 'compadre')}.</h2>
+      <p style="margin:0 0 24px;color:#6b6a64;font-size:14px">tu pedido ${folio(order.folio_number)} fue enviado${carrier ? ` con ${escapeHtml(carrier)}` : ''}.</p>
+
+      <div style="background:rgba(0,196,223,0.08);border:1px solid rgba(0,196,223,0.25);border-radius:6px;padding:20px 24px;margin-bottom:24px">
+        <p style="margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#007a8c;font-weight:700">número de guía</p>
+        <p style="margin:0;font-size:22px;font-weight:900;font-family:monospace;color:#003a87;letter-spacing:0.02em">${escapeHtml(trackingNumber)}</p>
+        ${carrier ? `<p style="margin:8px 0 0;font-size:13px;color:#6b6a64">paquetería: <strong>${escapeHtml(carrier)}</strong></p>` : ''}
+      </div>
+
+      <p style="font-size:13px;color:#6b6a64;margin:0">usa el número de guía en el sitio de la paquetería para rastrear tu pedido en tiempo real.</p>
+    </div>
+    <div style="padding:20px 32px;border-top:1px solid #e8e7e1;text-align:center">
+      <p style="margin:0;font-size:12px;color:#9a9994">compadregallo.com — cualquier duda, contáctanos.</p>
+    </div>
+  </div>
+</body>
+</html>`,
+  })
+}
+
 export async function sendAdminNewOrder(order: OrderWithItems) {
   if (!ADMIN_EMAIL) return  // skip if not configured
 
