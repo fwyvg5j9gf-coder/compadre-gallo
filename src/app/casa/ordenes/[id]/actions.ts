@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import { requireAdmin } from '@/lib/auth.server'
-import { createShipment, getShippingRates, getShipmentStatus, type ShippingRate, type ShipmentStatus } from '@/lib/skydropx'
+import { createShipment, getShippingRates, getShipmentStatus, cancelShipmentInSkydropx, type ShippingRate, type ShipmentStatus } from '@/lib/skydropx'
 
 export type SkydropxEvent = {
   type: 'created' | 'cancelled'
@@ -366,9 +366,30 @@ export async function fetchSkydropxShipmentStatus(orderId: string): Promise<Ship
 
 // ── Cancelar guía (solo local — Skydropx no expone endpoint de cancel) ───────
 
-export async function cancelSkydropxShipmentLocal(orderId: string): Promise<{ error?: string }> {
+export async function cancelSkydropxShipment(orderId: string, reason: string): Promise<{ error?: string; skydropxError?: string }> {
   try {
     await requireAdmin()
+
+    const { data: order } = await supabaseAdmin
+      .from('orders').select('skydropx_shipment_id').eq('id', orderId).single()
+    const shipmentId = (order as Record<string, unknown> | null)?.skydropx_shipment_id as string | null
+
+    let skydropxError: string | undefined
+
+    if (shipmentId) {
+      const { data: settings } = await supabaseAdmin
+        .from('store_settings').select('skydropx_client_id, skydropx_client_secret').single()
+
+      if (settings?.skydropx_client_id) {
+        const result = await cancelShipmentInSkydropx(
+          settings.skydropx_client_id,
+          settings.skydropx_client_secret,
+          shipmentId,
+          reason || 'Cancelado desde el panel de administración',
+        )
+        if (!result.ok) skydropxError = result.error
+      }
+    }
 
     await appendSkydropxEvent(orderId, {
       type: 'cancelled',
@@ -386,7 +407,7 @@ export async function cancelSkydropxShipmentLocal(orderId: string): Promise<{ er
 
     revalidatePath(`/casa/ordenes/${orderId}`)
     revalidatePath('/casa/ordenes')
-    return {}
+    return skydropxError ? { skydropxError } : {}
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'error al cancelar' }
   }

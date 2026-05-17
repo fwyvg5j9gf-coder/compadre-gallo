@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { updateOrderStatus, updateTrackingNumber, createSkydropxShipment, getSkydropxRatesForOrder, deleteOrder, updateOrderDetails, fetchSkydropxShipmentStatus, cancelSkydropxShipmentLocal } from './actions'
+import { updateOrderStatus, updateTrackingNumber, createSkydropxShipment, getSkydropxRatesForOrder, deleteOrder, updateOrderDetails, fetchSkydropxShipmentStatus, cancelSkydropxShipment } from './actions'
 import type { ShippingRate, ShipmentStatus } from '@/lib/skydropx'
 import type { ReadinessItem, SkydropxEvent } from './actions'
 
@@ -113,6 +113,7 @@ export default function OrderActions({
   const [confirmCancelShipment, setConfirmCancelShipment] = useState(false)
   const [cancelShipmentError, setCancelShipmentError] = useState<string | null>(null)
   const [cancelShipmentMsg, setCancelShipmentMsg] = useState<string | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
 
   const hasTracking = !!tracking
   const hasRateId = !!shippingRateId
@@ -129,14 +130,19 @@ export default function OrderActions({
   function handleCancelShipment() {
     setCancelShipmentError(null)
     startCancel(async () => {
-      const { error } = await cancelSkydropxShipmentLocal(orderId)
+      const { error, skydropxError } = await cancelSkydropxShipment(orderId, cancelReason)
       if (error) { setCancelShipmentError(error); return }
       setTracking('')
       setStatus('paid')
       setLabelUrl(null)
       setShipmentStatus(null)
       setConfirmCancelShipment(false)
-      setCancelShipmentMsg('guía cancelada — recuerda cancelarla también en el panel de Skydropx')
+      setCancelReason('')
+      setCancelShipmentMsg(
+        skydropxError
+          ? `cancelada localmente, pero Skydropx respondió: "${skydropxError}". Cancélala manualmente desde el panel.`
+          : 'guía cancelada correctamente en Skydropx y en el sistema.'
+      )
     })
   }
 
@@ -586,23 +592,33 @@ export default function OrderActions({
                 cancelar guía de envío
               </button>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px', background: 'rgba(255,1,0,0.04)', borderRadius: 4, border: '1px solid rgba(255,1,0,0.15)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px', background: 'rgba(255,1,0,0.04)', borderRadius: 4, border: '1px solid rgba(255,1,0,0.15)' }}>
                 <p style={{ fontSize: 13, color: '#cc0000', margin: 0, fontWeight: 600 }}>
-                  ¿cancelar la guía?
+                  ¿cancelar la guía en Skydropx?
                 </p>
                 <p style={{ fontSize: 12, color: M, margin: 0 }}>
-                  Esto borra la guía de esta orden localmente y regresa el estado a <strong>pagado</strong>. La guía en Skydropx sigue activa — cancélala también en el panel de Skydropx para evitar cargos.
+                  Se enviará la cancelación a Skydropx y se actualizará el estado a <strong>pagado</strong>.
                 </p>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, fontWeight: 600, color: M }}>
+                  razón (requerida por Skydropx)
+                  <input
+                    value={cancelReason}
+                    onChange={e => setCancelReason(e.target.value)}
+                    placeholder="ej. el cliente cambió de opinión"
+                    className="adm-inp"
+                    style={{ height: 34, fontSize: 13 }}
+                  />
+                </label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     onClick={handleCancelShipment}
-                    disabled={pendingCancel}
-                    style={{ flex: 1, height: 34, background: '#ff0100', border: 'none', borderRadius: 4, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
+                    disabled={pendingCancel || !cancelReason.trim()}
+                    style={{ flex: 1, height: 34, background: '#ff0100', border: 'none', borderRadius: 4, color: '#fff', fontWeight: 700, fontSize: 13, cursor: pendingCancel || !cancelReason.trim() ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-sans)', opacity: !cancelReason.trim() ? 0.5 : 1 }}
                   >
-                    {pendingCancel ? 'cancelando…' : 'sí, cancelar guía'}
+                    {pendingCancel ? 'cancelando…' : 'cancelar guía'}
                   </button>
                   <button
-                    onClick={() => setConfirmCancelShipment(false)}
+                    onClick={() => { setConfirmCancelShipment(false); setCancelReason('') }}
                     disabled={pendingCancel}
                     style={{ height: 34, padding: '0 14px', border: `1px solid ${B}`, borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 13, color: M }}
                   >
@@ -615,8 +631,13 @@ export default function OrderActions({
           )}
 
           {cancelShipmentMsg && (
-            <div style={{ padding: '10px 12px', background: 'rgba(26,107,53,0.08)', border: '1px solid rgba(26,107,53,0.2)', borderRadius: 4, fontSize: 12, color: '#1a6b35', fontWeight: 500 }}>
-              ✓ {cancelShipmentMsg}
+            <div style={{
+              padding: '10px 12px', borderRadius: 4, fontSize: 12, fontWeight: 500,
+              background: cancelShipmentMsg.includes('Skydropx respondió') ? 'rgba(255,152,0,0.1)' : 'rgba(26,107,53,0.08)',
+              border: `1px solid ${cancelShipmentMsg.includes('Skydropx respondió') ? 'rgba(255,152,0,0.3)' : 'rgba(26,107,53,0.2)'}`,
+              color: cancelShipmentMsg.includes('Skydropx respondió') ? '#b45309' : '#1a6b35',
+            }}>
+              {cancelShipmentMsg.includes('Skydropx respondió') ? '⚠ ' : '✓ '}{cancelShipmentMsg}
             </div>
           )}
 

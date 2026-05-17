@@ -149,6 +149,27 @@ export async function getShippingRates({
   return []
 }
 
+// ── Cancelar guía ─────────────────────────────────────────────────────────────
+
+export async function cancelShipmentInSkydropx(
+  clientId: string,
+  clientSecret: string,
+  shipmentId: string,
+  reason: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const token = await getAccessToken(cleanId(clientId), cleanId(clientSecret))
+  const res = await fetch(`${BASE}/shipments/${shipmentId}/cancellations`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ reason, shipment_id: shipmentId }),
+    cache: 'no-store',
+  })
+  if (res.ok) return { ok: true }
+  const json = await res.json().catch(() => ({}))
+  const msg = String(json?.error ?? json?.message ?? `error ${res.status}`)
+  return { ok: false, error: msg }
+}
+
 // ── Crear guía ────────────────────────────────────────────────────────────────
 
 export type ShipmentResult = {
