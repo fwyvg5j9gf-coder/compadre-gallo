@@ -8,8 +8,7 @@ export type ShippingRate = {
   days: number | null
 }
 
-const BASE = 'https://app.skydropx.com/api/v1'
-const AUTH = 'https://api-pro.skydropx.com/api/v1/oauth/token'
+const BASE = 'https://api-pro.skydropx.com/api/v1'
 
 // Token cache — se reutiliza 110 min para no regenerar por request (API expira en 120)
 const tokenCache = new Map<string, { token: string; expiresAt: number }>()
@@ -19,7 +18,7 @@ async function getAccessToken(clientId: string, clientSecret: string): Promise<s
   if (cached && Date.now() < cached.expiresAt) return cached.token
 
   const params = new URLSearchParams({ grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret })
-  const res = await fetch(AUTH, {
+  const res = await fetch(`${BASE}/oauth/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
     body: params.toString(),
