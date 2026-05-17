@@ -9,7 +9,7 @@ export type ShippingRate = {
 }
 
 const BASE = 'https://app.skydropx.com/api/v1'
-const AUTH = 'https://app.skydropx.com/oauth/token'
+const AUTH = 'https://api-pro.skydropx.com/api/v1/oauth/token'
 
 // Token cache — se reutiliza 110 min para no regenerar por request (API expira en 120)
 const tokenCache = new Map<string, { token: string; expiresAt: number }>()
