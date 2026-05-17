@@ -24,6 +24,14 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // Pages used as editor preview: allow framing from same origin only
+        source: '/:path(|artistas|tienda)',
+        headers: [
+          { key: 'X-Frame-Options',       value: 'SAMEORIGIN' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+        ],
+      },
+      {
         source: '/(.*)',
         headers: [
           { key: 'X-Frame-Options',           value: 'DENY' },
@@ -43,7 +51,7 @@ const nextConfig: NextConfig = {
               `font-src 'self' https://fonts.gstatic.com https://*.clerk.com ${CLERK_CUSTOM}`,
               `img-src 'self' data: blob: https://*.supabase.co https://img.clerk.com https://*.clerk.com ${CLERK_CUSTOM}`,
               `connect-src 'self' https://*.supabase.co https://api.stripe.com https://api-pro.skydropx.com https://nominatim.openstreetmap.org https://*.clerk.com https://*.clerk.accounts.dev https://clerk-telemetry.com ${CLERK_CUSTOM} ${APP_URL}`,
-              `frame-src https://js.stripe.com https://hooks.stripe.com https://*.clerk.com https://*.clerk.accounts.dev https://challenges.cloudflare.com ${CLERK_CUSTOM}`,
+              `frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.clerk.com https://*.clerk.accounts.dev https://challenges.cloudflare.com ${CLERK_CUSTOM}`,
             ].join('; '),
           },
         ],
