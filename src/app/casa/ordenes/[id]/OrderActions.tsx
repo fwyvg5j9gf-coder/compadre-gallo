@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { updateOrderStatus, updateTrackingNumber, createSkydropxShipment, getSkydropxRatesForOrder } from './actions'
+import { useRouter } from 'next/navigation'
+import { updateOrderStatus, updateTrackingNumber, createSkydropxShipment, getSkydropxRatesForOrder, deleteOrder, updateOrderDetails } from './actions'
 import type { ShippingRate } from '@/lib/skydropx'
 
 const STATUS_OPTIONS = [
@@ -19,6 +20,16 @@ const M = '#6b6a64'
 const fmt = (cents: number) =>
   (cents / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
 
+const inp: React.CSSProperties = {
+  padding: '7px 10px', border: `1px solid ${B}`, borderRadius: 4,
+  fontSize: 13, color: '#0a0a0a', background: '#fff', outline: 'none',
+  width: '100%', boxSizing: 'border-box' as const, fontFamily: 'var(--font-sans)',
+}
+const lbl: React.CSSProperties = {
+  display: 'flex', flexDirection: 'column', gap: 4,
+  fontSize: 11, fontWeight: 600, color: M, letterSpacing: '0.03em',
+}
+
 export default function OrderActions({
   orderId,
   currentStatus,
@@ -27,6 +38,11 @@ export default function OrderActions({
   shippingMxn,
   shippingCarrier,
   labelUrl: initialLabelUrl,
+  initialCustomerName,
+  initialCustomerEmail,
+  initialCustomerPhone,
+  initialNotes,
+  initialAddress,
 }: {
   orderId: string
   currentStatus: string
@@ -35,7 +51,13 @@ export default function OrderActions({
   shippingMxn: number
   shippingCarrier: string | null
   labelUrl: string | null
+  initialCustomerName: string | null
+  initialCustomerEmail: string
+  initialCustomerPhone: string | null
+  initialNotes: string | null
+  initialAddress: Record<string, string> | null
 }) {
+  const router = useRouter()
   const [status, setStatus] = useState(currentStatus)
   const [tracking, setTracking] = useState(currentTracking ?? '')
   const [statusMsg, setStatusMsg] = useState<string | null>(null)
@@ -44,12 +66,18 @@ export default function OrderActions({
   const [pendingTracking, startTracking] = useTransition()
   const [pendingShipment, startShipment] = useTransition()
   const [pendingRates, startRates] = useTransition()
+  const [pendingEdit, startEdit] = useTransition()
+  const [pendingDelete, startDelete] = useTransition()
   const [shipmentError, setShipmentError] = useState<string | null>(null)
   const [labelUrl, setLabelUrl] = useState(initialLabelUrl)
-  // 'idle' | 'confirming' | 'fetching' | 'selecting' | 'creating'
   const [guideStep, setGuideStep] = useState<'idle' | 'confirming' | 'fetching' | 'selecting' | 'creating'>('idle')
   const [rates, setRates] = useState<ShippingRate[]>([])
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null)
+  const [showEdit, setShowEdit] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+  const [editMsg, setEditMsg] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const hasTracking = !!tracking
   const hasRateId = !!shippingRateId
@@ -67,6 +95,27 @@ export default function OrderActions({
       await updateTrackingNumber(orderId, tracking)
       setTrackingMsg('guardado')
       setTimeout(() => setTrackingMsg(null), 2000)
+    })
+  }
+
+  function handleEdit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setEditError(null)
+    const fd = new FormData(e.currentTarget)
+    startEdit(async () => {
+      const { error } = await updateOrderDetails(orderId, fd)
+      if (error) { setEditError(error); return }
+      setEditMsg('guardado')
+      setTimeout(() => { setEditMsg(null); setShowEdit(false) }, 1500)
+    })
+  }
+
+  function handleDelete() {
+    setDeleteError(null)
+    startDelete(async () => {
+      const { error } = await deleteOrder(orderId)
+      if (error) { setDeleteError(error); setConfirmDelete(false); return }
+      router.push('/casa/ordenes')
     })
   }
 
@@ -272,6 +321,114 @@ export default function OrderActions({
           )}
         </div>
       )}
+
+      {/* Editar datos */}
+      <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, overflow: 'hidden' }}>
+        <button
+          onClick={() => setShowEdit(v => !v)}
+          style={{ width: '100%', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+        >
+          <span style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.06em', textTransform: 'uppercase' }}>editar datos</span>
+          <span style={{ fontSize: 16, color: M, lineHeight: 1 }}>{showEdit ? '−' : '+'}</span>
+        </button>
+        {showEdit && (
+          <form onSubmit={handleEdit} style={{ padding: '0 20px 20px', display: 'flex', flexDirection: 'column', gap: 12, borderTop: `1px solid ${B}` }}>
+            <div style={{ height: 12 }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <label style={lbl}>
+                nombre
+                <input name="customer_name" defaultValue={initialCustomerName ?? ''} style={inp} />
+              </label>
+              <label style={lbl}>
+                correo *
+                <input name="customer_email" type="email" required defaultValue={initialCustomerEmail} style={inp} />
+              </label>
+              <label style={lbl}>
+                teléfono
+                <input name="customer_phone" defaultValue={initialCustomerPhone ?? ''} style={inp} />
+              </label>
+              <label style={lbl}>
+                notas
+                <input name="notes" defaultValue={initialNotes ?? ''} style={inp} />
+              </label>
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.04em', marginTop: 4 }}>DIRECCIÓN</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <label style={{ ...lbl, gridColumn: '1 / -1' }}>
+                calle y número
+                <input name="addr_street" defaultValue={initialAddress?.street ?? ''} style={inp} />
+              </label>
+              <label style={lbl}>
+                colonia
+                <input name="addr_colonia" defaultValue={initialAddress?.colonia ?? ''} style={inp} />
+              </label>
+              <label style={lbl}>
+                C.P.
+                <input name="addr_zip" defaultValue={initialAddress?.zip ?? ''} style={inp} />
+              </label>
+              <label style={lbl}>
+                ciudad
+                <input name="addr_city" defaultValue={initialAddress?.city ?? ''} style={inp} />
+              </label>
+              <label style={lbl}>
+                estado
+                <input name="addr_state" defaultValue={initialAddress?.state ?? ''} style={inp} />
+              </label>
+            </div>
+            {editError && (
+              <p style={{ fontSize: 12, color: '#cc0000', padding: '8px 12px', background: 'rgba(255,1,0,0.05)', borderRadius: 4, border: '1px solid rgba(255,1,0,0.15)', margin: 0 }}>
+                {editError}
+              </p>
+            )}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setShowEdit(false)} style={{ height: 34, padding: '0 14px', border: `1px solid ${B}`, borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 13, color: M }}>
+                cancelar
+              </button>
+              <button type="submit" disabled={pendingEdit} className="adm-btn-primary" style={{ height: 34, padding: '0 16px', fontSize: 13 }}>
+                {pendingEdit ? '…' : editMsg ?? 'guardar'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+
+      {/* Eliminar orden */}
+      <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, padding: '16px 20px' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>zona de peligro</div>
+        {!confirmDelete ? (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            style={{ width: '100%', height: 36, background: 'rgba(255,1,0,0.06)', border: '1px solid rgba(255,1,0,0.2)', borderRadius: 4, color: '#cc0000', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
+          >
+            eliminar orden
+          </button>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <p style={{ fontSize: 13, color: '#cc0000', margin: 0 }}>
+              ¿seguro? esta acción es permanente y no se puede deshacer.
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={handleDelete}
+                disabled={pendingDelete}
+                style={{ flex: 1, height: 36, background: '#ff0100', border: 'none', borderRadius: 4, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-sans)' }}
+              >
+                {pendingDelete ? 'eliminando…' : 'sí, eliminar'}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                disabled={pendingDelete}
+                style={{ height: 36, padding: '0 14px', border: `1px solid ${B}`, borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 13, color: M }}
+              >
+                cancelar
+              </button>
+            </div>
+            {deleteError && (
+              <p style={{ fontSize: 12, color: '#cc0000', margin: 0 }}>{deleteError}</p>
+            )}
+          </div>
+        )}
+      </div>
 
     </div>
   )

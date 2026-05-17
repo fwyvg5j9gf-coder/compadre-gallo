@@ -195,6 +195,11 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               shippingMxn={order.shipping_mxn ?? 0}
               shippingCarrier={order.shipping_carrier ?? null}
               labelUrl={(order as Record<string, unknown>).label_url as string ?? null}
+              initialCustomerName={order.customer_name ?? null}
+              initialCustomerEmail={order.customer_email}
+              initialCustomerPhone={order.customer_phone ?? null}
+              initialNotes={order.notes ?? null}
+              initialAddress={addr}
             />
           </div>
 

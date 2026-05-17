@@ -16,6 +16,45 @@ export async function updateOrderStatus(orderId: string, status: string) {
   revalidatePath('/casa/ordenes')
 }
 
+export async function deleteOrder(orderId: string): Promise<{ error?: string }> {
+  try {
+    await requireAdmin()
+    const { error } = await supabaseAdmin.from('orders').delete().eq('id', orderId)
+    if (error) return { error: error.message }
+    revalidatePath('/casa/ordenes')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'error al eliminar' }
+  }
+}
+
+export async function updateOrderDetails(orderId: string, formData: FormData): Promise<{ error?: string }> {
+  try {
+    await requireAdmin()
+    const street  = (formData.get('addr_street')  as string ?? '').trim()
+    const colonia = (formData.get('addr_colonia') as string ?? '').trim()
+    const zip     = (formData.get('addr_zip')     as string ?? '').trim()
+    const city    = (formData.get('addr_city')    as string ?? '').trim()
+    const state   = (formData.get('addr_state')   as string ?? '').trim()
+    const shippingAddress = (street || zip) ? { street, colonia, zip, city, state } : null
+
+    const { error } = await supabaseAdmin.from('orders').update({
+      customer_name:  (formData.get('customer_name')  as string ?? '').trim() || null,
+      customer_email: (formData.get('customer_email') as string ?? '').trim(),
+      customer_phone: (formData.get('customer_phone') as string ?? '').trim() || null,
+      notes: (formData.get('notes') as string ?? '').trim() || null,
+      shipping_address: shippingAddress,
+      updated_at: new Date().toISOString(),
+    }).eq('id', orderId)
+
+    if (error) return { error: error.message }
+    revalidatePath(`/casa/ordenes/${orderId}`)
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'error al guardar' }
+  }
+}
+
 export async function updateTrackingNumber(orderId: string, trackingNumber: string) {
   await requireAdmin()
 
