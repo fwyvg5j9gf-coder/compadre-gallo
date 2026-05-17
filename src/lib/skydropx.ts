@@ -233,8 +233,6 @@ export async function createShipment({
   const body = {
     shipment: {
       rate_id: rateId,
-      consignment_note_packaging_code: packagingCode,
-      consignment_note_class_code: classCode,
       address_from: {
         name: addressFrom.name,
         email: addressFrom.email ?? '',
@@ -262,10 +260,11 @@ export async function createShipment({
       parcels: [{
         weight: Math.max(0.01, parcel.weight_kg),
         mass_unit: 'KG',
-        distance_unit: 'CM',
+        dimension_unit: 'CM',
         length: Math.max(1, Math.round(parcel.length_cm)),
         width: Math.max(1, Math.round(parcel.width_cm)),
         height: Math.max(1, Math.round(parcel.height_cm)),
+        quantity: 1,
         package_type: packagingCode,
         consignment_note: classCode,
       }],
@@ -281,8 +280,8 @@ export async function createShipment({
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    const parcel0 = body.parcels[0]
-    const debug = `[enviado→ pkg_type:${parcel0.package_type} note:${parcel0.consignment_note} shipment_pkg_code:${body.shipment.consignment_note_packaging_code} shipment_cls_code:${body.shipment.consignment_note_class_code}]`
+    const p = body.shipment.parcels[0]
+    const debug = `[pkg_type:${p.package_type} note:${p.consignment_note} dim:${p.dimension_unit}]`
     throw new Error(`SkyDropX ${res.status}: ${text.slice(0, 400)} ${debug}`)
   }
 
