@@ -223,7 +223,7 @@ export async function getSkydropxRatesForOrder(orderId: string): Promise<RatesRe
 export type ShipmentActionResult = { trackingNumber: string; labelUrl: string | null; carrier: string }
 export type ShipmentResult = { data?: ShipmentActionResult; error?: string }
 
-export async function createSkydropxShipment(orderId: string, overrideRateId?: string, overrideQuotationId?: string): Promise<ShipmentResult> {
+export async function createSkydropxShipment(orderId: string, overrideRateId?: string, overrideQuotationId?: string, protection = false): Promise<ShipmentResult> {
   try {
     await requireAdmin()
     const { order, settings, parcel, addr } = await buildOrderShipmentData(orderId)
@@ -293,6 +293,7 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
       parcel,
       packagingCode: parcel.packageType,
       classCode: parcel.consignmentNote,
+      protection,
     })
 
     await supabaseAdmin.from('orders').update({

@@ -81,6 +81,7 @@ export default function OrderActions({
   const [editMsg, setEditMsg] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [protection, setProtection] = useState(false)
 
   const hasTracking = !!tracking
   const hasRateId = !!shippingRateId
@@ -142,7 +143,7 @@ export default function OrderActions({
     setShipmentError(null)
     setGuideStep('creating')
     startShipment(async () => {
-      const { data, error } = await createSkydropxShipment(orderId, rateId, quotationId)
+      const { data, error } = await createSkydropxShipment(orderId, rateId, quotationId, protection)
       if (error) {
         setShipmentError(error)
         setGuideStep('idle')
@@ -254,6 +255,24 @@ export default function OrderActions({
               </div>
             </div>
           )}
+
+          {/* SOS Protección toggle */}
+          <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, padding: '10px 14px', background: '#f6f5f1', borderRadius: 4, cursor: 'pointer' }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#0a0a0a' }}>SOS protección</div>
+              <div style={{ fontSize: 11, color: M, marginTop: 1 }}>seguro de envío · costo adicional</div>
+            </div>
+            <button type="button" onClick={() => setProtection(v => !v)} style={{
+              width: 40, height: 22, borderRadius: 999, border: 'none', cursor: 'pointer', flexShrink: 0,
+              background: protection ? '#ff0100' : '#d4d3cd', position: 'relative', transition: 'background 180ms',
+            }}>
+              <span style={{
+                position: 'absolute', top: 3, left: protection ? 20 : 3,
+                width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                transition: 'left 180ms', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+              }} />
+            </button>
+          </label>
 
           {/* Info de envío del cliente */}
           <div style={{ marginBottom: 16, padding: '10px 14px', background: '#f6f5f1', borderRadius: 4, fontSize: 13 }}>

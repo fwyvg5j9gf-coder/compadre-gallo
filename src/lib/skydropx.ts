@@ -220,7 +220,7 @@ export async function getConsignmentNoteClasses(clientId: string, clientSecret: 
 }
 
 export async function createShipment({
-  clientId, clientSecret, rateId, quotationId, addressFrom, addressTo, parcel, packagingCode, classCode,
+  clientId, clientSecret, rateId, quotationId, addressFrom, addressTo, parcel, packagingCode, classCode, protection = false,
 }: {
   clientId: string
   clientSecret: string
@@ -231,6 +231,7 @@ export async function createShipment({
   parcel: { weight_kg: number; length_cm: number; width_cm: number; height_cm: number }
   packagingCode: string
   classCode: string
+  protection?: boolean
 }): Promise<ShipmentResult> {
   if (!packagingCode) throw new Error('falta el código de empaque SAT (package_type) para la Carta Porte')
   if (!classCode) throw new Error('falta el código de producto SAT (consignment_note) para la Carta Porte')
@@ -249,9 +250,8 @@ export async function createShipment({
   const satFields = {
     package_type: packagingCode,
     consignment_note: classCode,
-    package_protected: false,
-    declared_value: null,
-    protection_value: null,
+    package_protected: protection,
+    ...(!protection && { declared_value: null, protection_value: null }),
   }
 
   const packages: Record<string, unknown>[] = quotPackages.length > 0

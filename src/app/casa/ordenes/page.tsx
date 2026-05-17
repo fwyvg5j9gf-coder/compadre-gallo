@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import AdminShell from '../AdminShell'
+import SkydropxBalanceBadge from './SkydropxBalanceBadge'
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'pendiente', paid: 'pagado', shipped: 'enviado',
@@ -38,7 +39,8 @@ export default async function OrdenesPage() {
       crumb="órdenes"
       crumbHref="/casa"
       right={
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <SkydropxBalanceBadge />
           <a href="/api/export-orders" style={{
             fontSize: 12, fontWeight: 700, color: '#f0efe9',
             background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.12)',
