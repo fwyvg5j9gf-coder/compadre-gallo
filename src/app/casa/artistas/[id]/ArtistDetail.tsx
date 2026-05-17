@@ -796,8 +796,239 @@ function IngresosTab({ artist }: { artist: Artist }) {
   )
 }
 
+// ── Tab: Resumen ───────────────────────────────────────────────────────────────
+function ResumenTab({ artist, onGoTo }: { artist: Artist; onGoTo: (tab: TabKey) => void }) {
+  const now = new Date()
+
+  const upcoming = [...artist.shows]
+    .filter(s => new Date(s.date) >= now)
+    .sort((a, b) => a.date.localeCompare(b.date))
+  const nextShow  = upcoming[0]
+  const daysUntil = nextShow
+    ? Math.ceil((new Date(nextShow.date).getTime() - now.getTime()) / 86400000)
+    : null
+
+  const tasksDone  = artist.tasks.filter(t => t.status === 'listo').length
+  const openTasks  = artist.tasks
+    .filter(t => t.status !== 'listo')
+    .sort((a, b) => {
+      const p: Record<string, number> = { alta: 0, normal: 1, baja: 2 }
+      return (p[a.priority] ?? 1) - (p[b.priority] ?? 1)
+    })
+
+  const inNext30 = artist.content
+    .filter(c => {
+      if (!c.scheduled_date) return false
+      const diff = (new Date(c.scheduled_date + 'T12:00:00').getTime() - now.getTime()) / 86400000
+      return diff >= -1 && diff <= 30
+    })
+    .sort((a, b) => (a.scheduled_date ?? '').localeCompare(b.scheduled_date ?? ''))
+
+  const externalTotal = artist.income.reduce((s, i) => s + i.amount_mxn, 0)
+  const totalRevenue  = externalTotal + artist.merch_total
+  const published     = artist.content.filter(c => c.status === 'publicado').length
+
+  const kpis = [
+    {
+      label: 'ingresos totales',
+      value: fmt(totalRevenue),
+      sub: `merch gallo: ${fmt(artist.merch_total)}`,
+      color: '#0a0a0a',
+      tab: 'ingresos' as TabKey,
+    },
+    {
+      label: 'shows próximos',
+      value: String(upcoming.length),
+      sub: nextShow
+        ? `próximo: ${new Date(nextShow.date).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}`
+        : 'sin shows agendados',
+      color: '#003a87',
+      tab: 'shows' as TabKey,
+    },
+    {
+      label: 'tareas',
+      value: `${tasksDone} / ${artist.tasks.length}`,
+      sub: openTasks.length === 0 ? 'todo al corriente' : `${openTasks.length} pendiente${openTasks.length > 1 ? 's' : ''}`,
+      color: openTasks.filter(t => t.priority === 'alta').length > 0 ? '#cc0000' : '#1a6b35',
+      tab: 'tareas' as TabKey,
+    },
+    {
+      label: 'contenido · 30 días',
+      value: String(inNext30.length),
+      sub: `${published} publicado${published !== 1 ? 's' : ''} en total`,
+      color: '#6b6a64',
+      tab: 'contenido' as TabKey,
+    },
+  ]
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        {kpis.map(k => (
+          <button key={k.label} onClick={() => onGoTo(k.tab)} style={{
+            background: '#fff', border: `1px solid ${B}`, borderRadius: 8,
+            padding: '18px 20px', textAlign: 'left', cursor: 'pointer',
+            transition: 'border-color 140ms', fontFamily: 'var(--font-sans)',
+          }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = '#0a0a0a')}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = B)}
+          >
+            <div style={{ fontSize: 11, color: S, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, marginBottom: 8 }}>{k.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: k.color, fontFamily: 'monospace', letterSpacing: '-0.02em', lineHeight: 1 }}>{k.value}</div>
+            <div style={{ fontSize: 11, color: M, marginTop: 6 }}>{k.sub}</div>
+          </button>
+        ))}
+      </div>
+
+      {/* Próximo show */}
+      {nextShow && (
+        <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+          <div style={{ textAlign: 'center', flexShrink: 0 }}>
+            <div style={{ fontSize: 10, color: S, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700, marginBottom: 4 }}>próximo show</div>
+            <div style={{ fontSize: 40, fontWeight: 900, color: '#003a87', fontFamily: 'monospace', lineHeight: 1 }}>{daysUntil}</div>
+            <div style={{ fontSize: 11, color: M }}>día{daysUntil !== 1 ? 's' : ''}</div>
+          </div>
+          <div style={{ width: 1, height: 56, background: B, flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#0a0a0a', letterSpacing: '-0.01em' }}>{nextShow.venue}</div>
+            <div style={{ fontSize: 13, color: M, marginTop: 3 }}>
+              {nextShow.city} · {new Date(nextShow.date).toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </div>
+            {nextShow.price_mxn && (
+              <div style={{ fontSize: 12, color: M, marginTop: 3 }}>
+                {fmt(nextShow.price_mxn)}{nextShow.capacity ? ` · aforo ${nextShow.capacity.toLocaleString('es-MX')}` : ''}
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            {nextShow.ticket_url && (
+              <a href={nextShow.ticket_url} target="_blank" rel="noopener noreferrer" className="adm-btn-secondary"
+                style={{ height: 34, padding: '0 16px', fontSize: 12, textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+                ver boletos →
+              </a>
+            )}
+            <button onClick={() => onGoTo('shows')} className="adm-btn-secondary" style={{ height: 34, padding: '0 14px', fontSize: 12 }}>
+              todos los shows
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tareas + Calendario */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+        {/* Tareas pendientes */}
+        <SectionCard
+          title={`tareas pendientes · ${openTasks.length}`}
+          action={
+            <button onClick={() => onGoTo('tareas')} style={{ fontSize: 11, color: M, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+              ver todas →
+            </button>
+          }
+        >
+          {openTasks.length === 0 ? (
+            <p style={{ color: '#1a6b35', fontSize: 13, margin: 0, fontWeight: 600 }}>todo al corriente</p>
+          ) : (
+            <div>
+              {openTasks.slice(0, 6).map(t => {
+                const pc = PRIORITY_COLORS[t.priority]
+                return (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: `1px solid ${B}` }}>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 999,
+                      background: pc.bg, color: pc.text, textTransform: 'uppercase',
+                      letterSpacing: '0.04em', flexShrink: 0,
+                    }}>{t.priority}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#0a0a0a', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {t.title}
+                    </span>
+                    {t.due_date && (
+                      <span style={{ fontSize: 11, color: S, flexShrink: 0 }}>
+                        {new Date(t.due_date + 'T12:00:00').toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+              {openTasks.length > 6 && (
+                <button onClick={() => onGoTo('tareas')} style={{ fontSize: 12, color: M, background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0 0', display: 'block' }}>
+                  +{openTasks.length - 6} más →
+                </button>
+              )}
+            </div>
+          )}
+        </SectionCard>
+
+        {/* Calendario próximos 30 días */}
+        <SectionCard
+          title="calendario · próximos 30 días"
+          action={
+            <button onClick={() => onGoTo('contenido')} style={{ fontSize: 11, color: M, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+              gestionar →
+            </button>
+          }
+        >
+          {inNext30.length === 0 ? (
+            <p style={{ color: M, fontSize: 13, fontStyle: 'italic', margin: 0 }}>sin contenido programado.</p>
+          ) : (
+            <div>
+              {inNext30.map(c => {
+                const pc = PLATFORM_COLORS[c.platform]
+                const sc = STATUS_CONTENT[c.status]
+                return (
+                  <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: `1px solid ${B}` }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: pc, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#0a0a0a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</div>
+                      <div style={{ fontSize: 11, color: M }}>{c.platform} · {c.content_type}</div>
+                    </div>
+                    {c.scheduled_date && (
+                      <span style={{ fontSize: 11, color: S, flexShrink: 0 }}>
+                        {new Date(c.scheduled_date + 'T12:00:00').toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}
+                      </span>
+                    )}
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
+                      background: sc.bg, color: sc.text, textTransform: 'uppercase',
+                      letterSpacing: '0.04em', flexShrink: 0,
+                    }}>{c.status.replace('_', ' ')}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </SectionCard>
+      </div>
+
+      {/* Shows próximos completo (si hay más de 1) */}
+      {upcoming.length > 1 && (
+        <SectionCard title={`todos los shows próximos · ${upcoming.length}`} action={
+          <button onClick={() => onGoTo('shows')} style={{ fontSize: 11, color: M, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>editar →</button>
+        }>
+          {upcoming.map(s => (
+            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 0', borderBottom: `1px solid ${B}` }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#0a0a0a' }}>{s.venue}</div>
+                <div style={{ fontSize: 12, color: M }}>{s.city}</div>
+              </div>
+              <div style={{ fontSize: 13, color: M }}>
+                {new Date(s.date).toLocaleDateString('es-MX', { weekday: 'short', month: 'short', day: 'numeric' })}
+              </div>
+              {s.price_mxn && <div style={{ fontSize: 13, fontFamily: 'monospace', color: M }}>{fmt(s.price_mxn)}</div>}
+              {s.capacity && <div style={{ fontSize: 12, color: S }}>{s.capacity.toLocaleString('es-MX')} lugares</div>}
+            </div>
+          ))}
+        </SectionCard>
+      )}
+    </div>
+  )
+}
+
 // ── Main: ArtistDetail ─────────────────────────────────────────────────────────
 const ALL_TABS = [
+  { key: 'resumen',    label: 'resumen',    adminOnly: false },
   { key: 'perfil',     label: 'perfil',     adminOnly: false },
   { key: 'shows',      label: 'shows',      adminOnly: false },
   { key: 'tareas',     label: 'tareas',     adminOnly: false },
@@ -809,45 +1040,37 @@ type TabKey = typeof ALL_TABS[number]['key']
 
 export default function ArtistDetail({ artist, isAdmin = true }: { artist: Artist; isAdmin?: boolean }) {
   const TABS = ALL_TABS.filter(t => !t.adminOnly || isAdmin)
-  const [tab, setTab] = useState<TabKey>('perfil')
-
-  const tasksDone  = artist.tasks.filter(t => t.status === 'listo').length
-  const tasksTotal = artist.tasks.length
-  const upcoming   = artist.shows.filter(s => new Date(s.date) >= new Date()).length
+  const [tab, setTab] = useState<TabKey>('resumen')
 
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {artist.image_url && (
-            <div style={{ width: 52, height: 52, borderRadius: 8, overflow: 'hidden', background: artist.bg_color, flexShrink: 0 }}>
-              <img src={artist.image_url} alt={artist.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            </div>
-          )}
-          <div>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em', color: '#0a0a0a', textTransform: 'lowercase', marginBottom: 4 }}>
-              {artist.name}
-            </h1>
-            <div style={{ fontSize: 12, color: M, display: 'flex', gap: 12 }}>
-              {artist.city && <span>{artist.city}</span>}
-              {artist.genre && <span>{artist.genre}</span>}
-              <span style={{
-                fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                background: artist.is_published ? 'rgba(26,107,53,0.08)' : '#f0efe9',
-                color: artist.is_published ? '#1a6b35' : '#6b6a64',
-                textTransform: 'uppercase', letterSpacing: '0.04em',
-              }}>
-                {artist.is_published ? 'publicado' : 'borrador'}
-              </span>
-            </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+        {artist.image_url ? (
+          <div style={{ width: 52, height: 52, borderRadius: 8, overflow: 'hidden', background: artist.bg_color, flexShrink: 0 }}>
+            <img src={artist.image_url} alt={artist.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 20, fontSize: 12, color: M }}>
-          <div><strong style={{ color: '#0a0a0a', fontWeight: 700, fontSize: 18 }}>{upcoming}</strong><br />shows próximos</div>
-          <div><strong style={{ color: '#0a0a0a', fontWeight: 700, fontSize: 18 }}>{tasksDone}/{tasksTotal}</strong><br />tareas listas</div>
-          <div><strong style={{ color: '#0a0a0a', fontWeight: 700, fontSize: 18 }}>{artist.content.length}</strong><br />contenido</div>
+        ) : (
+          <div style={{ width: 52, height: 52, borderRadius: 8, background: artist.bg_color, flexShrink: 0, display: 'flex', alignItems: 'flex-end', padding: 8 }}>
+            <div style={{ width: 20, height: 3, background: artist.stripe_color, borderRadius: 2 }} />
+          </div>
+        )}
+        <div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 900, letterSpacing: '-0.03em', color: '#0a0a0a', textTransform: 'lowercase', marginBottom: 4 }}>
+            {artist.name}
+          </h1>
+          <div style={{ fontSize: 12, color: M, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {artist.city  && <span>{artist.city}</span>}
+            {artist.genre && <span>{artist.genre}</span>}
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+              background: artist.is_published ? 'rgba(26,107,53,0.08)' : '#f0efe9',
+              color: artist.is_published ? '#1a6b35' : '#6b6a64',
+              textTransform: 'uppercase', letterSpacing: '0.04em',
+            }}>
+              {artist.is_published ? 'publicado' : 'borrador'}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -867,6 +1090,7 @@ export default function ArtistDetail({ artist, isAdmin = true }: { artist: Artis
       </div>
 
       {/* Contenido del tab */}
+      {tab === 'resumen'   && <ResumenTab   artist={artist} onGoTo={setTab} />}
       {tab === 'perfil'    && <PerfilTab    artist={artist} isAdmin={isAdmin} />}
       {tab === 'shows'     && <ShowsTab     artist={artist} />}
       {tab === 'tareas'    && <TareasTab    artist={artist} />}
