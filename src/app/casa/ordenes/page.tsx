@@ -29,22 +29,33 @@ export default async function OrdenesPage() {
     .order('folio_number', { ascending: false })
 
   const list = orders ?? []
-  const totalVentas = list.reduce((s, o) => s + o.total_mxn, 0)
-  const pagadas = list.filter(o => ['paid', 'shipped', 'delivered'].includes(o.status)).length
+  const realList = list.filter(o => !o.is_test)
+  const totalVentas = realList.reduce((s, o) => s + o.total_mxn, 0)
+  const pagadas = realList.filter(o => ['paid', 'shipped', 'delivered'].includes(o.status)).length
 
   return (
     <AdminShell
       crumb="órdenes"
       crumbHref="/casa"
       right={
-        <a href="/api/export-orders" style={{
-          fontSize: 12, fontWeight: 700, color: '#f0efe9',
-          background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.12)',
-          borderRadius: 4, padding: '5px 12px', textDecoration: 'none',
-          transition: 'background 140ms', letterSpacing: '-0.01em',
-        }}>
-          exportar CSV
-        </a>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <a href="/api/export-orders" style={{
+            fontSize: 12, fontWeight: 700, color: '#f0efe9',
+            background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: 4, padding: '5px 12px', textDecoration: 'none',
+            transition: 'background 140ms', letterSpacing: '-0.01em',
+          }}>
+            exportar CSV
+          </a>
+          <a href="/casa/ordenes/nuevo" style={{
+            fontSize: 12, fontWeight: 700, color: '#0a0a0a',
+            background: '#ffe200', border: '1px solid rgba(255,226,0,0.5)',
+            borderRadius: 4, padding: '5px 12px', textDecoration: 'none',
+            transition: 'background 140ms', letterSpacing: '-0.01em',
+          }}>
+            + nueva orden
+          </a>
+        </div>
       }
     >
       <main style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 32px' }}>
@@ -58,9 +69,12 @@ export default async function OrdenesPage() {
             órdenes
           </h1>
           <div style={{ display: 'flex', gap: 20, fontSize: 13, color: '#6b6a64' }}>
-            <span><strong style={{ color: '#0a0a0a', fontWeight: 700 }}>{list.length}</strong> total</span>
+            <span><strong style={{ color: '#0a0a0a', fontWeight: 700 }}>{realList.length}</strong> reales</span>
             <span><strong style={{ color: '#0a0a0a', fontWeight: 700 }}>{pagadas}</strong> pagadas</span>
             <span><strong style={{ color: '#0a0a0a', fontWeight: 700 }}>{fmt(totalVentas)}</strong> en ventas</span>
+            {list.length !== realList.length && (
+              <span style={{ color: '#9a9994' }}>{list.length - realList.length} prueba</span>
+            )}
           </div>
         </div>
 
@@ -89,6 +103,7 @@ export default async function OrdenesPage() {
                 .join(', ')
               const sc = STATUS_COLOR[order.status] ?? { bg: '#f0efe9', text: '#6b6a64' }
               const folioStr = `GALLO-${String(order.folio_number).padStart(5, '0')}`
+              const isTest = (order as Record<string, unknown>).is_test as boolean
 
               return (
                 <a key={order.id} href={`/casa/ordenes/${order.id}`} className="adm-row" style={{
@@ -97,9 +112,16 @@ export default async function OrdenesPage() {
                   borderBottom: idx < list.length - 1 ? '1px solid #f0efe9' : 'none',
                   textDecoration: 'none', color: 'inherit',
                 }}>
-                  <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#003a87', fontWeight: 700, letterSpacing: '0.01em' }}>
-                    {folioStr}
-                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#003a87', fontWeight: 700, letterSpacing: '0.01em' }}>
+                      {folioStr}
+                    </span>
+                    {isTest && (
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 999, background: 'rgba(255,226,0,0.3)', color: '#7a6000', letterSpacing: '0.05em', display: 'inline-block', width: 'fit-content' }}>
+                        PRUEBA
+                      </span>
+                    )}
+                  </div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: '#0a0a0a' }}>{order.customer_name ?? '—'}</div>
                     <div style={{ fontSize: 12, color: '#6b6a64' }}>{order.customer_email}</div>

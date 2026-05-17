@@ -9,7 +9,7 @@ export default async function TiendaPage() {
   if (!userId) redirect('/casa/login')
 
   const [products, categories, sizes, packaging] = await Promise.all([
-    supabaseAdmin.from('products').select('*, product_variants(*)').order('created_at', { ascending: false }),
+    supabaseAdmin.from('products').select('*, product_variants(*), packaging_types(*)').order('created_at', { ascending: false }),
     supabaseAdmin.from('store_categories').select('*').order('sort_order'),
     supabaseAdmin.from('store_sizes').select('*').order('sort_order'),
     supabaseAdmin.from('packaging_types').select('*').order('sort_order'),

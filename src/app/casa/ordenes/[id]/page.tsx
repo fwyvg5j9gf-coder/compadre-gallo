@@ -70,6 +70,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const items = order.order_items ?? []
   const addr = order.shipping_address as Record<string, string> | null
   const sc = STATUS_COLOR[order.status] ?? { bg: '#f0efe9', text: '#6b6a64' }
+  const isTest = (order as Record<string, unknown>).is_test as boolean
 
   return (
     <AdminShell
@@ -91,13 +92,20 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               {new Date(order.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </div>
           </div>
-          <span style={{
-            fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 999,
-            background: sc.bg, color: sc.text,
-            textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap',
-          }}>
-            {STATUS_LABEL[order.status] ?? order.status}
-          </span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {isTest && (
+              <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: 'rgba(255,226,0,0.25)', color: '#7a6000', letterSpacing: '0.05em', border: '1px solid rgba(255,226,0,0.5)' }}>
+                PRUEBA
+              </span>
+            )}
+            <span style={{
+              fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 999,
+              background: sc.bg, color: sc.text,
+              textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap',
+            }}>
+              {STATUS_LABEL[order.status] ?? order.status}
+            </span>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, alignItems: 'start' }}>
