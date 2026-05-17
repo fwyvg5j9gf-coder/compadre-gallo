@@ -216,58 +216,59 @@ export async function createShipment({
 }): Promise<ShipmentResult> {
   const token = await getAccessToken(cleanId(clientId), cleanId(clientSecret))
 
-  const body = {
-    shipment: {
-      rate_id: rateId,
-      address_from: {
-        name: addressFrom.name,
-        email: addressFrom.email ?? '',
-        phone: (addressFrom.phone ?? '').replace(/\D/g, ''),
-        country_code: 'MX',
-        postal_code: addressFrom.postalCode.trim(),
-        area_level1: addressFrom.state.trim(),
-        area_level2: addressFrom.city.trim(),
-        area_level3: addressFrom.colonia.trim(),
-        street1: addressFrom.street.trim(),
-        reference: addressFrom.reference ?? addressFrom.name,
-      },
-      address_to: {
-        name: addressTo.name,
-        email: addressTo.email ?? '',
-        phone: (addressTo.phone ?? '').replace(/\D/g, ''),
-        country_code: 'MX',
-        postal_code: addressTo.postalCode.trim(),
-        area_level1: addressTo.state.trim(),
-        area_level2: addressTo.city.trim(),
-        area_level3: addressTo.colonia.trim(),
-        street1: addressTo.street.trim(),
-        reference: addressTo.reference ?? addressTo.name,
-      },
-      parcels: [{
-        weight: Math.max(0.01, parcel.weight_kg),
-        mass_unit: 'KG',
-        dimension_unit: 'CM',
-        length: Math.max(1, Math.round(parcel.length_cm)),
-        width: Math.max(1, Math.round(parcel.width_cm)),
-        height: Math.max(1, Math.round(parcel.height_cm)),
-        quantity: 1,
-        package_type: packagingCode,
-        consignment_note: classCode,
-      }],
-    },
+  const parcelPayload = {
+    weight: Math.max(0.01, parcel.weight_kg),
+    mass_unit: 'KG',
+    dimension_unit: 'CM',
+    length: Math.max(1, Math.round(parcel.length_cm)),
+    width: Math.max(1, Math.round(parcel.width_cm)),
+    height: Math.max(1, Math.round(parcel.height_cm)),
+    quantity: 1,
+    package_type: packagingCode,
+    consignment_note: classCode,
   }
+
+  const body = {
+    rate_id: rateId,
+    address_from: {
+      name: addressFrom.name,
+      email: addressFrom.email ?? '',
+      phone: (addressFrom.phone ?? '').replace(/\D/g, ''),
+      country_code: 'MX',
+      postal_code: addressFrom.postalCode.trim(),
+      area_level1: addressFrom.state.trim(),
+      area_level2: addressFrom.city.trim(),
+      area_level3: addressFrom.colonia.trim(),
+      street1: addressFrom.street.trim(),
+      reference: addressFrom.reference ?? addressFrom.name,
+    },
+    address_to: {
+      name: addressTo.name,
+      email: addressTo.email ?? '',
+      phone: (addressTo.phone ?? '').replace(/\D/g, ''),
+      country_code: 'MX',
+      postal_code: addressTo.postalCode.trim(),
+      area_level1: addressTo.state.trim(),
+      area_level2: addressTo.city.trim(),
+      area_level3: addressTo.colonia.trim(),
+      street1: addressTo.street.trim(),
+      reference: addressTo.reference ?? addressTo.name,
+    },
+    parcels: [parcelPayload],
+  }
+
+  const bodyStr = JSON.stringify(body)
 
   const res = await fetch(`${BASE}/shipments`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(body),
+    body: bodyStr,
     cache: 'no-store',
   })
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    const p = body.shipment.parcels[0]
-    throw new Error(`SkyDropX ${res.status}: ${text.slice(0, 500)} [pkg:${p.package_type} note:${p.consignment_note}]`)
+    throw new Error(`SkyDropX ${res.status}: ${text.slice(0, 500)}\nBODY: ${bodyStr.slice(0, 600)}`)
   }
 
   const json = await res.json()
