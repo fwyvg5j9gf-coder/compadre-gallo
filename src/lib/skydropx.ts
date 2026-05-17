@@ -8,15 +8,18 @@ export type ShippingRate = {
   days: number | null
 }
 
-const BASE = 'https://app.skydropx.com'
+const BASE = 'https://app.skydropx.com/api/v1'
+const AUTH = 'https://app.skydropx.com/oauth/token'
+
+// Token cache — se reutiliza 110 min para no regenerar por request (API expira en 120)
+const tokenCache = new Map<string, { token: string; expiresAt: number }>()
 
 async function getAccessToken(clientId: string, clientSecret: string): Promise<string> {
-  const params = new URLSearchParams({
-    grant_type: 'client_credentials',
-    client_id: clientId,
-    client_secret: clientSecret,
-  })
-  const res = await fetch(`${BASE}/api/v1/oauth/token`, {
+  const cached = tokenCache.get(clientId)
+  if (cached && Date.now() < cached.expiresAt) return cached.token
+
+  const params = new URLSearchParams({ grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret })
+  const res = await fetch(AUTH, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
     body: params.toString(),
@@ -28,17 +31,18 @@ async function getAccessToken(clientId: string, clientSecret: string): Promise<s
   }
   const json = await res.json()
   if (!json.access_token) throw new Error('SkyDropX: no se recibió access_token')
+
+  tokenCache.set(clientId, { token: json.access_token, expiresAt: Date.now() + 110 * 60 * 1000 })
   return json.access_token as string
 }
+
+function cleanId(s: string) { return s.replace(/\s+/g, '') }
 
 export type PackageType = { id: string; name: string }
 
 export async function getPackageTypes(clientId: string, clientSecret: string): Promise<PackageType[]> {
-  const token = await getAccessToken(
-    clientId.replace(/\s+/g, ''),
-    clientSecret.replace(/\s+/g, ''),
-  )
-  const res = await fetch(`${BASE}/api/v1/package_types`, {
+  const token = await getAccessToken(cleanId(clientId), cleanId(clientSecret))
+  const res = await fetch(`${BASE}/package_types`, {
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
     cache: 'no-store',
   })
@@ -46,26 +50,19 @@ export async function getPackageTypes(clientId: string, clientSecret: string): P
   const json = await res.json()
   const items: Record<string, unknown>[] = json?.data ?? json ?? []
   return items.map(i => ({
-    id: String((i as Record<string, unknown>).id ?? (i as Record<string, unknown>).type ?? ''),
+    id: String(i.id ?? (i as Record<string, unknown>).type ?? ''),
     name: String(
       ((i as Record<string, unknown>).attributes as Record<string, unknown>)?.name ??
       (i as Record<string, unknown>).name ??
-      (i as Record<string, unknown>).id ?? ''
+      i.id ?? ''
     ),
   })).filter(i => i.id)
 }
 
 export async function getShippingRates({
-  clientId,
-  clientSecret,
-  originZip,
-  originState,
-  originCity,
-  originColonia,
-  destZip,
-  destState,
-  destCity,
-  destColonia,
+  clientId, clientSecret,
+  originZip, originState, originCity, originColonia,
+  destZip, destState, destCity, destColonia,
   parcel,
 }: {
   clientId: string
@@ -80,38 +77,33 @@ export async function getShippingRates({
   destColonia: string
   parcel: { weight_kg: number; length_cm: number; width_cm: number; height_cm: number }
 }): Promise<ShippingRate[]> {
-  const token = await getAccessToken(
-    clientId.replace(/\s+/g, ''),
-    clientSecret.replace(/\s+/g, ''),
-  )
+  const token = await getAccessToken(cleanId(clientId), cleanId(clientSecret))
 
+  // Body plano — sin wrapper quotation: {}
   const body = {
-    quotation: {
-      address_from: {
-        country_code: 'MX',
-        postal_code: originZip.trim(),
-        area_level1: originState.trim(),
-        area_level2: originCity.trim(),
-        area_level3: originColonia.trim(),
-      },
-      address_to: {
-        country_code: 'MX',
-        postal_code: destZip.trim(),
-        area_level1: destState.trim(),
-        area_level2: destCity.trim(),
-        area_level3: destColonia.trim(),
-      },
-      parcels: [{
-        weight: Math.max(0.01, parcel.weight_kg),
-        length: Math.max(1, Math.round(parcel.length_cm)),
-        width: Math.max(1, Math.round(parcel.width_cm)),
-        height: Math.max(1, Math.round(parcel.height_cm)),
-      }],
+    address_from: {
+      country_code: 'MX',
+      postal_code: originZip.trim(),
+      area_level1: originState.trim(),
+      area_level2: originCity.trim(),
+      area_level3: originColonia.trim(),
     },
+    address_to: {
+      country_code: 'MX',
+      postal_code: destZip.trim(),
+      area_level1: destState.trim(),
+      area_level2: destCity.trim(),
+      area_level3: destColonia.trim(),
+    },
+    parcels: [{
+      weight: Math.max(0.01, parcel.weight_kg),
+      length: Math.max(1, Math.round(parcel.length_cm)),
+      width: Math.max(1, Math.round(parcel.width_cm)),
+      height: Math.max(1, Math.round(parcel.height_cm)),
+    }],
   }
 
-  // 1. Crear cotización
-  const createRes = await fetch(`${BASE}/api/v1/quotations`, {
+  const createRes = await fetch(`${BASE}/quotations`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(body),
@@ -120,12 +112,11 @@ export async function getShippingRates({
 
   if (!createRes.ok) {
     const text = await createRes.text().catch(() => '')
-    throw new Error(`SkyDropX ${createRes.status}: ${text}`)
+    throw new Error(`SkyDropX quotation ${createRes.status}: ${text}`)
   }
 
   const created = await createRes.json()
 
-  // Si la respuesta ya viene completa, úsala directo
   if (created?.is_completed && Array.isArray(created?.rates)) {
     return mapRates(created.rates)
   }
@@ -133,10 +124,10 @@ export async function getShippingRates({
   const quotationId = created?.data?.id ?? created?.id
   if (!quotationId) throw new Error(`SkyDropX: sin ID de cotización`)
 
-  // 2. Esperar a que la cotización esté completa (máx 6 intentos × 1.5s = 9s)
+  // Polling — máx 6 intentos × 1.5s = 9s
   for (let i = 0; i < 6; i++) {
     await new Promise(r => setTimeout(r, 1500))
-    const pollRes = await fetch(`${BASE}/api/v1/quotations/${quotationId}`, {
+    const pollRes = await fetch(`${BASE}/quotations/${quotationId}`, {
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
       cache: 'no-store',
     })
@@ -146,9 +137,7 @@ export async function getShippingRates({
     const attrs = data?.attributes ?? data
     const isCompleted = attrs?.is_completed ?? false
     const rawRates: Record<string, unknown>[] = attrs?.rates ?? data?.rates ?? []
-    if (isCompleted || rawRates.length > 0) {
-      return mapRates(rawRates)
-    }
+    if (isCompleted || rawRates.length > 0) return mapRates(rawRates)
   }
 
   return []
@@ -181,8 +170,8 @@ export type SatCode = { id: string; name: string }
 
 export async function getConsignmentNotePackagings(clientId: string, clientSecret: string): Promise<SatCode[]> {
   try {
-    const token = await getAccessToken(clientId.replace(/\s+/g, ''), clientSecret.replace(/\s+/g, ''))
-    const res = await fetch(`${BASE}/api/v1/consignment_notes/packagings`, {
+    const token = await getAccessToken(cleanId(clientId), cleanId(clientSecret))
+    const res = await fetch(`${BASE}/consignment_notes/packagings`, {
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
       cache: 'no-store',
     })
@@ -198,8 +187,8 @@ export async function getConsignmentNotePackagings(clientId: string, clientSecre
 
 export async function getConsignmentNoteClasses(clientId: string, clientSecret: string): Promise<SatCode[]> {
   try {
-    const token = await getAccessToken(clientId.replace(/\s+/g, ''), clientSecret.replace(/\s+/g, ''))
-    const res = await fetch(`${BASE}/api/v1/consignment_notes/classes`, {
+    const token = await getAccessToken(cleanId(clientId), cleanId(clientSecret))
+    const res = await fetch(`${BASE}/consignment_notes/classes`, {
       headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
       cache: 'no-store',
     })
@@ -225,53 +214,49 @@ export async function createShipment({
   packagingCode: string
   classCode: string
 }): Promise<ShipmentResult> {
-  const token = await getAccessToken(
-    clientId.replace(/\s+/g, ''),
-    clientSecret.replace(/\s+/g, ''),
-  )
+  const token = await getAccessToken(cleanId(clientId), cleanId(clientSecret))
 
+  // Body plano — sin wrapper shipment: {}
   const body = {
-    shipment: {
-      rate_id: rateId,
-      address_from: {
-        name: addressFrom.name,
-        email: addressFrom.email ?? '',
-        phone: (addressFrom.phone ?? '').replace(/\D/g, ''),
-        country_code: 'MX',
-        postal_code: addressFrom.postalCode.trim(),
-        area_level1: addressFrom.state.trim(),
-        area_level2: addressFrom.city.trim(),
-        area_level3: addressFrom.colonia.trim(),
-        street1: addressFrom.street.trim(),
-        reference: addressFrom.reference ?? addressFrom.name,
-      },
-      address_to: {
-        name: addressTo.name,
-        email: addressTo.email ?? '',
-        phone: (addressTo.phone ?? '').replace(/\D/g, ''),
-        country_code: 'MX',
-        postal_code: addressTo.postalCode.trim(),
-        area_level1: addressTo.state.trim(),
-        area_level2: addressTo.city.trim(),
-        area_level3: addressTo.colonia.trim(),
-        street1: addressTo.street.trim(),
-        reference: addressTo.reference ?? addressTo.name,
-      },
-      parcels: [{
-        weight: Math.max(0.01, parcel.weight_kg),
-        mass_unit: 'KG',
-        dimension_unit: 'CM',
-        length: Math.max(1, Math.round(parcel.length_cm)),
-        width: Math.max(1, Math.round(parcel.width_cm)),
-        height: Math.max(1, Math.round(parcel.height_cm)),
-        quantity: 1,
-        package_type: packagingCode,
-        consignment_note: classCode,
-      }],
+    rate_id: rateId,
+    address_from: {
+      name: addressFrom.name,
+      email: addressFrom.email ?? '',
+      phone: (addressFrom.phone ?? '').replace(/\D/g, ''),
+      country_code: 'MX',
+      postal_code: addressFrom.postalCode.trim(),
+      area_level1: addressFrom.state.trim(),
+      area_level2: addressFrom.city.trim(),
+      area_level3: addressFrom.colonia.trim(),
+      street1: addressFrom.street.trim(),
+      reference: addressFrom.reference ?? addressFrom.name,
     },
+    address_to: {
+      name: addressTo.name,
+      email: addressTo.email ?? '',
+      phone: (addressTo.phone ?? '').replace(/\D/g, ''),
+      country_code: 'MX',
+      postal_code: addressTo.postalCode.trim(),
+      area_level1: addressTo.state.trim(),
+      area_level2: addressTo.city.trim(),
+      area_level3: addressTo.colonia.trim(),
+      street1: addressTo.street.trim(),
+      reference: addressTo.reference ?? addressTo.name,
+    },
+    parcels: [{
+      weight: Math.max(0.01, parcel.weight_kg),
+      mass_unit: 'KG',
+      dimension_unit: 'CM',
+      length: Math.max(1, Math.round(parcel.length_cm)),
+      width: Math.max(1, Math.round(parcel.width_cm)),
+      height: Math.max(1, Math.round(parcel.height_cm)),
+      quantity: 1,
+      package_type: packagingCode,
+      consignment_note: classCode,
+    }],
   }
 
-  const res = await fetch(`${BASE}/api/v1/shipments`, {
+  const res = await fetch(`${BASE}/shipments`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(body),
@@ -280,9 +265,8 @@ export async function createShipment({
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    const p = body.shipment.parcels[0]
-    const debug = `[pkg_type:${p.package_type} note:${p.consignment_note} dim:${p.dimension_unit}]`
-    throw new Error(`SkyDropX ${res.status}: ${text.slice(0, 400)} ${debug}`)
+    const p = body.parcels[0]
+    throw new Error(`SkyDropX ${res.status}: ${text.slice(0, 500)} [pkg:${p.package_type} note:${p.consignment_note}]`)
   }
 
   const json = await res.json()
