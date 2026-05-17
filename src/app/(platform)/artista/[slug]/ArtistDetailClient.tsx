@@ -37,7 +37,7 @@ export default function ArtistDetailClient({ artist, products = [] }: { artist: 
         <div className="artist-hero">
           {/* Color block as stand-in for photo */}
           <div className="artist-hero-img" style={{ background: `color-mix(in srgb, ${artist.stripe} 30%, ${artist.bg})`, position: 'relative', overflow: 'hidden' }}>
-            {artist.image_url && (
+            {artist.image_url ? (
               <>
                 <img
                   src={artist.image_url}
@@ -46,24 +46,24 @@ export default function ArtistDetailClient({ artist, products = [] }: { artist: 
                 />
                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.15) 70%)' }} />
               </>
-            )}
-            <div style={{
-              position: 'relative',
-              width: '100%', height: '100%',
-              display: 'flex', alignItems: 'flex-end', padding: 20,
-            }}>
+            ) : (
               <div style={{
-                fontFamily: 'var(--font-display)',
-                fontWeight: 900,
-                fontSize: 'clamp(40px, 6vw, 72px)',
-                letterSpacing: 'var(--track-tight)',
-                color: '#fff',
-                textTransform: 'lowercase',
-                lineHeight: 0.9,
+                position: 'absolute', inset: 0,
+                display: 'flex', alignItems: 'flex-end', padding: 20,
               }}>
-                {artist.name}
+                <div style={{
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 900,
+                  fontSize: 'clamp(40px, 6vw, 72px)',
+                  letterSpacing: 'var(--track-tight)',
+                  color: '#fff',
+                  textTransform: 'lowercase',
+                  lineHeight: 0.9,
+                }}>
+                  {artist.name}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="artist-hero-info">

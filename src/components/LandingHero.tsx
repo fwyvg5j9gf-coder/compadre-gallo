@@ -6,17 +6,26 @@ import Image from 'next/image'
 
 // ── CTA Panel ─────────────────────────────────────────────────────────────────
 function CtaPanel({
-  href, bg, title, subtitle, cta, side,
+  href, bg, textColor = '#fff', title, subtitle, cta, borderLeft = false,
 }: {
-  href: string; bg: string; title: string; subtitle: string; cta: string; side: 'left' | 'right'
+  href: string; bg: string; textColor?: string; title: string; subtitle: string; cta: string; borderLeft?: boolean
 }) {
   const router = useRouter()
   const [active, setActive] = useState(false)
+
+  const hoverBg = bg === '#0a0a0a' ? '#1a1a1a'
+    : bg === '#ff0100' ? '#cc0000'
+    : bg === '#ffe200' ? '#e6cc00'
+    : bg
 
   const handleClick = useCallback(() => {
     setActive(true)
     setTimeout(() => router.push(href), 320)
   }, [href, router])
+
+  const mutedColor = textColor === '#0a0a0a'
+    ? 'rgba(10,10,10,0.45)'
+    : 'rgba(255,255,255,0.45)'
 
   return (
     <button
@@ -27,28 +36,30 @@ function CtaPanel({
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        padding: 'clamp(18px,3vw,36px)',
-        background: active ? (bg === '#0a0a0a' ? '#1a1a1a' : '#cc0000') : bg,
-        color: '#fff',
+        padding: 'clamp(16px,2.5vw,32px)',
+        background: active ? hoverBg : bg,
+        color: textColor,
         border: 'none',
         cursor: 'pointer',
         textAlign: 'left',
-        borderLeft: side === 'right' ? '1px solid rgba(255,255,255,0.12)' : 'none',
-        transition: 'background 200ms, transform 200ms',
-        transform: active ? 'scale(0.98)' : 'scale(1)',
+        borderLeft: borderLeft ? '1px solid rgba(255,255,255,0.12)' : 'none',
+        transition: 'background 200ms',
         overflow: 'hidden',
+        minWidth: 0,
       }}
     >
       <div>
-        <div style={{
-          fontSize: 11, fontWeight: 700, letterSpacing: '0.12em',
-          textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginBottom: 10,
-        }}>
-          {subtitle}
-        </div>
+        {subtitle && (
+          <div style={{
+            fontSize: 11, fontWeight: 700, letterSpacing: '0.12em',
+            textTransform: 'uppercase', color: mutedColor, marginBottom: 8,
+          }}>
+            {subtitle}
+          </div>
+        )}
         <div style={{
           fontFamily: 'var(--font-display)', fontWeight: 900,
-          fontSize: 'clamp(26px,4.5vw,58px)',
+          fontSize: 'clamp(22px,4vw,54px)',
           letterSpacing: '-0.03em', lineHeight: 0.92, textTransform: 'lowercase',
         }}>
           {title}
@@ -86,7 +97,7 @@ export default function LandingHero({
 }) {
   return (
     <div style={{
-      width: '100vw',
+      width: '100%',
       height: '100dvh',
       display: 'flex',
       flexDirection: 'column',
@@ -119,11 +130,11 @@ export default function LandingHero({
           {tagline}
         </div>
 
-        {/* Mascot original — mix-blend-mode:multiply hace transparente el fondo blanco */}
+        {/* Mascot — mix-blend-mode:multiply hace transparente el fondo blanco */}
         <div style={{
-          width: 'clamp(200px, 38vw, 360px)',
-          height: 'clamp(260px, 50vw, 470px)',
-          maxHeight: '72%',
+          width: 'clamp(180px, 36vw, 340px)',
+          height: 'clamp(240px, 48vw, 440px)',
+          maxHeight: '68%',
           flexShrink: 0,
           position: 'relative',
         }}>
@@ -137,28 +148,37 @@ export default function LandingHero({
         </div>
       </div>
 
-      {/* ── CTA row ── */}
-      <div style={{
-        display: 'flex',
-        flexShrink: 0,
-        height: 'clamp(140px, 32vh, 240px)',
-      }}>
-        <CtaPanel
-          href={leftLink}
-          bg={leftBg}
-          title={leftTitle}
-          subtitle={leftSubtitle}
-          cta={leftCta}
-          side="left"
-        />
-        <CtaPanel
-          href={rightLink}
-          bg={rightBg}
-          title={rightTitle}
-          subtitle={rightSubtitle}
-          cta={rightCta}
-          side="right"
-        />
+      {/* ── CTA area — upside-down T ── */}
+      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+        {/* Row 1: artistas + tienda */}
+        <div style={{ display: 'flex', height: 'clamp(120px, 26vh, 200px)' }}>
+          <CtaPanel
+            href={leftLink}
+            bg={leftBg}
+            title={leftTitle}
+            subtitle={leftSubtitle}
+            cta={leftCta}
+          />
+          <CtaPanel
+            href={rightLink}
+            bg={rightBg}
+            title={rightTitle}
+            subtitle={rightSubtitle}
+            cta={rightCta}
+            borderLeft
+          />
+        </div>
+        {/* Row 2: cuenta — full width */}
+        <div style={{ display: 'flex', height: 'clamp(68px, 13vh, 100px)', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+          <CtaPanel
+            href="/cuenta"
+            bg="#ffe200"
+            textColor="#0a0a0a"
+            title="cuenta"
+            subtitle=""
+            cta="entrar"
+          />
+        </div>
       </div>
     </div>
   )

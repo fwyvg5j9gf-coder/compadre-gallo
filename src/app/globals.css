@@ -629,12 +629,42 @@ img { display: block; }
   text-transform: uppercase;
 }
 
+/* ---------- CTA split block ---------- */
+.cta-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 40vh;
+  min-height: 220px;
+}
+@media (max-width: 540px) {
+  .cta-split {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: unset;
+  }
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 600px) {
-  .nav-links { gap: var(--space-4); }
+  .nav-links { gap: var(--space-3); }
   .nav-link   { font-size: 12px; }
   .section    { padding: var(--space-7) var(--outer-px); }
   .hero       { min-height: auto; padding-top: var(--space-7); padding-bottom: var(--space-7); }
+  .footer     { padding-bottom: var(--space-7); }
+}
+@media (max-width: 380px) {
+  .nav-links { gap: var(--space-2); }
+  .nav-link  { font-size: 11px; }
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .hero-letter { opacity: 1; transform: none; }
 }
 
 /* ---------- Admin Panel (light theme) ---------- */

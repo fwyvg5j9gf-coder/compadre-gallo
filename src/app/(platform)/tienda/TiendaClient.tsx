@@ -124,18 +124,6 @@ export default function TiendaClient({
 
   return (
     <>
-      <div className="section" style={{ paddingBottom: 'var(--space-4)' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 'var(--space-5)', flexWrap: 'wrap' }}>
-          <div>
-            <div className="eyebrow" style={{ marginBottom: 'var(--space-3)' }}>merch · piezas únicas</div>
-            <h1>tienda</h1>
-          </div>
-          <p style={{ color: 'var(--fg-muted)', fontStyle: 'italic', maxWidth: '36ch', margin: 0 }}>
-            todo lo que te llevas a casa. tirajes limitados, sin restock.
-          </p>
-        </div>
-      </div>
-
       <div style={{ padding: '0 var(--outer-px)', marginBottom: 'var(--space-6)', display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
         {allCategories.map(c => (
           <button

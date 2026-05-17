@@ -7,7 +7,7 @@ import type { Block } from '@/lib/blocks'
 // ── hero-mascot ────────────────────────────────────────────────────────────────
 function HeroMascotBlock({ c }: { c: Record<string, string> }) {
   return (
-    <div style={{ width: '100vw', height: '100vh', background: c.bg_color || '#ffffff', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+    <div style={{ width: '100%', height: '100svh', background: c.bg_color || '#ffffff', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
       <div style={{ position: 'absolute', top: 28, left: 32, fontStyle: 'italic', fontSize: 13, color: 'var(--ink-400)', letterSpacing: '-0.01em', zIndex: 10 }}>
         {c.tagline || 'compadregallo.com'}
       </div>
@@ -22,7 +22,7 @@ function HeroMascotBlock({ c }: { c: Record<string, string> }) {
 // ── cta-split ──────────────────────────────────────────────────────────────────
 function CtaSplitBlock({ c }: { c: Record<string, string> }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', height: '40vh', minHeight: 220 }}>
+    <div className="cta-split">
       <Link href={c.left_link || '/artistas'} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: 'clamp(20px, 3vw, 40px)', background: c.left_bg || '#0a0a0a', color: '#fff', textDecoration: 'none' }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 'var(--track-wide)', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginBottom: 10 }}>
