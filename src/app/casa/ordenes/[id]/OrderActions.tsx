@@ -112,6 +112,7 @@ export default function OrderActions({
   const [pendingCancel, startCancel] = useTransition()
   const [confirmCancelShipment, setConfirmCancelShipment] = useState(false)
   const [cancelShipmentError, setCancelShipmentError] = useState<string | null>(null)
+  const [cancelShipmentMsg, setCancelShipmentMsg] = useState<string | null>(null)
 
   const hasTracking = !!tracking
   const hasRateId = !!shippingRateId
@@ -129,12 +130,13 @@ export default function OrderActions({
     setCancelShipmentError(null)
     startCancel(async () => {
       const { error } = await cancelSkydropxShipmentLocal(orderId)
-      if (error) { setCancelShipmentError(error); setConfirmCancelShipment(false); return }
+      if (error) { setCancelShipmentError(error); return }
       setTracking('')
       setStatus('paid')
       setLabelUrl(null)
       setShipmentStatus(null)
       setConfirmCancelShipment(false)
+      setCancelShipmentMsg('guía cancelada — recuerda cancelarla también en el panel de Skydropx')
     })
   }
 
@@ -610,6 +612,12 @@ export default function OrderActions({
                 {cancelShipmentError && <p style={{ fontSize: 12, color: '#cc0000', margin: 0 }}>{cancelShipmentError}</p>}
               </div>
             )
+          )}
+
+          {cancelShipmentMsg && (
+            <div style={{ padding: '10px 12px', background: 'rgba(26,107,53,0.08)', border: '1px solid rgba(26,107,53,0.2)', borderRadius: 4, fontSize: 12, color: '#1a6b35', fontWeight: 500 }}>
+              ✓ {cancelShipmentMsg}
+            </div>
           )}
 
           {/* Eliminar orden */}
