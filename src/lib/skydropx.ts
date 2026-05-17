@@ -219,46 +219,48 @@ export async function createShipment({
 }): Promise<ShipmentResult> {
   const token = await getAccessToken(cleanId(clientId), cleanId(clientSecret))
 
-  const parcelPayload = {
-    weight: Math.max(0.01, parcel.weight_kg),
-    mass_unit: 'KG',
-    dimension_unit: 'CM',
-    length: Math.max(1, Math.round(parcel.length_cm)),
-    width: Math.max(1, Math.round(parcel.width_cm)),
-    height: Math.max(1, Math.round(parcel.height_cm)),
-    quantity: 1,
-    package_type: packagingCode,
-    consignment_note: classCode,
-  }
-
+  // Con quotation_id el peso/dimensiones ya están en la cotización.
+  // Solo enviamos los campos de Carta Porte en los paquetes.
   const body = {
-    quotation_id: quotationId,
-    rate_id: rateId,
-    address_from: {
-      name: addressFrom.name,
-      email: addressFrom.email ?? '',
-      phone: (addressFrom.phone ?? '').replace(/\D/g, ''),
-      country_code: 'MX',
-      postal_code: addressFrom.postalCode.trim(),
-      area_level1: addressFrom.state.trim(),
-      area_level2: addressFrom.city.trim(),
-      area_level3: addressFrom.colonia.trim(),
-      street1: addressFrom.street.trim(),
-      reference: addressFrom.reference ?? addressFrom.name,
+    shipment: {
+      quotation_id: quotationId,
+      rate_id: rateId,
+      address_from: {
+        name: addressFrom.name,
+        email: addressFrom.email ?? '',
+        phone: (addressFrom.phone ?? '').replace(/\D/g, ''),
+        country_code: 'MX',
+        postal_code: addressFrom.postalCode.trim(),
+        area_level1: addressFrom.state.trim(),
+        area_level2: addressFrom.city.trim(),
+        area_level3: addressFrom.colonia.trim(),
+        street1: addressFrom.street.trim(),
+        reference: addressFrom.reference ?? addressFrom.name,
+      },
+      address_to: {
+        name: addressTo.name,
+        email: addressTo.email ?? '',
+        phone: (addressTo.phone ?? '').replace(/\D/g, ''),
+        country_code: 'MX',
+        postal_code: addressTo.postalCode.trim(),
+        area_level1: addressTo.state.trim(),
+        area_level2: addressTo.city.trim(),
+        area_level3: addressTo.colonia.trim(),
+        street1: addressTo.street.trim(),
+        reference: addressTo.reference ?? addressTo.name,
+      },
+      parcels: [{
+        weight: Math.max(0.01, parcel.weight_kg),
+        mass_unit: 'KG',
+        dimension_unit: 'CM',
+        length: Math.max(1, Math.round(parcel.length_cm)),
+        width: Math.max(1, Math.round(parcel.width_cm)),
+        height: Math.max(1, Math.round(parcel.height_cm)),
+        quantity: 1,
+        package_type: packagingCode,
+        consignment_note: classCode,
+      }],
     },
-    address_to: {
-      name: addressTo.name,
-      email: addressTo.email ?? '',
-      phone: (addressTo.phone ?? '').replace(/\D/g, ''),
-      country_code: 'MX',
-      postal_code: addressTo.postalCode.trim(),
-      area_level1: addressTo.state.trim(),
-      area_level2: addressTo.city.trim(),
-      area_level3: addressTo.colonia.trim(),
-      street1: addressTo.street.trim(),
-      reference: addressTo.reference ?? addressTo.name,
-    },
-    parcels: [parcelPayload],
   }
 
   const bodyStr = JSON.stringify(body)
@@ -272,7 +274,7 @@ export async function createShipment({
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`SkyDropX ${res.status}: ${text.slice(0, 500)}\nBODY: ${bodyStr.slice(0, 600)}`)
+    throw new Error(`SkyDropX ${res.status}: ${text.slice(0, 500)}\nBODY: ${bodyStr.slice(0, 800)}`)
   }
 
   const json = await res.json()
