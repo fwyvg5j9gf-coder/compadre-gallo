@@ -168,19 +168,34 @@ function BlockEditPanel({
 }
 
 // ── Block row ──────────────────────────────────────────────────────────────────
-function BlockRow({ block, pageKey, index, total, onEdit, isEditing, onAction, onSaved, onLocalChange }:
+function BlockRow({ block, pageKey, index, total, onEdit, isEditing, onSaved, onLocalChange, onVisibilityToggled, onMoved, onDeleted }:
   {
     block: Block; pageKey: string; index: number; total: number
     onEdit: () => void; isEditing: boolean
-    onAction: () => void
     onSaved: (newContent: Record<string, string>) => void
     onLocalChange: (newContent: Record<string, string>) => void
+    onVisibilityToggled: (id: string, visible: boolean) => void
+    onMoved: (id: string, dir: -1 | 1) => void
+    onDeleted: (id: string) => void
   }) {
   const [pending, start] = useTransition()
   const meta = BLOCK_META[block.type]
 
-  function run(fn: () => Promise<void>) {
-    start(async () => { await fn(); onAction() })
+  function runToggle() {
+    const next = !block.visible
+    onVisibilityToggled(block.id, next)
+    start(() => toggleBlockVisible(block.id, pageKey, next))
+  }
+
+  function runMove(dir: -1 | 1) {
+    onMoved(block.id, dir)
+    start(() => moveBlock(block.id, pageKey, dir))
+  }
+
+  function runDelete() {
+    if (!confirm('¿Eliminar este bloque?')) return
+    onDeleted(block.id)
+    start(() => deleteBlock(block.id, pageKey))
   }
 
   return (
@@ -189,7 +204,7 @@ function BlockRow({ block, pageKey, index, total, onEdit, isEditing, onAction, o
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#0a0a0a' }}>{meta?.label ?? block.type}</div>
         </div>
-        <button onClick={e => { e.stopPropagation(); run(() => toggleBlockVisible(block.id, pageKey, !block.visible)) }}
+        <button onClick={e => { e.stopPropagation(); runToggle() }}
           disabled={pending} title={block.visible ? 'Ocultar' : 'Mostrar'}
           style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: block.visible ? 1 : 0.35, padding: '2px 4px', lineHeight: 1 }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -200,14 +215,14 @@ function BlockRow({ block, pageKey, index, total, onEdit, isEditing, onAction, o
           </svg>
         </button>
         <div style={{ display: 'flex', gap: 2 }}>
-          <button onClick={e => { e.stopPropagation(); run(() => moveBlock(block.id, pageKey, -1)) }}
+          <button onClick={e => { e.stopPropagation(); runMove(-1) }}
             disabled={pending || index === 0} className="adm-btn-icon"
             style={{ height: 24, width: 24, fontSize: 11, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↑</button>
-          <button onClick={e => { e.stopPropagation(); run(() => moveBlock(block.id, pageKey, 1)) }}
+          <button onClick={e => { e.stopPropagation(); runMove(1) }}
             disabled={pending || index === total - 1} className="adm-btn-icon"
             style={{ height: 24, width: 24, fontSize: 11, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>↓</button>
         </div>
-        <button onClick={e => { e.stopPropagation(); if (confirm('¿Eliminar este bloque?')) run(() => deleteBlock(block.id, pageKey)) }}
+        <button onClick={e => { e.stopPropagation(); runDelete() }}
           disabled={pending} className="adm-btn-icon"
           style={{ height: 24, width: 24, fontSize: 11, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cc0000' }}>✕</button>
         <span style={{ fontSize: 11, color: M, transition: 'transform 150ms', transform: isEditing ? 'rotate(180deg)' : 'none', userSelect: 'none' }}>▼</span>
@@ -269,6 +284,30 @@ export default function EditorShell({ initialBlocks }: { initialBlocks: Block[] 
     refreshPreview()
   }
 
+  function handleVisibilityToggled(id: string, visible: boolean) {
+    setBlocks(prev => prev.map(b => b.id === id ? { ...b, visible } : b))
+    refreshPreview(600)
+  }
+
+  function handleMoved(id: string, dir: -1 | 1) {
+    setBlocks(prev => {
+      const page = prev.filter(b => b.page_key === pageKey)
+      const rest = prev.filter(b => b.page_key !== pageKey)
+      const idx = page.findIndex(b => b.id === id)
+      const swap = idx + dir
+      if (swap < 0 || swap >= page.length) return prev
+      const next = [...page]
+      ;[next[idx], next[swap]] = [next[swap], next[idx]]
+      return [...rest, ...next]
+    })
+    refreshPreview(600)
+  }
+
+  function handleDeleted(id: string) {
+    setBlocks(prev => prev.filter(b => b.id !== id))
+    refreshPreview(600)
+  }
+
   function handlePublish() {
     startPublish(async () => {
       await publishPage(pageKey)
@@ -276,10 +315,6 @@ export default function EditorShell({ initialBlocks }: { initialBlocks: Block[] 
       setHasDraft(false)
       refreshPreview(600)
     })
-  }
-
-  function handleBlockAction() {
-    refreshPreview(600)
   }
 
   return (
@@ -399,9 +434,11 @@ export default function EditorShell({ initialBlocks }: { initialBlocks: Block[] 
               total={visible.length}
               isEditing={editingId === b.id}
               onEdit={() => setEditingId(editingId === b.id ? null : b.id)}
-              onAction={handleBlockAction}
               onSaved={(newContent) => handleBlockSaved(b.id, newContent)}
               onLocalChange={(newContent) => setBlocks(prev => prev.map(x => x.id === b.id ? { ...x, content: newContent } : x))}
+              onVisibilityToggled={handleVisibilityToggled}
+              onMoved={handleMoved}
+              onDeleted={handleDeleted}
             />
           ))}
         </div>
@@ -417,7 +454,7 @@ export default function EditorShell({ initialBlocks }: { initialBlocks: Block[] 
         <AddBlockModal
           pageKey={pageKey}
           onClose={() => setShowAddModal(false)}
-          onAdded={() => refreshPreview(800)}
+          onAdded={() => { refreshPreview(800) }}
         />
       )}
 
