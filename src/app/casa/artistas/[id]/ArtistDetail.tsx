@@ -424,6 +424,56 @@ function PerfilTab({ artist, isAdmin }: { artist: Artist; isAdmin: boolean }) {
 }
 
 // ── Tab: Shows ─────────────────────────────────────────────────────────────────
+function ShowForm({ show, onCancel, onSave, pending }: { show?: Show; onCancel: () => void; onSave: (fd: FormData) => void; pending: boolean }) {
+  return (
+    <form onSubmit={e => { e.preventDefault(); onSave(new FormData(e.currentTarget)) }}
+      style={{ background: '#f9f8f4', border: `1px solid ${B}`, borderRadius: 6, padding: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <Field label="venue"><input name="venue" defaultValue={show?.venue} required className="adm-inp" style={{ width: '100%', height: 34, fontSize: 13 }} /></Field>
+      <Field label="ciudad"><input name="city" defaultValue={show?.city} required className="adm-inp" style={{ width: '100%', height: 34, fontSize: 13 }} /></Field>
+      <Field label="fecha y hora"><input name="date" type="datetime-local" defaultValue={show?.date?.slice(0, 16)} required className="adm-inp" style={{ width: '100%', height: 34, fontSize: 13 }} /></Field>
+      <Field label="precio (MXN)"><input name="price_mxn" type="number" min="0" defaultValue={show?.price_mxn ? show.price_mxn / 100 : ''} className="adm-inp" style={{ width: '100%', height: 34, fontSize: 13 }} placeholder="350" /></Field>
+      <Field label="URL boletos" ><input name="ticket_url" defaultValue={show?.ticket_url ?? ''} className="adm-inp" style={{ width: '100%', height: 34, fontSize: 13 }} placeholder="https://…" /></Field>
+      <Field label="aforo"><input name="capacity" type="number" min="0" defaultValue={show?.capacity ?? ''} className="adm-inp" style={{ width: '100%', height: 34, fontSize: 13 }} /></Field>
+      <div style={{ gridColumn: '1/-1', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <button type="button" onClick={onCancel} className="adm-btn-secondary" style={{ height: 32, padding: '0 14px', fontSize: 12 }}>cancelar</button>
+        <button type="submit" disabled={pending} className="adm-btn-primary" style={{ height: 32, padding: '0 14px', fontSize: 12 }}>
+          {pending ? '…' : show ? 'actualizar' : 'agregar show'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function ShowRow({ show, artistId, editing, onSetEditing }: { show: Show; artistId: string; editing: string | null; onSetEditing: (id: string | null) => void }) {
+  const [pending, start] = useTransition()
+  const isPast = new Date(show.date) < new Date()
+  return (
+    <>
+      {editing === show.id ? (
+        <ShowForm show={show} pending={pending} onCancel={() => onSetEditing(null)}
+          onSave={fd => { fd.set('is_published', String(show.is_published)); start(() => updateShow(show.id, artistId, fd).then(() => onSetEditing(null))) }} />
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 60px', gap: 12, alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${B}` }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: isPast ? M : '#0a0a0a' }}>{show.venue}</div>
+            <div style={{ fontSize: 12, color: M }}>{show.city} · {new Date(show.date).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}</div>
+          </div>
+          <div style={{ fontSize: 13, fontFamily: 'monospace', color: M }}>{show.price_mxn ? fmt(show.price_mxn) : '—'}</div>
+          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: show.is_published ? 'rgba(26,107,53,0.08)' : '#f0efe9', color: show.is_published ? '#1a6b35' : M, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            {show.is_published ? 'activo' : 'borrador'}
+          </span>
+          <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+            <button onClick={() => onSetEditing(show.id)} className="adm-btn-icon" style={{ height: 28, width: 28, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <TrashBtn onClick={() => start(() => deleteShow(show.id, artistId))} disabled={pending} />
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 function ShowsTab({ artist }: { artist: Artist }) {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
@@ -432,71 +482,21 @@ function ShowsTab({ artist }: { artist: Artist }) {
   const upcoming = artist.shows.filter(s => new Date(s.date) >= new Date()).sort((a, b) => a.date.localeCompare(b.date))
   const past     = artist.shows.filter(s => new Date(s.date) <  new Date()).sort((a, b) => b.date.localeCompare(a.date))
 
-  function ShowForm({ show, onCancel, onSave }: { show?: Show; onCancel: () => void; onSave: (fd: FormData) => void }) {
-    const formRef = useRef<HTMLFormElement>(null)
-    return (
-      <form ref={formRef} onSubmit={e => { e.preventDefault(); onSave(new FormData(e.currentTarget)) }}
-        style={{ background: '#f9f8f4', border: `1px solid ${B}`, borderRadius: 6, padding: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <Field label="venue"><input name="venue" defaultValue={show?.venue} required className="adm-inp" style={{ width: '100%', height: 34, fontSize: 13 }} /></Field>
-        <Field label="ciudad"><input name="city" defaultValue={show?.city} required className="adm-inp" style={{ width: '100%', height: 34, fontSize: 13 }} /></Field>
-        <Field label="fecha y hora"><input name="date" type="datetime-local" defaultValue={show?.date?.slice(0, 16)} required className="adm-inp" style={{ width: '100%', height: 34, fontSize: 13 }} /></Field>
-        <Field label="precio (MXN)"><input name="price_mxn" type="number" min="0" defaultValue={show?.price_mxn ? show.price_mxn / 100 : ''} className="adm-inp" style={{ width: '100%', height: 34, fontSize: 13 }} placeholder="350" /></Field>
-        <Field label="URL boletos" ><input name="ticket_url" defaultValue={show?.ticket_url ?? ''} className="adm-inp" style={{ width: '100%', height: 34, fontSize: 13 }} placeholder="https://…" /></Field>
-        <Field label="aforo"><input name="capacity" type="number" min="0" defaultValue={show?.capacity ?? ''} className="adm-inp" style={{ width: '100%', height: 34, fontSize: 13 }} /></Field>
-        <div style={{ gridColumn: '1/-1', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onCancel} className="adm-btn-secondary" style={{ height: 32, padding: '0 14px', fontSize: 12 }}>cancelar</button>
-          <button type="submit" disabled={pending} className="adm-btn-primary" style={{ height: 32, padding: '0 14px', fontSize: 12 }}>
-            {pending ? '…' : show ? 'actualizar' : 'agregar show'}
-          </button>
-        </div>
-      </form>
-    )
-  }
-
-  function ShowRow({ show }: { show: Show }) {
-    const isPast = new Date(show.date) < new Date()
-    return (
-      <>
-        {editing === show.id ? (
-          <ShowForm show={show} onCancel={() => setEditing(null)}
-            onSave={fd => { fd.set('is_published', String(show.is_published)); start(() => updateShow(show.id, artist.id, fd).then(() => setEditing(null))) }} />
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 60px', gap: 12, alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${B}` }}>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: isPast ? M : '#0a0a0a' }}>{show.venue}</div>
-              <div style={{ fontSize: 12, color: M }}>{show.city} · {new Date(show.date).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}</div>
-            </div>
-            <div style={{ fontSize: 13, fontFamily: 'monospace', color: M }}>{show.price_mxn ? fmt(show.price_mxn) : '—'}</div>
-            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: show.is_published ? 'rgba(26,107,53,0.08)' : '#f0efe9', color: show.is_published ? '#1a6b35' : M, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              {show.is_published ? 'activo' : 'borrador'}
-            </span>
-            <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-              <button onClick={() => setEditing(show.id)} className="adm-btn-icon" style={{ height: 28, width: 28, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </button>
-              <TrashBtn onClick={() => start(() => deleteShow(show.id, artist.id))} disabled={pending} />
-            </div>
-          </div>
-        )}
-      </>
-    )
-  }
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <SectionCard title={`próximos · ${upcoming.length}`} action={
         !adding && <button onClick={() => setAdding(true)} className="adm-btn-primary" style={{ height: 28, padding: '0 12px', fontSize: 11 }}>+ agregar</button>
       }>
-        {adding && <div style={{ marginBottom: 16 }}><ShowForm onCancel={() => setAdding(false)}
+        {adding && <div style={{ marginBottom: 16 }}><ShowForm pending={pending} onCancel={() => setAdding(false)}
           onSave={fd => { fd.set('is_published', 'true'); start(() => createShow(artist.id, fd).then(() => setAdding(false))) }} /></div>}
         {upcoming.length === 0 && !adding ? (
           <p style={{ color: M, fontSize: 13, fontStyle: 'italic', margin: 0 }}>sin shows próximos.</p>
-        ) : upcoming.map(s => <ShowRow key={s.id} show={s} />)}
+        ) : upcoming.map(s => <ShowRow key={s.id} show={s} artistId={artist.id} editing={editing} onSetEditing={setEditing} />)}
       </SectionCard>
 
       {past.length > 0 && (
         <SectionCard title={`pasados · ${past.length}`}>
-          {past.slice(0, 5).map(s => <ShowRow key={s.id} show={s} />)}
+          {past.slice(0, 5).map(s => <ShowRow key={s.id} show={s} artistId={artist.id} editing={editing} onSetEditing={setEditing} />)}
         </SectionCard>
       )}
     </div>
@@ -510,36 +510,36 @@ const TASK_COLS = [
   { key: 'listo',       label: 'listo',       color: '#1a6b35' },
 ]
 
+function TaskCard({ task, artistId }: { task: Task; artistId: string }) {
+  const [pending, start] = useTransition()
+  const pc = PRIORITY_COLORS[task.priority]
+  const next = TASK_COLS[(TASK_COLS.findIndex(c => c.key === task.status) + 1) % TASK_COLS.length]
+  return (
+    <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 6, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#0a0a0a', lineHeight: 1.4, flex: 1 }}>{task.title}</span>
+        <TrashBtn onClick={() => start(() => deleteTask(task.id, artistId))} disabled={pending} />
+      </div>
+      {task.description && <p style={{ fontSize: 12, color: M, margin: 0, lineHeight: 1.5 }}>{task.description}</p>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: pc.bg, color: pc.text, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          {task.priority}
+        </span>
+        {task.due_date && <span style={{ fontSize: 11, color: S }}>{new Date(task.due_date + 'T12:00:00').toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}</span>}
+      </div>
+      {task.status !== 'listo' && (
+        <button onClick={() => start(() => updateTaskStatus(task.id, artistId, next.key))} disabled={pending}
+          style={{ marginTop: 4, fontSize: 11, fontWeight: 700, color: next.color, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
+          → mover a {next.label}
+        </button>
+      )}
+    </div>
+  )
+}
+
 function TareasTab({ artist }: { artist: Artist }) {
   const [adding, setAdding]     = useState(false)
   const [pending, start]        = useTransition()
-
-  function TaskCard({ task }: { task: Task }) {
-    const pc = PRIORITY_COLORS[task.priority]
-    const col = TASK_COLS.find(c => c.key === task.status)
-    const next = TASK_COLS[(TASK_COLS.findIndex(c => c.key === task.status) + 1) % TASK_COLS.length]
-    return (
-      <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 6, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#0a0a0a', lineHeight: 1.4, flex: 1 }}>{task.title}</span>
-          <TrashBtn onClick={() => start(() => deleteTask(task.id, artist.id))} disabled={pending} />
-        </div>
-        {task.description && <p style={{ fontSize: 12, color: M, margin: 0, lineHeight: 1.5 }}>{task.description}</p>}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: pc.bg, color: pc.text, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            {task.priority}
-          </span>
-          {task.due_date && <span style={{ fontSize: 11, color: S }}>{new Date(task.due_date + 'T12:00:00').toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}</span>}
-        </div>
-        {task.status !== 'listo' && (
-          <button onClick={() => start(() => updateTaskStatus(task.id, artist.id, next.key))} disabled={pending}
-            style={{ marginTop: 4, fontSize: 11, fontWeight: 700, color: next.color, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
-            → mover a {next.label}
-          </button>
-        )}
-      </div>
-    )
-  }
 
   const done  = artist.tasks.filter(t => t.status === 'listo').length
   const total = artist.tasks.length
@@ -601,7 +601,7 @@ function TareasTab({ artist }: { artist: Artist }) {
                 <span style={{ fontSize: 12, color: S }}>{tasks.length}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {tasks.map(t => <TaskCard key={t.id} task={t} />)}
+                {tasks.map(t => <TaskCard key={t.id} task={t} artistId={artist.id} />)}
               </div>
             </div>
           )
@@ -616,6 +616,31 @@ function TareasTab({ artist }: { artist: Artist }) {
 }
 
 // ── Tab: Contenido ─────────────────────────────────────────────────────────────
+function ContentRow({ item, artistId }: { item: Content; artistId: string }) {
+  const [pending, start] = useTransition()
+  const sc  = STATUS_CONTENT[item.status]
+  const pc  = PLATFORM_COLORS[item.platform]
+  const nextStatus = { idea: 'en_progreso', en_progreso: 'programado', programado: 'publicado', publicado: 'idea' }[item.status] ?? 'idea'
+  const nextLabel  = { idea: 'en progreso', en_progreso: 'programado', programado: 'publicado', publicado: 'idea' }[item.status] ?? 'idea'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: `1px solid ${B}` }}>
+      <div style={{ width: 8, height: 8, borderRadius: '50%', background: pc, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#0a0a0a' }}>{item.title}</div>
+        <div style={{ fontSize: 11, color: M }}>{item.platform} · {item.content_type}{item.scheduled_date ? ` · ${new Date(item.scheduled_date + 'T12:00:00').toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}` : ''}</div>
+      </div>
+      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: sc.bg, color: sc.text, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+        {item.status.replace('_', ' ')}
+      </span>
+      <button onClick={() => start(() => updateContentStatus(item.id, artistId, nextStatus))} disabled={pending}
+        style={{ fontSize: 11, color: M, background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', padding: '4px 8px' }}>
+        → {nextLabel}
+      </button>
+      <TrashBtn onClick={() => start(() => deleteContent(item.id, artistId))} disabled={pending} />
+    </div>
+  )
+}
+
 function ContenidoTab({ artist }: { artist: Artist }) {
   const [adding, setAdding] = useState(false)
   const [pending, start]    = useTransition()
@@ -625,30 +650,6 @@ function ContenidoTab({ artist }: { artist: Artist }) {
     en_progreso: artist.content.filter(c => c.status === 'en_progreso'),
     programado:  artist.content.filter(c => c.status === 'programado'),
     publicado:   artist.content.filter(c => c.status === 'publicado'),
-  }
-
-  function ContentRow({ item }: { item: Content }) {
-    const sc  = STATUS_CONTENT[item.status]
-    const pc  = PLATFORM_COLORS[item.platform]
-    const nextStatus = { idea: 'en_progreso', en_progreso: 'programado', programado: 'publicado', publicado: 'idea' }[item.status] ?? 'idea'
-    const nextLabel  = { idea: 'en progreso', en_progreso: 'programado', programado: 'publicado', publicado: 'idea' }[item.status] ?? 'idea'
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: `1px solid ${B}` }}>
-        <div style={{ width: 8, height: 8, borderRadius: '50%', background: pc, flexShrink: 0 }} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#0a0a0a' }}>{item.title}</div>
-          <div style={{ fontSize: 11, color: M }}>{item.platform} · {item.content_type}{item.scheduled_date ? ` · ${new Date(item.scheduled_date + 'T12:00:00').toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}` : ''}</div>
-        </div>
-        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: sc.bg, color: sc.text, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-          {item.status.replace('_', ' ')}
-        </span>
-        <button onClick={() => start(() => updateContentStatus(item.id, artist.id, nextStatus))} disabled={pending}
-          style={{ fontSize: 11, color: M, background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', padding: '4px 8px' }}>
-          → {nextLabel}
-        </button>
-        <TrashBtn onClick={() => start(() => deleteContent(item.id, artist.id))} disabled={pending} />
-      </div>
-    )
   }
 
   const totalPublicado = byStatus.publicado.length
@@ -715,7 +716,7 @@ function ContenidoTab({ artist }: { artist: Artist }) {
         ) : (
           artist.content
             .sort((a, b) => (a.scheduled_date ?? 'z').localeCompare(b.scheduled_date ?? 'z'))
-            .map(c => <ContentRow key={c.id} item={c} />)
+            .map(c => <ContentRow key={c.id} item={c} artistId={artist.id} />)
         )}
       </SectionCard>
     </div>

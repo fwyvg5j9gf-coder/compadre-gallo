@@ -175,6 +175,64 @@ function EditableList({ items, onAdd, onUpdate, onDelete, onReorder, placeholder
   )
 }
 
+// ── DimFields ─────────────────────────────────────────────────────────────────
+function DimFields({ pkg, onLoadSatCodes, satLoading, satError, packagings, classes }: {
+  pkg?: PackagingType
+  onLoadSatCodes: () => void
+  satLoading: boolean
+  satError: string | null
+  packagings: SatCode[]
+  classes: SatCode[]
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: 10 }}>
+        <label className="adm-lbl">nombre<input name="name" required defaultValue={pkg?.name ?? ''} className="adm-inp" /></label>
+        <label className="adm-lbl">largo cm<input name="length_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.length_cm ?? ''} className="adm-inp" /></label>
+        <label className="adm-lbl">ancho cm<input name="width_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.width_cm ?? ''} className="adm-inp" /></label>
+        <label className="adm-lbl">alto cm<input name="height_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.height_cm ?? ''} className="adm-inp" /></label>
+        <label className="adm-lbl">peso g<input name="weight_grams" type="number" min="0" required defaultValue={pkg?.weight_grams ?? ''} className="adm-inp" /></label>
+      </div>
+      <div style={{ marginBottom: 4 }}>
+        <button type="button" onClick={onLoadSatCodes} disabled={satLoading}
+          className="adm-btn-secondary" style={{ fontSize: 11, padding: '5px 10px' }}>
+          {satLoading ? 'cargando…' : 'cargar catálogos SAT de Skydropx'}
+        </button>
+        {satError && <span style={{ fontSize: 11, color: '#cc0000', marginLeft: 8 }}>{satError}</span>}
+        {(packagings.length > 0 || classes.length > 0) && (
+          <span style={{ fontSize: 11, color: '#1a6b35', marginLeft: 8 }}>
+            {packagings.length} embalajes · {classes.length} clases cargadas
+          </span>
+        )}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <label className="adm-lbl">
+          código embalaje SAT (consignment_note_packaging_code)
+          {packagings.length > 0 ? (
+            <select name="skydropx_package_type" defaultValue={pkg?.skydropx_package_type ?? ''} className="adm-inp">
+              <option value="">— selecciona —</option>
+              {packagings.map(c => <option key={c.id} value={c.id}>{c.id} — {c.name}</option>)}
+            </select>
+          ) : (
+            <input name="skydropx_package_type" defaultValue={pkg?.skydropx_package_type ?? ''} placeholder="ej. 4G" className="adm-inp" />
+          )}
+        </label>
+        <label className="adm-lbl">
+          código clase SAT (consignment_note_class_code)
+          {classes.length > 0 ? (
+            <select name="consignment_note" defaultValue={pkg?.consignment_note ?? ''} className="adm-inp">
+              <option value="">— selecciona —</option>
+              {classes.map(c => <option key={c.id} value={c.id}>{c.id} — {c.name}</option>)}
+            </select>
+          ) : (
+            <input name="consignment_note" defaultValue={pkg?.consignment_note ?? ''} placeholder="ej. 53131600" className="adm-inp" />
+          )}
+        </label>
+      </div>
+    </div>
+  )
+}
+
 // ── PackagingList ─────────────────────────────────────────────────────────────
 function PackagingList({ items }: { items: PackagingType[] }) {
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -203,55 +261,7 @@ function PackagingList({ items }: { items: PackagingType[] }) {
     })
   }
 
-  function DimFields({ pkg }: { pkg?: PackagingType }) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: 10 }}>
-          <label className="adm-lbl">nombre<input name="name" required defaultValue={pkg?.name ?? ''} className="adm-inp" /></label>
-          <label className="adm-lbl">largo cm<input name="length_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.length_cm ?? ''} className="adm-inp" /></label>
-          <label className="adm-lbl">ancho cm<input name="width_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.width_cm ?? ''} className="adm-inp" /></label>
-          <label className="adm-lbl">alto cm<input name="height_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.height_cm ?? ''} className="adm-inp" /></label>
-          <label className="adm-lbl">peso g<input name="weight_grams" type="number" min="0" required defaultValue={pkg?.weight_grams ?? ''} className="adm-inp" /></label>
-        </div>
-        <div style={{ marginBottom: 4 }}>
-          <button type="button" onClick={handleLoadSatCodes} disabled={satLoading}
-            className="adm-btn-secondary" style={{ fontSize: 11, padding: '5px 10px' }}>
-            {satLoading ? 'cargando…' : 'cargar catálogos SAT de Skydropx'}
-          </button>
-          {satError && <span style={{ fontSize: 11, color: '#cc0000', marginLeft: 8 }}>{satError}</span>}
-          {(packagings.length > 0 || classes.length > 0) && (
-            <span style={{ fontSize: 11, color: '#1a6b35', marginLeft: 8 }}>
-              {packagings.length} embalajes · {classes.length} clases cargadas
-            </span>
-          )}
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <label className="adm-lbl">
-            código embalaje SAT (consignment_note_packaging_code)
-            {packagings.length > 0 ? (
-              <select name="skydropx_package_type" defaultValue={pkg?.skydropx_package_type ?? ''} className="adm-inp">
-                <option value="">— selecciona —</option>
-                {packagings.map(c => <option key={c.id} value={c.id}>{c.id} — {c.name}</option>)}
-              </select>
-            ) : (
-              <input name="skydropx_package_type" defaultValue={pkg?.skydropx_package_type ?? ''} placeholder="ej. 4G" className="adm-inp" />
-            )}
-          </label>
-          <label className="adm-lbl">
-            código clase SAT (consignment_note_class_code)
-            {classes.length > 0 ? (
-              <select name="consignment_note" defaultValue={pkg?.consignment_note ?? ''} className="adm-inp">
-                <option value="">— selecciona —</option>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.id} — {c.name}</option>)}
-              </select>
-            ) : (
-              <input name="consignment_note" defaultValue={pkg?.consignment_note ?? ''} placeholder="ej. 53131600" className="adm-inp" />
-            )}
-          </label>
-        </div>
-      </div>
-    )
-  }
+  const dimFieldsProps = { onLoadSatCodes: handleLoadSatCodes, satLoading, satError, packagings, classes }
 
   return (
     <div style={{ opacity: isPending ? 0.5 : 1, transition: 'opacity 150ms' }}>
@@ -267,7 +277,7 @@ function PackagingList({ items }: { items: PackagingType[] }) {
               {editingId === pkg.id ? (
                 <form style={{ padding: 14, background: '#fafaf8', borderBottom: `1px solid ${B}` }}
                   action={fd => startTransition(async () => { await updatePackaging(pkg.id, fd); setEditingId(null); refresh() })}>
-                  <DimFields pkg={pkg} />
+                  <DimFields pkg={pkg} {...dimFieldsProps} />
                   <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                     <button type="submit" className="adm-btn-primary" style={{ fontSize: 12, padding: '6px 14px' }}>guardar</button>
                     <button type="button" onClick={() => setEditingId(null)} className="adm-btn-secondary">cancelar</button>
@@ -316,7 +326,7 @@ function PackagingList({ items }: { items: PackagingType[] }) {
       {showAdd ? (
         <form style={{ border: `1px solid ${B}`, borderRadius: 6, padding: 16, background: '#fafaf8' }}
           action={fd => startTransition(async () => { await addPackaging(fd); setShowAdd(false); refresh() })}>
-          <DimFields />
+          <DimFields {...dimFieldsProps} />
           <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
             <button type="submit" className="adm-btn-primary" style={{ fontSize: 12, padding: '6px 14px' }}>agregar</button>
             <button type="button" onClick={() => setShowAdd(false)} className="adm-btn-secondary">cancelar</button>

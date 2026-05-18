@@ -29,6 +29,20 @@ const DEVICES = [
   { key: 'desktop',  label: 'escritorio', width: '100%' as const },
 ]
 
+function SideBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick} style={{
+      padding: '9px 16px', background: active ? 'rgba(255,255,255,0.08)' : 'none',
+      border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 12, fontWeight: 600,
+      color: active ? '#fff' : 'rgba(255,255,255,0.45)',
+      borderLeft: `2px solid ${active ? '#00c4df' : 'transparent'}`,
+      transition: 'all 120ms',
+    }}>
+      {children}
+    </button>
+  )
+}
+
 const SPACING_OPTS = [
   { label: '─', val: 0 },
   { label: 'S',  val: 24 },
@@ -215,8 +229,6 @@ function BlockEditPanel({
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const fields = BLOCK_FIELDS[block.type] ?? []
 
-  useEffect(() => { setValues(block.draft_content ?? block.content) }, [block.id])
-
   function set(key: string, val: string) {
     const next = { ...values, [key]: val }
     setValues(next)
@@ -377,6 +389,7 @@ function BlockRow({ block, pageKey, index, total, onEdit, isEditing, onSaved, on
       </div>
       {isEditing && (
         <BlockEditPanel
+          key={block.id}
           block={block}
           pageKey={pageKey}
           onSaved={onSaved}
@@ -592,21 +605,6 @@ export default function EditorShell({
       setHasDraft(false)
       refreshPreview(600)
     })
-  }
-
-  // ── Sidebar button helper ────────────────────────────────────────────────────
-  function SideBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-    return (
-      <button onClick={onClick} style={{
-        padding: '9px 16px', background: active ? 'rgba(255,255,255,0.08)' : 'none',
-        border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 12, fontWeight: 600,
-        color: active ? '#fff' : 'rgba(255,255,255,0.45)',
-        borderLeft: `2px solid ${active ? '#00c4df' : 'transparent'}`,
-        transition: 'all 120ms',
-      }}>
-        {children}
-      </button>
-    )
   }
 
   // ── Right panel header helper ────────────────────────────────────────────────

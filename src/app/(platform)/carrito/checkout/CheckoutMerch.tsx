@@ -206,8 +206,10 @@ export default function CheckoutMerch({
   }, [items, packaging])
 
   useEffect(() => {
-    if (!zipInfo) { setRates([]); setSelectedRate(null); return }
-    if (!skydropxEnabled || !packagingTypeId) return
+    if (!zipInfo || !skydropxEnabled || !packagingTypeId) {
+      startRatesTransition(async () => { setRates([]); setSelectedRate(null) })
+      return
+    }
     startRatesTransition(async () => {
       const r = await getRatesForCheckout(
         zipInfo.zip, zipInfo.estado, zipInfo.municipio, zipInfo.colonia, packagingTypeId,

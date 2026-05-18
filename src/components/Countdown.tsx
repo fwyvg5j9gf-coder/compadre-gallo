@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 
 export default function Countdown({ target }: { target: number }) {
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);

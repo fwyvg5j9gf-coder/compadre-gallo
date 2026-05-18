@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import AdminShell from '../AdminShell'
 import SkydropxBalanceBadge from './SkydropxBalanceBadge'
@@ -49,14 +50,14 @@ export default async function OrdenesPage() {
           }}>
             exportar CSV
           </a>
-          <a href="/casa/ordenes/nuevo" style={{
+          <Link href="/casa/ordenes/nuevo" style={{
             fontSize: 12, fontWeight: 700, color: '#0a0a0a',
             background: '#ffe200', border: '1px solid rgba(255,226,0,0.5)',
             borderRadius: 4, padding: '5px 12px', textDecoration: 'none',
             transition: 'background 140ms', letterSpacing: '-0.01em',
           }}>
             + nueva orden
-          </a>
+          </Link>
         </div>
       }
     >

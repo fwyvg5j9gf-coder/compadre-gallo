@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { UserButton } from '@clerk/nextjs'
 import AdminShell from './AdminShell'
 
@@ -248,13 +249,13 @@ function ArtistasSection({ artists }: { artists: ArtistSnap[] }) {
         <div style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
           artistas · acceso rápido
         </div>
-        <a href="/casa/artistas" style={{ fontSize: 12, color: M, textDecoration: 'none' }}>
+        <Link href="/casa/artistas" style={{ fontSize: 12, color: M, textDecoration: 'none' }}>
           ver todos →
-        </a>
+        </Link>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
         {artists.map(a => (
-          <a
+          <Link
             key={a.id}
             href={`/casa/artistas/${a.id}`}
             style={{
@@ -302,7 +303,7 @@ function ArtistasSection({ artists }: { artists: ArtistSnap[] }) {
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke={S} strokeWidth="1.5" style={{ flexShrink: 0 }}>
               <path d="M3 7h8M7 3l4 4-4 4"/>
             </svg>
-          </a>
+          </Link>
         ))}
       </div>
     </div>

@@ -215,7 +215,7 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
           <div style={{ background: isTest ? 'rgba(255,226,0,0.08)' : '#fff', border: `1px solid ${isTest ? 'rgba(255,226,0,0.4)' : B}`, borderRadius: 8, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setIsTest(v => !v)}>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14, color: '#0a0a0a' }}>orden de prueba</div>
-              <div style={{ fontSize: 12, color: M, marginTop: 2 }}>no afecta estadísticas reales, se marca con badge "PRUEBA" en la lista</div>
+              <div style={{ fontSize: 12, color: M, marginTop: 2 }}>no afecta estadísticas reales, se marca con badge &quot;PRUEBA&quot; en la lista</div>
             </div>
             <div style={{
               width: 44, height: 24, borderRadius: 999, background: isTest ? '#ffe200' : '#d4d3cd',
