@@ -776,6 +776,22 @@ git push origin main
 
 ---
 
+### 🔒 Seguridad — Pendiente
+
+| Tarea | Prioridad | Descripción |
+|---|---|---|
+| Verificar firma webhook Stripe | CRÍTICA | `src/app/api/stripe/webhook/route.ts` debe usar `stripe.webhooks.constructEvent(body, sig, secret)`. Sin esto, cualquiera puede POST a ese endpoint y marcar órdenes como pagadas. |
+| Verificar firma webhook Clerk | CRÍTICA | `src/app/api/clerk/webhook/route.ts` debe validar el header `svix-signature` con el SDK de Svix. Sin esto, cualquiera puede falsificar eventos de Clerk. |
+| Rate limiting en APIs públicas | ALTA | `/api/stripe/create-intent` y el endpoint de validación de descuentos no tienen throttle. Agregar con Vercel Edge Middleware o `upstash/ratelimit`. |
+| Validación de schema con Zod | ALTA | Las server actions de checkout y admin solo hacen `.trim()` y `parseFloat()`. Inputs malformados (strings gigantes, números negativos) entran sin problema. Agregar Zod en los boundaries de entrada. |
+| Security headers HTTP | MEDIA | Agregar en `next.config.js`: `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Strict-Transport-Security`. Vercel no los agrega automáticamente. |
+| Validación MIME en uploads | MEDIA | `getUploadUrl()` en `src/app/casa/tienda/actions.ts` genera URLs firmadas sin verificar que el archivo sea realmente una imagen. Agregar validación de `contentType` antes de firmar. |
+| Auditar logs del servidor | BAJA | Revisar que ningún `console.log` o `console.error` exponga keys, tokens o datos de tarjetas en los logs de Vercel. |
+
+> **Lo que YA está protegido:** precios re-fetcheados server-side, PI de Stripe verificado antes de crear orden, todas las mutaciones admin protegidas con `requireAdminUserId()`, `supabaseAdmin` nunca expuesto al cliente, sin SQL injection (SDK parametrizado), CSRF cubierto por Next.js server actions.
+
+---
+
 ## 16. Cómo Replicar para un Nuevo Cliente
 
 Esta plataforma es la plantilla base. Para crear una nueva instancia:
@@ -867,4 +883,4 @@ Al llamar `createSkydropxShipment()`, el cliente no recibe notificación de que 
 Admin que visita `/casa` sin sesión es redirigido a `/cuenta/login` (login de fans) en vez de `/casa/login`.
 **Fix:** Separar las rutas de redirect según si es `/casa` o `/cuenta`.
 
-*Última actualización: 2026-05-17*
+*Última actualización: 2026-05-18*
