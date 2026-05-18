@@ -55,17 +55,84 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
+const ACTION_META: Record<string, { label: string; dot: string }> = {
+  update_status:     { label: 'estado',      dot: '#003a87' },
+  update_tracking:   { label: 'guía',        dot: '#007a8c' },
+  update_details:    { label: 'datos',       dot: '#6b6a64' },
+  shipment_created:  { label: 'guía creada', dot: '#1a6b35' },
+  shipment_cancelled:{ label: 'guía cancel', dot: '#cc0000' },
+  delete:            { label: 'eliminado',   dot: '#cc0000' },
+}
+
+function OrderHistoryCard({
+  createdAt,
+  auditRows,
+}: {
+  createdAt: string
+  auditRows: { id: string; action: string; summary: string; user_id: string | null; created_at: string }[]
+}) {
+  const fmtTs = (iso: string) =>
+    new Date(iso).toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+  return (
+    <InfoCard title="historial de cambios">
+      <div style={{ position: 'relative', paddingLeft: 16 }}>
+        {/* vertical line */}
+        <div style={{ position: 'absolute', left: 5, top: 6, bottom: 6, width: 1, background: B }} />
+
+        {/* Evento creación */}
+        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 1, marginBottom: 16 }}>
+          <div style={{ position: 'absolute', left: -12, top: 5, width: 8, height: 8, borderRadius: '50%', background: '#1a6b35', border: '2px solid #fff', boxShadow: `0 0 0 1px #1a6b35` }} />
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#1a6b35', textTransform: 'uppercase', letterSpacing: '0.04em' }}>orden creada</span>
+          <span style={{ fontSize: 13, color: '#0a0a0a' }}>pedido registrado en el sistema</span>
+          <span style={{ fontSize: 11, color: S }}>{fmtTs(createdAt)}</span>
+        </div>
+
+        {/* Eventos de audit_log */}
+        {auditRows.map((row) => {
+          const meta = ACTION_META[row.action] ?? { label: row.action, dot: '#9a9994' }
+          return (
+            <div key={row.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 1, marginBottom: 16 }}>
+              <div style={{ position: 'absolute', left: -12, top: 5, width: 8, height: 8, borderRadius: '50%', background: meta.dot, border: '2px solid #fff', boxShadow: `0 0 0 1px ${meta.dot}` }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: meta.dot, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {meta.label}
+              </span>
+              <span style={{ fontSize: 13, color: '#0a0a0a' }}>{row.summary}</span>
+              <span style={{ fontSize: 11, color: S }}>
+                {fmtTs(row.created_at)}
+                {row.user_id && (
+                  <span style={{ marginLeft: 8, fontFamily: 'monospace', color: '#bbb' }}>
+                    ···{row.user_id.slice(-6)}
+                  </span>
+                )}
+              </span>
+            </div>
+          )
+        })}
+
+        {auditRows.length === 0 && (
+          <p style={{ fontSize: 13, color: S, fontStyle: 'italic', marginLeft: 4 }}>
+            sin cambios registrados.
+          </p>
+        )}
+      </div>
+    </InfoCard>
+  )
+}
+
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth()
   if (!userId) redirect('/casa/login')
 
   const { id } = await params
 
-  const { data: order } = await supabaseAdmin
-    .from('orders')
-    .select('*, order_items(*)')
-    .eq('id', id)
-    .single()
+  const [{ data: order }, { data: auditRows }] = await Promise.all([
+    supabaseAdmin.from('orders').select('*, order_items(*)').eq('id', id).single(),
+    supabaseAdmin.from('audit_log')
+      .select('id, action, summary, user_id, created_at')
+      .eq('record_id', id)
+      .order('created_at', { ascending: true }),
+  ])
 
   if (!order) notFound()
 
@@ -264,6 +331,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 <Row label="stripe PI" value={<span style={{ fontFamily: 'monospace', fontSize: 12, color: M }}>{order.stripe_payment_id}</span>} />
               </InfoCard>
             )}
+
+            {/* Historial de cambios */}
+            <OrderHistoryCard
+              createdAt={order.created_at}
+              auditRows={auditRows ?? []}
+            />
 
           </div>
 

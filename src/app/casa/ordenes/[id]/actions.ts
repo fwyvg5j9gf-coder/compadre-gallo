@@ -48,9 +48,11 @@ export async function updateOrderStatus(orderId: string, status: string) {
 
 export async function deleteOrder(orderId: string): Promise<{ error?: string }> {
   try {
-    await requireAdmin()
+    const userId = await requireAdminUserId()
+    const { data: ord } = await supabaseAdmin.from('orders').select('folio_number').eq('id', orderId).single()
     const { error } = await supabaseAdmin.from('orders').delete().eq('id', orderId)
     if (error) return { error: error.message }
+    logAction({ userId, action: 'delete', tableName: 'orders', recordId: orderId, summary: `eliminó orden #${ord?.folio_number ?? ''}` })
     revalidatePath('/casa/ordenes')
     return {}
   } catch (e) {
@@ -60,7 +62,7 @@ export async function deleteOrder(orderId: string): Promise<{ error?: string }> 
 
 export async function updateOrderDetails(orderId: string, formData: FormData): Promise<{ error?: string }> {
   try {
-    await requireAdmin()
+    const userId = await requireAdminUserId()
     const street  = (formData.get('addr_street')  as string ?? '').trim()
     const colonia = (formData.get('addr_colonia') as string ?? '').trim()
     const zip     = (formData.get('addr_zip')     as string ?? '').trim()
@@ -78,6 +80,7 @@ export async function updateOrderDetails(orderId: string, formData: FormData): P
     }).eq('id', orderId)
 
     if (error) return { error: error.message }
+    logAction({ userId, action: 'update_details', tableName: 'orders', recordId: orderId, summary: 'editó datos del cliente o dirección de envío' })
     revalidatePath(`/casa/ordenes/${orderId}`)
     return {}
   } catch (e) {
@@ -86,12 +89,13 @@ export async function updateOrderDetails(orderId: string, formData: FormData): P
 }
 
 export async function updateTrackingNumber(orderId: string, trackingNumber: string) {
-  await requireAdmin()
-
+  const userId = await requireAdminUserId()
+  const trimmed = trackingNumber.trim()
   await supabaseAdmin
     .from('orders')
-    .update({ tracking_number: trackingNumber.trim() || null, updated_at: new Date().toISOString() })
+    .update({ tracking_number: trimmed || null, updated_at: new Date().toISOString() })
     .eq('id', orderId)
+  logAction({ userId, action: 'update_tracking', tableName: 'orders', recordId: orderId, summary: trimmed ? `actualizó guía: ${trimmed}` : 'eliminó número de guía' })
   revalidatePath(`/casa/ordenes/${orderId}`)
 }
 
@@ -255,7 +259,7 @@ export type ShipmentResult = { data?: ShipmentActionResult; error?: string }
 
 export async function createSkydropxShipment(orderId: string, overrideRateId?: string, overrideQuotationId?: string, protection = false): Promise<ShipmentResult> {
   try {
-    await requireAdmin()
+    const userId = await requireAdminUserId()
     const { order, settings, parcel, addr } = await buildOrderShipmentData(orderId)
 
     if (order.tracking_number) return { error: 'esta orden ya tiene guía de envío' }
@@ -356,6 +360,7 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
       sendShipmentNotification(orderForEmail, result.trackingNumber, result.carrier || null).catch(console.error)
     }
 
+    logAction({ userId, action: 'shipment_created', tableName: 'orders', recordId: orderId, summary: `creó guía Skydropx: ${result.trackingNumber} · ${result.carrier}` })
     revalidatePath(`/casa/ordenes/${orderId}`)
     revalidatePath('/casa/ordenes')
 
@@ -397,7 +402,7 @@ export async function fetchSkydropxShipmentStatus(orderId: string): Promise<Ship
 
 export async function cancelSkydropxShipment(orderId: string, reason: string): Promise<{ error?: string; skydropxError?: string }> {
   try {
-    await requireAdmin()
+    const userId = await requireAdminUserId()
 
     const { data: order } = await supabaseAdmin
       .from('orders').select('skydropx_shipment_id').eq('id', orderId).single()
@@ -434,6 +439,7 @@ export async function cancelSkydropxShipment(orderId: string, reason: string): P
       updated_at: new Date().toISOString(),
     }).eq('id', orderId)
 
+    logAction({ userId, action: 'shipment_cancelled', tableName: 'orders', recordId: orderId, summary: `canceló guía Skydropx${reason ? ` — ${reason}` : ''}` })
     revalidatePath(`/casa/ordenes/${orderId}`)
     revalidatePath('/casa/ordenes')
     return skydropxError ? { skydropxError } : {}
