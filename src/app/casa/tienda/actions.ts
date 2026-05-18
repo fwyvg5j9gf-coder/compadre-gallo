@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
-import { requireAdminOrThrow } from '@/lib/auth.server'
+import { requireAdminOrThrow, requireAdminUserId } from '@/lib/auth.server'
+import { logAction } from '@/lib/audit.server'
 
 export async function getUploadUrl(filename: string, contentType: string) {
   await requireAdmin()
@@ -45,16 +46,16 @@ function extractVariants(formData: FormData, productId: string) {
 }
 
 export async function createProduct(formData: FormData) {
-  await requireAdmin()
+  const userId = await requireAdminUserId()
 
   const category = formData.get('category') as string
   const pricePesos = parseFloat(formData.get('price_mxn') as string)
   const weightRaw = formData.get('weight_grams') as string
-
+  const name = (formData.get('name') as string).trim()
   const packagingId = (formData.get('packaging_type_id') as string) || null
 
   const { data, error } = await supabaseAdmin.from('products').insert({
-    name: (formData.get('name') as string).trim(),
+    name,
     description: (formData.get('description') as string)?.trim() || null,
     price_mxn: Math.round(pricePesos * 100),
     weight_grams: weightRaw ? parseInt(weightRaw, 10) : null,
@@ -70,20 +71,22 @@ export async function createProduct(formData: FormData) {
   const { error: vErr } = await supabaseAdmin.from('product_variants').insert(variants)
   if (vErr) throw new Error(vErr.message)
 
+  logAction({ userId, action: 'create', tableName: 'products', recordId: data.id, summary: `creó producto "${name}"` })
   revalidatePath('/casa/tienda')
 }
 
 export async function updateProduct(id: string, formData: FormData) {
-  await requireAdmin()
+  const userId = await requireAdminUserId()
 
   const category = formData.get('category') as string
   const pricePesos = parseFloat(formData.get('price_mxn') as string)
   const weightRaw = formData.get('weight_grams') as string
+  const name = (formData.get('name') as string).trim()
 
   const packagingId = (formData.get('packaging_type_id') as string) || null
 
   const { error } = await supabaseAdmin.from('products').update({
-    name: (formData.get('name') as string).trim(),
+    name,
     description: (formData.get('description') as string)?.trim() || null,
     price_mxn: Math.round(pricePesos * 100),
     weight_grams: weightRaw ? parseInt(weightRaw, 10) : null,
@@ -117,22 +120,42 @@ export async function updateProduct(id: string, formData: FormData) {
       .in('size', toDelete)
   }
 
+  logAction({ userId, action: 'update', tableName: 'products', recordId: id, summary: `actualizó producto "${name}"` })
   revalidatePath('/casa/tienda')
 }
 
 export async function togglePublished(id: string, current: boolean) {
-  await requireAdmin()
+  const userId = await requireAdminUserId()
   const { error } = await supabaseAdmin.from('products')
     .update({ is_published: !current, updated_at: new Date().toISOString() })
     .eq('id', id)
   if (error) throw new Error(error.message)
+  logAction({ userId, action: current ? 'unpublish' : 'publish', tableName: 'products', recordId: id, summary: `${current ? 'quitó publicación' : 'publicó'} producto` })
   revalidatePath('/casa/tienda')
 }
 
 export async function deleteProduct(id: string) {
-  await requireAdmin()
-  // Las variantes se borran en cascada por el FK
+  const userId = await requireAdminUserId()
   const { error } = await supabaseAdmin.from('products').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  logAction({ userId, action: 'delete', tableName: 'products', recordId: id, summary: `eliminó producto` })
+  revalidatePath('/casa/tienda')
+}
+
+export async function bulkPublish(ids: string[], publish: boolean) {
+  const userId = await requireAdminUserId()
+  const { error } = await supabaseAdmin.from('products')
+    .update({ is_published: publish, updated_at: new Date().toISOString() })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  logAction({ userId, action: publish ? 'bulk_publish' : 'bulk_unpublish', tableName: 'products', summary: `${publish ? 'publicó' : 'despublicó'} ${ids.length} productos en masa` })
+  revalidatePath('/casa/tienda')
+}
+
+export async function bulkDelete(ids: string[]) {
+  const userId = await requireAdminUserId()
+  const { error } = await supabaseAdmin.from('products').delete().in('id', ids)
+  if (error) throw new Error(error.message)
+  logAction({ userId, action: 'bulk_delete', tableName: 'products', summary: `eliminó ${ids.length} productos en masa` })
   revalidatePath('/casa/tienda')
 }

@@ -6,312 +6,301 @@ import { UserButton } from '@clerk/nextjs'
 import AdminShell from './AdminShell'
 
 const CARDS = [
-  { title: 'tienda',         desc: 'productos, stock, precios e imágenes',  href: '/casa/tienda',                accent: '#ff0100' },
-  { title: 'órdenes',        desc: 'compras, envíos y estados',             href: '/casa/ordenes',               accent: '#003a87' },
-  { title: 'clientes',       desc: 'actividad de fans — pedidos y boletos', href: '/casa/clientes',              accent: '#1a6b35' },
-  { title: 'usuarios',       desc: 'roles y permisos del equipo',           href: '/casa/usuarios',              accent: '#9b59b6' },
-  { title: 'artistas',       desc: 'catálogo, bios y shows',                href: '/casa/artistas',              accent: '#00c4df' },
-  { title: 'correos',        desc: 'historial, pruebas y envíos masivos',   href: '/casa/correos',               accent: '#ffd49a' },
-  { title: 'configuración',  desc: 'stripe, skydropx, embalajes y tarifas', href: '/casa/tienda/configuracion',  accent: '#6b6a64' },
-  { title: 'editor',         desc: 'contenido y apariencia del sitio',      href: '/casa/editor',                accent: '#ffe200' },
-  { title: 'media',          desc: 'imágenes, videos y audio del proyecto', href: '/casa/media',                 accent: '#ffd49a' },
+  { title: 'tienda',        desc: 'productos, stock y precios',            href: '/casa/tienda',                accent: '#ff0100' },
+  { title: 'órdenes',       desc: 'compras, envíos y estados',             href: '/casa/ordenes',               accent: '#003a87' },
+  { title: 'descuentos',    desc: 'códigos de descuento y promociones',    href: '/casa/descuentos',            accent: '#1a6b35' },
+  { title: 'clientes',      desc: 'fans — pedidos y boletos',              href: '/casa/clientes',              accent: '#00c4df' },
+  { title: 'artistas',      desc: 'catálogo, bios y shows',                href: '/casa/artistas',              accent: '#ffd49a' },
+  { title: 'correos',       desc: 'historial y envíos masivos',            href: '/casa/correos',               accent: '#ffd49a' },
+  { title: 'configuración', desc: 'stripe, skydropx y tarifas',            href: '/casa/tienda/configuracion',  accent: '#6b6a64' },
+  { title: 'editor',        desc: 'contenido y apariencia del sitio',      href: '/casa/editor',                accent: '#ffe200' },
+  { title: 'media',         desc: 'imágenes y archivos',                   href: '/casa/media',                 accent: '#9a9994' },
+  { title: 'bitácora',     desc: 'historial de acciones admin',            href: '/casa/bitacora',              accent: '#6b6a64' },
 ]
 
-// ── Datos de desarrollo ────────────────────────────────────────────────────────
+const fmt = (cents: number) =>
+  (cents / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })
 
-const OBJETIVOS = [
-  { label: 'tienda conectada a Supabase',          done: true  },
-  { label: 'variantes + control de stock',         done: true  },
-  { label: 'carrito drawer + localStorage',        done: true  },
-  { label: 'checkout + cotización SkyDropX',       done: true  },
-  { label: 'checkout Stripe Elements',             done: true  },
-  { label: 'órdenes admin (detalle, estado, guía)',done: true  },
-  { label: '/cuenta cliente + historial',          done: true  },
-  { label: 'auth cliente (Clerk)',                 done: true  },
-  { label: 'correos transaccionales (Resend)',     done: true  },
-  { label: 'deployment en Vercel',                 done: true  },
-  { label: 'keys reales de Stripe activas',        done: false },
-  { label: 'dominio compadregallo.com apuntado',   done: false },
-  { label: 'módulo de boletos (DB + dashboard)',    done: true  },
-  { label: 'suscripciones a artistas',             done: true  },
-  { label: 'admin de clientes (/casa/clientes)',   done: true  },
-  { label: 'gestión de roles (/casa/usuarios)',    done: true  },
-  { label: 'editor de contenido',                  done: false },
-]
+const STATUS_META: Record<string, { label: string; bg: string; text: string }> = {
+  pending:   { label: 'pendiente', bg: '#f0efe9',              text: '#6b6a64' },
+  paid:      { label: 'pagado',    bg: 'rgba(0,58,135,0.08)',  text: '#003a87' },
+  shipped:   { label: 'enviado',   bg: 'rgba(0,196,223,0.1)',  text: '#007a8c' },
+  delivered: { label: 'entregado', bg: 'rgba(26,107,53,0.08)', text: '#1a6b35' },
+  refunded:  { label: 'reembolso', bg: 'rgba(255,1,0,0.06)',   text: '#cc0000' },
+  failed:    { label: 'fallido',   bg: 'rgba(255,1,0,0.06)',   text: '#cc0000' },
+}
 
-const TAREAS: { titulo: string; pasos: string[] }[] = [
-  {
-    titulo: 'activar stripe',
-    pasos: [
-      'Crear cuenta en stripe.com',
-      'Dashboard → Developers → API keys → copiar sk_test_... y pk_test_...',
-      'En Vercel → proyecto → Settings → Environment Variables → reemplazar STRIPE_SECRET_KEY y NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
-      'Stripe → Developers → Webhooks → Add endpoint → URL: compadregallo.vercel.app/api/stripe/webhook → evento: payment_intent.succeeded',
-      'Copiar el Signing secret (whsec_...) en Vercel como STRIPE_WEBHOOK_SECRET',
-      'Redeploy en Vercel para que tome las nuevas keys',
-    ],
-  },
-  {
-    titulo: 'activar correos (resend)',
-    pasos: [
-      'Crear cuenta en resend.com',
-      'Domains → Add Domain → compadregallo.com → agregar los registros DNS que te dará',
-      'API Keys → Create API Key → copiar en Vercel como RESEND_API_KEY',
-      'Opcional mientras verificas el dominio: usar onboarding@resend.dev como RESEND_FROM_EMAIL en Vercel',
-    ],
-  },
-  {
-    titulo: 'clerk — dominios de producción',
-    pasos: [
-      'Clerk Dashboard → Configure → Domains',
-      'Agregar compadregallo.vercel.app',
-      'Agregar compadregallo.com cuando el DNS esté apuntando a Vercel',
-    ],
-  },
-  {
-    titulo: 'conectar github ↔ vercel (auto-deploy)',
-    pasos: [
-      'GitHub → Settings → Applications → Vercel → Repository access → agregar repo compadregallo',
-      'Vercel → proyecto compadregallo → Settings → Git → Connect Git Repository → seleccionar naitsabxs/compadregallo',
-      'Desde ese momento cada git push a main despliega automáticamente',
-    ],
-  },
-  {
-    titulo: 'apuntar dominio compadregallo.com',
-    pasos: [
-      'Vercel → proyecto → Settings → Domains → Add → compadregallo.com',
-      'En tu registrador de dominio: agregar registro A → 76.76.21.21',
-      'O registro CNAME www → cname.vercel-dns.com',
-      'SSL se genera automático. Tarda ~5 min en propagar.',
-    ],
-  },
-]
+const B = '#e8e7e1', M = '#6b6a64', S = '#9a9994'
 
-const B = '#e8e7e1'
-const M = '#6b6a64'
-const S = '#9a9994'
+// ── Types ──────────────────────────────────────────────────────────────────────
+type ArtistSnap = {
+  id: string; name: string; city: string | null; image_url: string | null
+  bg_color: string; stripe_color: string; is_published: boolean
+  shows_count: number; tasks_pending: number
+}
+type PendingOrder = {
+  id: string; folio_number: number; customer_name: string | null
+  customer_email: string; total_mxn: number; created_at: string
+}
+type RecentOrder = {
+  id: string; folio_number: number; customer_name: string | null
+  customer_email: string; total_mxn: number; status: string
+  created_at: string; is_test: boolean
+}
+type LowStockProduct = { id: string; name: string; total_stock: number }
 
-// ── Componente de tarea expandible ────────────────────────────────────────────
-function TareaItem({ tarea }: { tarea: typeof TAREAS[0] }) {
-  const [open, setOpen] = useState(false)
+// ── KPI Card ───────────────────────────────────────────────────────────────────
+function KpiCard({ label, value, sub, href, accent, warn }: {
+  label: string; value: string | number; sub?: string
+  href: string; accent: string; warn?: boolean
+}) {
   return (
-    <div style={{ border: `1px solid ${B}`, borderRadius: 6, overflow: 'hidden' }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '11px 16px', background: '#fff', border: 'none', cursor: 'pointer',
-          textAlign: 'left', gap: 8,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ffe200', flexShrink: 0 }} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#0a0a0a', letterSpacing: '-0.01em' }}>
-            {tarea.titulo}
-          </span>
+    <Link href={href} style={{
+      display: 'block', background: '#fff', border: `1px solid ${warn ? 'rgba(204,119,0,0.25)' : B}`,
+      borderRadius: 8, padding: '20px 22px', textDecoration: 'none',
+      transition: 'box-shadow 140ms, border-color 140ms',
+    }}
+    onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 2px 14px -4px rgba(10,10,10,0.1)'; e.currentTarget.style.borderColor = '#0a0a0a' }}
+    onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = warn ? 'rgba(204,119,0,0.25)' : B }}
+    >
+      <div style={{ width: 28, height: 3, background: accent, borderRadius: 2, marginBottom: 14 }} />
+      <div style={{ fontSize: 28, fontWeight: 900, fontFamily: 'var(--font-display)', color: '#0a0a0a', letterSpacing: '-0.03em', lineHeight: 1 }}>
+        {value}
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: M, marginTop: 6, letterSpacing: '0.02em' }}>
+        {label}
+      </div>
+      {sub && <div style={{ fontSize: 11, color: S, marginTop: 3 }}>{sub}</div>}
+    </Link>
+  )
+}
+
+// ── Alert bar ─────────────────────────────────────────────────────────────────
+function AlertBar({ staleOrders, outOfStockCount, lowStockCount }: {
+  staleOrders: PendingOrder[]
+  outOfStockCount: number
+  lowStockCount: number
+}) {
+  const alerts: { text: string; href: string }[] = []
+  if (staleOrders.length > 0)
+    alerts.push({ text: `${staleOrders.length} orden${staleOrders.length > 1 ? 'es' : ''} pagada${staleOrders.length > 1 ? 's' : ''} sin enviar +48h`, href: '/casa/ordenes' })
+  if (outOfStockCount > 0)
+    alerts.push({ text: `${outOfStockCount} producto${outOfStockCount > 1 ? 's' : ''} publicado${outOfStockCount > 1 ? 's' : ''} agotado${outOfStockCount > 1 ? 's' : ''}`, href: '/casa/tienda' })
+  if (lowStockCount > 0)
+    alerts.push({ text: `${lowStockCount} producto${lowStockCount > 1 ? 's' : ''} con stock ≤ 5`, href: '/casa/tienda' })
+
+  if (alerts.length === 0) return null
+
+  return (
+    <div style={{
+      background: 'rgba(255,100,0,0.06)', border: '1px solid rgba(255,100,0,0.2)',
+      borderRadius: 8, padding: '12px 18px', marginBottom: 24,
+      display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+    }}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cc5500" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <span style={{ fontSize: 12, fontWeight: 700, color: '#cc5500' }}>atención:</span>
+      {alerts.map((a, i) => (
+        <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Link href={a.href} style={{ fontSize: 12, color: '#993300', fontWeight: 600, textDecoration: 'underline', textDecorationStyle: 'dotted' }}>
+            {a.text}
+          </Link>
+          {i < alerts.length - 1 && <span style={{ color: '#cc5500', fontSize: 12 }}>·</span>}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// ── Activity feed ─────────────────────────────────────────────────────────────
+function ActivityFeed({ orders }: { orders: RecentOrder[] }) {
+  const [showAll, setShowAll] = useState(false)
+  const visible = showAll ? orders : orders.slice(0, 6)
+
+  return (
+    <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ padding: '16px 20px', borderBottom: `1px solid ${B}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          actividad reciente
+        </span>
+        <Link href="/casa/ordenes" style={{ fontSize: 12, color: M, textDecoration: 'none' }}>ver todas →</Link>
+      </div>
+
+      {orders.length === 0 ? (
+        <div style={{ padding: '32px 20px', textAlign: 'center', color: M, fontSize: 13, fontStyle: 'italic' }}>
+          sin órdenes todavía.
         </div>
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke={S} strokeWidth="1.5"
-          style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 150ms', flexShrink: 0 }}>
-          <polyline points="3 5 7 9 11 5"/>
-        </svg>
-      </button>
-      {open && (
-        <div style={{ padding: '4px 16px 16px 34px', background: '#fafaf8', borderTop: `1px solid ${B}` }}>
-          <ol style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {tarea.pasos.map((p, i) => (
-              <li key={i} style={{ fontSize: 13, color: M, lineHeight: 1.55 }}>
-                {p}
-              </li>
-            ))}
-          </ol>
-        </div>
+      ) : (
+        <>
+          {visible.map(o => {
+            const meta = STATUS_META[o.status] ?? STATUS_META.pending
+            const date = new Date(o.created_at)
+            const dateStr = date.toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })
+            const timeStr = date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+            return (
+              <Link key={o.id} href={`/casa/ordenes/${o.id}`} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '11px 20px', borderBottom: `1px solid ${B}`,
+                textDecoration: 'none', transition: 'background 100ms',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#fafaf8' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0a0a0a', fontFamily: 'var(--font-mono)' }}>
+                      #{o.folio_number}
+                    </span>
+                    {o.is_test && (
+                      <span style={{ fontSize: 9, fontWeight: 800, color: '#6b6a64', background: '#f0efe9', padding: '1px 6px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        prueba
+                      </span>
+                    )}
+                    <span style={{ fontSize: 12, color: M, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {o.customer_name ?? o.customer_email}
+                    </span>
+                  </div>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: meta.bg, color: meta.text, textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>
+                  {meta.label}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0a0a0a', flexShrink: 0 }}>
+                  {fmt(o.total_mxn)}
+                </span>
+                <span style={{ fontSize: 11, color: S, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                  {dateStr} {timeStr}
+                </span>
+              </Link>
+            )
+          })}
+          {orders.length > 6 && (
+            <button onClick={() => setShowAll(s => !s)} style={{
+              width: '100%', padding: '10px', background: 'none', border: 'none',
+              cursor: 'pointer', fontSize: 12, color: M, transition: 'background 100ms',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#fafaf8' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
+            >
+              {showAll ? 'ver menos ↑' : `ver ${orders.length - 6} más ↓`}
+            </button>
+          )}
+        </>
       )}
     </div>
   )
 }
 
-// ── Bloque desarrollo ──────────────────────────────────────────────────────────
-function DesarrolloBlock() {
-  const done  = OBJETIVOS.filter(o => o.done).length
-  const total = OBJETIVOS.length
-  const pct   = Math.round((done / total) * 100)
-
+// ── Pending to ship ────────────────────────────────────────────────────────────
+function PendingShipPanel({ orders }: { orders: PendingOrder[] }) {
+  if (orders.length === 0) return null
+  const now = Date.now()
   return (
-    <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, overflow: 'hidden', marginTop: 32 }}>
-
-      {/* Header */}
-      <div style={{ padding: '16px 24px', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 32, height: 3, background: '#ffe200', borderRadius: 2 }} />
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>
-            desarrollo
-          </span>
-        </div>
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#ffe200', fontFamily: 'monospace' }}>
-          {pct}% completado
+    <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ padding: '16px 20px', borderBottom: `1px solid ${B}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          por enviar · {orders.length}
         </span>
+        <Link href="/casa/ordenes" style={{ fontSize: 12, color: M, textDecoration: 'none' }}>gestionar →</Link>
       </div>
-
-      <div style={{ padding: '24px' }}>
-
-        {/* Barra de progreso */}
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: S, marginBottom: 8, fontWeight: 600 }}>
-            <span>{done} de {total} objetivos</span>
-            <span>{total - done} pendientes</span>
-          </div>
-          <div style={{ height: 6, background: '#f0efe9', borderRadius: 999, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', borderRadius: 999,
-              width: `${pct}%`,
-              background: 'linear-gradient(90deg, #003a87 0%, #00c4df 100%)',
-              transition: 'width 600ms ease',
-            }} />
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
-
-          {/* Objetivos */}
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 14 }}>
-              estado del proyecto
+      {orders.map(o => {
+        const hoursAgo = Math.floor((now - new Date(o.created_at).getTime()) / 3600000)
+        const isStale  = hoursAgo >= 48
+        return (
+          <Link key={o.id} href={`/casa/ordenes/${o.id}`} style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '11px 20px', borderBottom: `1px solid ${B}`,
+            textDecoration: 'none', transition: 'background 100ms',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = '#fafaf8' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#0a0a0a', fontFamily: 'var(--font-mono)' }}>
+                #{o.folio_number}
+              </div>
+              <div style={{ fontSize: 11, color: M, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {o.customer_name ?? o.customer_email}
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-              {OBJETIVOS.map((o, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {o.done ? (
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
-                      <circle cx="7" cy="7" r="7" fill="rgba(26,107,53,0.12)"/>
-                      <polyline points="4 7 6.2 9.2 10 5" stroke="#1a6b35" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
-                      <circle cx="7" cy="7" r="6" stroke="#e8e7e1" strokeWidth="1.5"/>
-                    </svg>
-                  )}
-                  <span style={{ fontSize: 13, color: o.done ? '#0a0a0a' : M, lineHeight: 1.4 }}>
-                    {o.label}
-                  </span>
-                </div>
-              ))}
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0a0a0a' }}>
+                {fmt(o.total_mxn)}
+              </div>
+              <div style={{ fontSize: 11, color: isStale ? '#cc5500' : M, fontWeight: isStale ? 700 : 400, marginTop: 2 }}>
+                {hoursAgo < 1 ? 'hace menos de 1h' : `hace ${hoursAgo}h`}
+                {isStale && ' ⚠'}
+              </div>
             </div>
-          </div>
-
-          {/* Tareas pendientes */}
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 14 }}>
-              tareas pendientes
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {TAREAS.map((t, i) => (
-                <TareaItem key={i} tarea={t} />
-              ))}
-            </div>
-          </div>
-
-        </div>
-
-        {/* Stack */}
-        <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${B}`, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {[
-            'Next.js 16', 'React 19', 'TypeScript', 'Supabase (PostgreSQL)',
-            'Clerk (auth)', 'Stripe (pagos)', 'Resend (correos)', 'SkyDropX (envíos)',
-            'Vercel (deploy)',
-          ].map(tag => (
-            <span key={tag} style={{
-              fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 999,
-              background: '#f0efe9', color: M, letterSpacing: '0.02em',
-            }}>
-              {tag}
-            </span>
-          ))}
-        </div>
-
-      </div>
+          </Link>
+        )
+      })}
     </div>
   )
 }
 
-// ── Tipos ──────────────────────────────────────────────────────────────────────
-type ArtistSnap = {
-  id: string; name: string; city: string | null; genre: string | null
-  image_url: string | null; bg_color: string; stripe_color: string
-  is_published: boolean; shows_count: number; tasks_pending: number
-}
-
-// ── Sección de artistas ────────────────────────────────────────────────────────
+// ── Artistas section ───────────────────────────────────────────────────────────
 function ArtistasSection({ artists }: { artists: ArtistSnap[] }) {
   if (artists.length === 0) return null
   return (
-    <div style={{ marginBottom: 40 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-          artistas · acceso rápido
-        </div>
-        <Link href="/casa/artistas" style={{ fontSize: 12, color: M, textDecoration: 'none' }}>
-          ver todos →
+    <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ padding: '16px 20px', borderBottom: `1px solid ${B}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          artistas
+        </span>
+        <Link href="/casa/artistas" style={{ fontSize: 12, color: M, textDecoration: 'none' }}>ver todos →</Link>
+      </div>
+      {artists.map(a => (
+        <Link key={a.id} href={`/casa/artistas/${a.id}`} style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '11px 20px', borderBottom: `1px solid ${B}`,
+          textDecoration: 'none', transition: 'background 100ms',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = '#fafaf8' }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+        >
+          <div style={{ width: 36, height: 36, borderRadius: 6, flexShrink: 0, background: a.bg_color, overflow: 'hidden', position: 'relative' }}>
+            {a.image_url
+              ? <img src={a.image_url} alt={a.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <div style={{ position: 'absolute', bottom: 5, left: 5, width: 12, height: 2.5, background: a.stripe_color, borderRadius: 2 }} />
+            }
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#0a0a0a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {a.name}
+            </div>
+            <div style={{ fontSize: 11, color: M, marginTop: 2, display: 'flex', gap: 8 }}>
+              {!a.is_published && <span style={{ color: S, fontStyle: 'italic' }}>borrador</span>}
+              {a.shows_count > 0 && <span>{a.shows_count} show{a.shows_count !== 1 ? 's' : ''}</span>}
+              {a.tasks_pending > 0 && <span style={{ color: '#cc0000', fontWeight: 600 }}>{a.tasks_pending} tarea{a.tasks_pending !== 1 ? 's' : ''}</span>}
+              {a.tasks_pending === 0 && a.shows_count === 0 && <span style={{ fontStyle: 'italic' }}>sin actividad</span>}
+            </div>
+          </div>
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke={S} strokeWidth="1.5" style={{ flexShrink: 0 }}><path d="M3 7h8M7 3l4 4-4 4"/></svg>
         </Link>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
-        {artists.map(a => (
-          <Link
-            key={a.id}
-            href={`/casa/artistas/${a.id}`}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              background: '#fff', border: `1px solid ${B}`, borderRadius: 8,
-              padding: '14px 16px', textDecoration: 'none',
-              transition: 'border-color 140ms, box-shadow 140ms',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.borderColor = '#0a0a0a'
-              e.currentTarget.style.boxShadow = '0 2px 12px -4px rgba(10,10,10,0.1)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.borderColor = B
-              e.currentTarget.style.boxShadow = 'none'
-            }}
-          >
-            {/* Avatar */}
-            <div style={{
-              width: 40, height: 40, borderRadius: 6, flexShrink: 0,
-              background: a.bg_color, overflow: 'hidden', position: 'relative',
-            }}>
-              {a.image_url ? (
-                <img src={a.image_url} alt={a.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <div style={{ position: 'absolute', bottom: 6, left: 6, width: 14, height: 2.5, background: a.stripe_color, borderRadius: 2 }} />
-              )}
-            </div>
-
-            {/* Info */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#0a0a0a', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {a.name}
-              </div>
-              <div style={{ fontSize: 11, color: M, marginTop: 2, display: 'flex', gap: 8 }}>
-                {a.shows_count > 0 && <span>{a.shows_count} show{a.shows_count !== 1 ? 's' : ''}</span>}
-                {a.tasks_pending > 0 && (
-                  <span style={{ color: '#cc0000', fontWeight: 600 }}>{a.tasks_pending} tarea{a.tasks_pending !== 1 ? 's' : ''}</span>
-                )}
-                {a.tasks_pending === 0 && a.shows_count === 0 && <span style={{ fontStyle: 'italic' }}>sin actividad</span>}
-              </div>
-            </div>
-
-            {/* Flecha */}
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke={S} strokeWidth="1.5" style={{ flexShrink: 0 }}>
-              <path d="M3 7h8M7 3l4 4-4 4"/>
-            </svg>
-          </Link>
-        ))}
-      </div>
+      ))}
     </div>
   )
 }
 
-// ── Dashboard principal ────────────────────────────────────────────────────────
-export default function CasaDashboard({ email, firstName, artists = [] }: { email: string; firstName: string; artists?: ArtistSnap[] }) {
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+export default function CasaDashboard({
+  email, firstName, artists = [],
+  revenue30d, pendingOrders, staleOrders,
+  recentOrders, lowStockProducts, outOfStockCount, activeArtists,
+}: {
+  email: string
+  firstName: string
+  artists: ArtistSnap[]
+  revenue30d: number
+  pendingOrders: PendingOrder[]
+  staleOrders: PendingOrder[]
+  recentOrders: RecentOrder[]
+  lowStockProducts: LowStockProduct[]
+  outOfStockCount: number
+  activeArtists: number
+}) {
   return (
     <AdminShell
       crumb="casa"
@@ -322,51 +311,94 @@ export default function CasaDashboard({ email, firstName, artists = [] }: { emai
         </div>
       }
     >
-      <main style={{ maxWidth: 960, margin: '0 auto', padding: '52px 32px 72px' }}>
-        <div style={{ marginBottom: 48 }}>
+      <main style={{ maxWidth: 1080, margin: '0 auto', padding: '40px 28px 72px' }}>
+
+        {/* Greeting */}
+        <div style={{ marginBottom: 28 }}>
           <h1 style={{
-            fontFamily: 'var(--font-display)', fontSize: 38, fontWeight: 900,
-            letterSpacing: '-0.03em', color: '#0a0a0a', marginBottom: 6, textTransform: 'lowercase',
+            fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 900,
+            letterSpacing: '-0.03em', color: '#0a0a0a', marginBottom: 4, textTransform: 'lowercase',
           }}>
             hola, {firstName}.
           </h1>
-          <p style={{ color: '#6b6a64', fontSize: 14, margin: 0 }}>
-            desde aquí controlas todo lo que aparece en compadregallo.com
+          <p style={{ color: M, fontSize: 13, margin: 0 }}>
+            {new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
 
-        <ArtistasSection artists={artists} />
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-          {CARDS.map(card => (
-            <a
-              key={card.title}
-              href={card.href}
-              style={{
-                display: 'block', background: '#fff',
-                border: '1px solid #e8e7e1', borderRadius: 8,
-                padding: '22px 24px', textDecoration: 'none',
-                cursor: 'pointer', transition: 'box-shadow 150ms, border-color 150ms',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.boxShadow = '0 4px 20px -8px rgba(10,10,10,0.12)'
-                e.currentTarget.style.borderColor = '#d4d3cd'
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.boxShadow = 'none'
-                e.currentTarget.style.borderColor = '#e8e7e1'
-              }}
-            >
-              <div style={{ width: 32, height: 3, background: card.accent, borderRadius: 2, marginBottom: 18 }} />
-              <div style={{ fontWeight: 700, fontSize: 17, color: '#0a0a0a', marginBottom: 5, letterSpacing: '-0.01em' }}>
-                {card.title}
-              </div>
-              <div style={{ fontSize: 13, color: '#6b6a64', lineHeight: 1.5 }}>{card.desc}</div>
-            </a>
-          ))}
+        {/* KPI row */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+          <KpiCard
+            label="ingresos 30d"
+            value={fmt(revenue30d)}
+            sub="pagados + enviados"
+            href="/casa/ordenes"
+            accent="#1a6b35"
+          />
+          <KpiCard
+            label="por enviar"
+            value={pendingOrders.length}
+            sub={pendingOrders.length === 1 ? '1 orden pagada' : `${pendingOrders.length} órdenes pagadas`}
+            href="/casa/ordenes"
+            accent={pendingOrders.length > 0 ? '#003a87' : '#0a0a0a'}
+            warn={staleOrders.length > 0}
+          />
+          <KpiCard
+            label="stock bajo"
+            value={lowStockProducts.length + outOfStockCount}
+            sub={outOfStockCount > 0 ? `${outOfStockCount} agotado${outOfStockCount > 1 ? 's' : ''}` : 'todos disponibles'}
+            href="/casa/tienda"
+            accent={lowStockProducts.length + outOfStockCount > 0 ? '#cc7700' : '#0a0a0a'}
+            warn={outOfStockCount > 0}
+          />
+          <KpiCard
+            label="artistas activos"
+            value={activeArtists}
+            sub={`de ${artists.length} en total`}
+            href="/casa/artistas"
+            accent="#00c4df"
+          />
         </div>
 
-        <DesarrolloBlock />
+        {/* Alert bar */}
+        <AlertBar staleOrders={staleOrders} outOfStockCount={outOfStockCount} lowStockCount={lowStockProducts.length} />
+
+        {/* Main grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16, marginBottom: 40 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <ActivityFeed orders={recentOrders} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <PendingShipPanel orders={pendingOrders} />
+            <ArtistasSection artists={artists} />
+          </div>
+        </div>
+
+        {/* Nav cards */}
+        <div style={{ borderTop: `1px solid ${B}`, paddingTop: 32, marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 16 }}>
+            secciones
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 10 }}>
+            {CARDS.map(card => (
+              <Link key={card.title} href={card.href} style={{
+                display: 'block', background: '#fff', border: `1px solid ${B}`,
+                borderRadius: 6, padding: '18px 20px', textDecoration: 'none',
+                transition: 'box-shadow 140ms, border-color 140ms',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 3px 14px -6px rgba(10,10,10,0.1)'; e.currentTarget.style.borderColor = '#d4d3cd' }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = B }}
+              >
+                <div style={{ width: 28, height: 3, background: card.accent, borderRadius: 2, marginBottom: 14 }} />
+                <div style={{ fontWeight: 700, fontSize: 15, color: '#0a0a0a', marginBottom: 4, letterSpacing: '-0.01em' }}>
+                  {card.title}
+                </div>
+                <div style={{ fontSize: 12, color: M, lineHeight: 1.5 }}>{card.desc}</div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
       </main>
     </AdminShell>
   )

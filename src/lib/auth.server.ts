@@ -42,6 +42,13 @@ export async function requireAdminOrThrow() {
   if (!(await isAdmin(userId))) throw new Error('no autorizado')
 }
 
+export async function requireAdminUserId(): Promise<string> {
+  const { userId } = await auth()
+  if (!userId) throw new Error('no autorizado')
+  if (!(await isAdmin(userId))) throw new Error('no autorizado')
+  return userId
+}
+
 // Allows admins OR the artista linked to artistId.
 // Returns 'admin' | 'artista' so the page can adapt the UI.
 export async function requireAdminOrArtista(artistId: string): Promise<'admin' | 'artista'> {

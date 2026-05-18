@@ -9,6 +9,7 @@ import ZipSelector, { type ZipInfo } from '@/components/ZipSelector'
 import type { PackagingType } from '@/lib/supabase'
 import type { ShippingRate } from '@/lib/skydropx'
 import { getRatesForCheckout, createOrder } from './actions'
+import { validateDiscountCode } from '@/app/casa/descuentos/actions'
 
 // stripePromise se inicializa por instancia según el key pasado desde el servidor
 let _stripePromise: ReturnType<typeof loadStripe> | null = null
@@ -27,6 +28,13 @@ function folio(n: number) {
 
 type Step = 'shipping' | 'payment' | 'done'
 
+type AppliedDiscount = {
+  code: string
+  discountMxn: number
+  codeId: string
+  label: string
+}
+
 type SavedData = {
   name: string; email: string; phone: string
   street: string; notes: string
@@ -35,6 +43,7 @@ type SavedData = {
   shippingCarrier: string | null
   shippingMxn: number
   saveAddress: boolean
+  discount: AppliedDiscount | null
 }
 
 // ── Sección del formulario ─────────────────────────────────────────────────────
@@ -200,6 +209,11 @@ export default function CheckoutMerch({
   const [orderResult, setOrderResult] = useState<{ orderId: string; folioNumber: number } | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
+  const [discountInput, setDiscountInput] = useState('')
+  const [discountApplied, setDiscountApplied] = useState<AppliedDiscount | null>(null)
+  const [discountError, setDiscountError] = useState<string | null>(null)
+  const [isApplyingDiscount, startApplyDiscount] = useTransition()
+
   const packagingTypeId = useMemo(() => {
     const fromCart = items.find(i => i.packagingTypeId)?.packagingTypeId
     return fromCart ?? packaging[0]?.id ?? null
@@ -226,7 +240,28 @@ export default function CheckoutMerch({
     return shippingNationalMxn
   }, [selectedRate, zipInfo, totalMxn, freeThresholdMxn, shippingNationalMxn])
 
-  const orderTotal = totalMxn + shippingMxn
+  const orderTotal = Math.max(0, totalMxn + shippingMxn - (discountApplied?.discountMxn ?? 0))
+
+  function handleApplyDiscount() {
+    const code = discountInput.trim().toUpperCase()
+    if (!code) return
+    setDiscountError(null)
+    startApplyDiscount(async () => {
+      const result = await validateDiscountCode(code, totalMxn + shippingMxn)
+      if (!result.ok) {
+        setDiscountError(result.error)
+        return
+      }
+      setDiscountApplied({ code, discountMxn: result.discountMxn, codeId: result.codeId, label: result.label })
+      setDiscountInput('')
+    })
+  }
+
+  function handleRemoveDiscount() {
+    setDiscountApplied(null)
+    setDiscountError(null)
+    setDiscountInput('')
+  }
 
   function applyAddress() {
     if (!savedAddress) return
@@ -268,6 +303,7 @@ export default function CheckoutMerch({
       shippingCarrier: selectedRate?.carrier ?? null,
       shippingMxn,
       saveAddress: saveAddr,
+      discount: discountApplied,
     }
     setSavedData(data)
     setSubmitError(null)
@@ -281,6 +317,7 @@ export default function CheckoutMerch({
           body: JSON.stringify({
             items: items.map(i => ({ productId: i.productId, qty: i.qty })),
             shippingMxn: data.shippingMxn,
+            discountMxn: data.discount?.discountMxn ?? 0,
           }),
         })
         if (!res.ok) {
@@ -318,6 +355,9 @@ export default function CheckoutMerch({
         stripePaymentId: piId,
         items,
         saveAddressForUser: savedData.saveAddress,
+        discountCode: savedData.discount?.code,
+        discountMxn: savedData.discount?.discountMxn,
+        discountCodeId: savedData.discount?.codeId,
       })
       if (orderErr || !orderId || !folioNumber) {
         setSubmitError(orderErr ?? 'error al registrar el pedido')
@@ -389,6 +429,12 @@ export default function CheckoutMerch({
                 {!zipInfo ? '—' : shippingMxn === 0 ? 'gratis' : fmt(shippingMxn)}
               </span>
             </div>
+            {discountApplied && (
+              <div className="order-row" style={{ color: '#1a6b35' }}>
+                <span>descuento ({discountApplied.code})</span>
+                <span>−{fmt(discountApplied.discountMxn)}</span>
+              </div>
+            )}
             <div className="order-row order-total">
               <span>total</span>
               <span>{fmt(orderTotal)}</span>
@@ -534,6 +580,47 @@ export default function CheckoutMerch({
                 <textarea name="notes" rows={3} placeholder="indicaciones de entrega, referencias, etc."
                   style={{ resize: 'vertical' }} value={formNotes} onChange={e => setFormNotes(e.target.value)} />
               </div>
+            </Section>
+
+            <Section title="código de descuento">
+              {discountApplied ? (
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 16px', borderRadius: 4,
+                  background: 'rgba(26,107,53,0.06)', border: '1px solid rgba(26,107,53,0.2)',
+                }}>
+                  <div>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 14 }}>{discountApplied.code}</span>
+                    <span style={{ fontSize: 13, color: '#1a6b35', marginLeft: 10 }}>−{fmt(discountApplied.discountMxn)} ({discountApplied.label})</span>
+                  </div>
+                  <button type="button" onClick={handleRemoveDiscount} style={{
+                    fontSize: 12, color: 'var(--fg-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  }}>quitar</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="text"
+                    placeholder="GALLO20"
+                    value={discountInput}
+                    onChange={e => { setDiscountInput(e.target.value.toUpperCase()); setDiscountError(null) }}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleApplyDiscount() } }}
+                    style={{ flex: 1, height: 40, padding: '0 12px', border: '1px solid var(--border)', borderRadius: 4, fontSize: 14, fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyDiscount}
+                    disabled={!discountInput.trim() || isApplyingDiscount}
+                    className="btn"
+                    style={{ height: 40, padding: '0 16px', flexShrink: 0 }}
+                  >
+                    {isApplyingDiscount ? '…' : 'aplicar'}
+                  </button>
+                </div>
+              )}
+              {discountError && (
+                <p style={{ fontSize: 13, color: 'var(--gallo-red)', margin: 0 }}>{discountError}</p>
+              )}
             </Section>
 
             {userEmail && (

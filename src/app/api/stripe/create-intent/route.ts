@@ -22,9 +22,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json() as {
       items?: { productId: string; qty: number }[]
       shippingMxn?: number
+      discountMxn?: number
     }
 
-    const { items, shippingMxn = 0 } = body
+    const { items, shippingMxn = 0, discountMxn = 0 } = body
 
     if (!items || items.length === 0) {
       return NextResponse.json({ error: 'carrito vacío' }, { status: 400 })
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
       return s + price * Math.max(1, Math.round(i.qty))
     }, 0)
 
-    const total = subtotal + shippingMxn
+    const total = Math.max(100, subtotal + shippingMxn - discountMxn)
 
     if (total < 100) {
       return NextResponse.json({ error: 'monto inválido' }, { status: 400 })

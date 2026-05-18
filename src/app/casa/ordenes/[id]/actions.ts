@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
-import { requireAdmin } from '@/lib/auth.server'
+import { requireAdmin, requireAdminUserId } from '@/lib/auth.server'
+import { logAction } from '@/lib/audit.server'
 import { createShipment, getShippingRates, getShipmentStatus, cancelShipmentInSkydropx, type ShippingRate, type ShipmentStatus } from '@/lib/skydropx'
 
 export type SkydropxEvent = {
@@ -25,7 +26,7 @@ async function appendSkydropxEvent(orderId: string, event: SkydropxEvent) {
 const VALID_STATUSES = ['pending', 'paid', 'shipped', 'delivered', 'refunded', 'failed'] as const
 
 export async function updateOrderStatus(orderId: string, status: string) {
-  await requireAdmin()
+  const userId = await requireAdminUserId()
   if (!(VALID_STATUSES as readonly string[]).includes(status)) throw new Error('estado inválido')
 
   const { data: order } = await supabaseAdmin
@@ -35,6 +36,7 @@ export async function updateOrderStatus(orderId: string, status: string) {
     .select('customer_email, customer_name, folio_number')
     .single()
 
+  logAction({ userId, action: 'update_status', tableName: 'orders', recordId: orderId, summary: `cambió estado de orden #${order?.folio_number ?? ''} a "${status}"` })
   revalidatePath(`/casa/ordenes/${orderId}`)
   revalidatePath('/casa/ordenes')
 

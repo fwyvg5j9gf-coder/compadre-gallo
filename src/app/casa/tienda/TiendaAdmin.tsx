@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Product, ProductVariant, StoreCategory, StoreSize, PackagingType } from '@/lib/supabase'
 import { totalStock } from '@/lib/supabase'
-import { createProduct, updateProduct, togglePublished, deleteProduct } from './actions'
+import { createProduct, updateProduct, togglePublished, deleteProduct, bulkPublish, bulkDelete } from './actions'
 import ImageUpload from './ImageUpload'
 import AdminShell from '../AdminShell'
 
@@ -186,8 +186,9 @@ function skydropxStatus(product: Product): { ok: boolean; warn: boolean; msg: st
 
 // ─── Fila de producto ─────────────────────────────────────────────────────────
 
-function ProductRow({ product, onEdit, onRefresh }: {
+function ProductRow({ product, onEdit, onRefresh, selected, onSelect }: {
   product: Product; onEdit: (p: Product) => void; onRefresh: () => void
+  selected: boolean; onSelect: (id: string, checked: boolean) => void
 }) {
   const [isPending, startTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -197,11 +198,18 @@ function ProductRow({ product, onEdit, onRefresh }: {
 
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: '48px 1fr 100px auto 90px 140px',
+      display: 'grid', gridTemplateColumns: '36px 48px 1fr 100px auto 90px 140px',
       alignItems: 'center', gap: 12, padding: '12px 16px',
-      borderBottom: '1px solid #ecebe5', background: '#fff',
-      opacity: isPending ? 0.5 : 1, transition: 'opacity 0.15s',
+      borderBottom: '1px solid #ecebe5',
+      background: selected ? 'rgba(0,58,135,0.03)' : '#fff',
+      opacity: isPending ? 0.5 : 1, transition: 'opacity 0.15s, background 0.1s',
     }}>
+      <input
+        type="checkbox"
+        checked={selected}
+        onChange={e => onSelect(product.id, e.target.checked)}
+        style={{ width: 16, height: 16, accentColor: '#003a87', cursor: 'pointer' }}
+      />
       <div style={{ width: 48, height: 48, borderRadius: 4, background: '#f0efe9', overflow: 'hidden', flexShrink: 0 }}>
         {product.image_url && <img src={product.image_url} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
       </div>
@@ -299,12 +307,52 @@ export default function TiendaAdmin({ initial, categories, sizes, packaging }: {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [isBulkPending, startBulkTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
 
   const refresh = () => router.refresh()
   const categoryNames = categories.map(c => c.name)
   const sizeNames = sizes.map(s => s.name)
   const published = initial.filter(p => p.is_published).length
+
+  const allSelected = initial.length > 0 && selected.size === initial.length
+  const someSelected = selected.size > 0 && !allSelected
+
+  function toggleSelectAll() {
+    if (allSelected || someSelected) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(initial.map(p => p.id)))
+    }
+  }
+
+  function handleSelect(id: string, checked: boolean) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      checked ? next.add(id) : next.delete(id)
+      return next
+    })
+  }
+
+  function handleBulkPublish(publish: boolean) {
+    const ids = [...selected]
+    setError(null)
+    startBulkTransition(async () => {
+      try { await bulkPublish(ids, publish); setSelected(new Set()); refresh() }
+      catch (e: unknown) { setError(e instanceof Error ? e.message : 'error en acción masiva') }
+    })
+  }
+
+  function handleBulkDelete() {
+    const ids = [...selected]
+    setError(null)
+    startBulkTransition(async () => {
+      try { await bulkDelete(ids); setSelected(new Set()); setConfirmBulkDelete(false); refresh() }
+      catch (e: unknown) { setError(e instanceof Error ? e.message : 'error al eliminar'); setConfirmBulkDelete(false) }
+    })
+  }
 
   function handleCreate(fd: FormData) {
     setError(null)
@@ -372,6 +420,58 @@ export default function TiendaAdmin({ initial, categories, sizes, packaging }: {
           </div>
         )}
 
+        {/* Bulk action toolbar */}
+        {selected.size > 0 && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '10px 16px', marginBottom: 12,
+            background: 'rgba(0,58,135,0.05)', border: '1px solid rgba(0,58,135,0.18)',
+            borderRadius: 6,
+          }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#003a87' }}>
+              {selected.size} seleccionado{selected.size !== 1 ? 's' : ''}
+            </span>
+            <button
+              onClick={() => handleBulkPublish(true)}
+              disabled={isBulkPending}
+              style={{ fontSize: 12, padding: '5px 12px', borderRadius: 4, border: '1px solid rgba(0,58,135,0.25)', background: '#fff', cursor: 'pointer', color: '#003a87', fontWeight: 600 }}
+            >
+              publicar
+            </button>
+            <button
+              onClick={() => handleBulkPublish(false)}
+              disabled={isBulkPending}
+              style={{ fontSize: 12, padding: '5px 12px', borderRadius: 4, border: '1px solid #d4d3cd', background: '#fff', cursor: 'pointer', color: '#6b6a64', fontWeight: 600 }}
+            >
+              quitar publicación
+            </button>
+            {confirmBulkDelete ? (
+              <>
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={isBulkPending}
+                  style={{ fontSize: 12, padding: '5px 12px', borderRadius: 4, border: 'none', background: '#ff0100', cursor: 'pointer', color: '#fff', fontWeight: 700 }}
+                >
+                  confirmar eliminar {selected.size}
+                </button>
+                <button onClick={() => setConfirmBulkDelete(false)} style={{ fontSize: 12, padding: '5px 12px', borderRadius: 4, border: '1px solid #d4d3cd', background: '#fff', cursor: 'pointer', color: '#6b6a64' }}>
+                  cancelar
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setConfirmBulkDelete(true)}
+                style={{ fontSize: 12, padding: '5px 12px', borderRadius: 4, border: '1px solid rgba(255,1,0,0.25)', background: '#fff', cursor: 'pointer', color: '#ff0100', fontWeight: 600 }}
+              >
+                eliminar
+              </button>
+            )}
+            <button onClick={() => setSelected(new Set())} style={{ marginLeft: 'auto', fontSize: 12, color: '#9a9994', background: 'none', border: 'none', cursor: 'pointer' }}>
+              limpiar selección
+            </button>
+          </div>
+        )}
+
         {initial.length === 0 && !showForm ? (
           <div style={{ background: '#fff', border: '1px solid #ecebe5', borderRadius: 8, padding: '64px 32px', textAlign: 'center', color: '#6b6a64', fontSize: 14 }}>
             todavía no hay productos. dale a &ldquo;+ agregar producto&rdquo; para empezar.
@@ -379,16 +479,27 @@ export default function TiendaAdmin({ initial, categories, sizes, packaging }: {
         ) : initial.length > 0 ? (
           <div style={{ background: '#fff', border: '1px solid #ecebe5', borderRadius: 8, overflow: 'hidden' }}>
             <div style={{
-              display: 'grid', gridTemplateColumns: '48px 1fr 100px auto 90px 140px',
+              display: 'grid', gridTemplateColumns: '36px 48px 1fr 100px auto 90px 140px',
               gap: 12, padding: '8px 16px', background: '#f6f5f1', borderBottom: '1px solid #ecebe5',
               fontSize: 11, fontWeight: 700, color: '#6b6a64', letterSpacing: '0.04em', textTransform: 'uppercase',
+              alignItems: 'center',
             }}>
+              <input
+                type="checkbox"
+                checked={allSelected}
+                ref={el => { if (el) el.indeterminate = someSelected }}
+                onChange={toggleSelectAll}
+                style={{ width: 16, height: 16, accentColor: '#003a87', cursor: 'pointer' }}
+              />
               <div /><div>nombre</div><div>precio</div><div>stock</div><div>estado</div><div>acciones</div>
             </div>
             {initial.map(p => (
               <ProductRow key={p.id} product={p}
                 onEdit={prod => { setEditing(prod); setShowForm(false) }}
-                onRefresh={refresh} />
+                onRefresh={refresh}
+                selected={selected.has(p.id)}
+                onSelect={handleSelect}
+              />
             ))}
           </div>
         ) : null}

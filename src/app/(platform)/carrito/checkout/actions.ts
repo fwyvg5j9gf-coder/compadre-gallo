@@ -79,6 +79,9 @@ export type CheckoutPayload = {
   stripePaymentId: string
   items: CartItem[]
   saveAddressForUser?: boolean
+  discountCode?: string
+  discountMxn?: number
+  discountCodeId?: string
 }
 
 export type OrderResult = { orderId?: string; folioNumber?: number; error?: string }
@@ -144,7 +147,8 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
   }
 
   const subtotal = itemsWithRealPrices.reduce((s, i) => s + i.price_mxn * i.qty, 0)
-  const total = subtotal + payload.shippingMxn
+  const discountMxn = payload.discountMxn ?? 0
+  const total = Math.max(0, subtotal + payload.shippingMxn - discountMxn)
 
   const { userId } = await auth()
 
@@ -166,6 +170,8 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
       shipping_rate_id: payload.shippingRateId,
       shipping_mxn: payload.shippingMxn,
       subtotal_mxn: subtotal,
+      discount_code: payload.discountCode ?? null,
+      discount_mxn: discountMxn,
       total_mxn: total,
       notes: payload.notes.trim() || null,
       status: 'paid',        // PI verified above — safe to mark paid
@@ -207,7 +213,12 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
     }
   }
 
-  // ── 7. Save address to user profile if requested ────────────────────────────
+  // ── 7. Increment discount code usage ────────────────────────────────────────
+  if (payload.discountCodeId) {
+    await supabaseAdmin.rpc('increment_discount_uses', { p_code_id: payload.discountCodeId })
+  }
+
+  // ── 8. Save address to user profile if requested ────────────────────────────
   if (payload.saveAddressForUser && userId) {
     await supabaseAdmin.from('users').update({
       shipping_address: {
@@ -222,7 +233,7 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
     }).eq('clerk_user_id', userId)
   }
 
-  // ── 8. Send emails (fire-and-forget) ────────────────────────────────────────
+  // ── 9. Send emails (fire-and-forget) ────────────────────────────────────────
   const { sendOrderConfirmation, sendAdminNewOrder } = await import('@/lib/emails')
   const orderForEmail = {
     id: order.id as string,
