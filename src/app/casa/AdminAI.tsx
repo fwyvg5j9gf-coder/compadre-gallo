@@ -45,10 +45,10 @@ export default function AdminAI() {
         }),
       })
       const data = await res.json()
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: data.reply ?? data.error ?? 'sin respuesta',
-      }])
+      const content = res.status === 503
+        ? 'el asistente está desactivado. actívalo en configuración → asistente IA.'
+        : (data.reply ?? data.error ?? 'sin respuesta')
+      setMessages(prev => [...prev, { role: 'assistant', content }])
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'error al conectar con el asistente.' }])
     } finally {

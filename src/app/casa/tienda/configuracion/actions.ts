@@ -180,6 +180,15 @@ export async function toggleSkydropx(enabled: boolean) {
   revalidatePath('/casa/tienda/configuracion')
 }
 
+export async function toggleAiChat(enabled: boolean) {
+  await requireAdmin()
+  const { error } = await supabaseAdmin.from('store_settings')
+    .update({ ai_chat_enabled: enabled })
+    .eq('id', 1)
+  if (error) throw new Error(error.message)
+  revalidatePath('/casa/tienda/configuracion')
+}
+
 export async function testShippingQuote(destZip: string, destState: string, destCity: string, destColonia: string, packagingId: string): Promise<ShippingRate[]> {
   await requireAdmin()
 

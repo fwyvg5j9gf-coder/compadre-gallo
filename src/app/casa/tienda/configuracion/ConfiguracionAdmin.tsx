@@ -11,6 +11,7 @@ import {
   saveSkydropxConfig, toggleSkydropx, testShippingQuote,
   saveShipping, savePolicies, saveStripeConfig, saveSkydropxExtra,
   fetchSkydropxPackagings, fetchSkydropxClasses, fetchSkydropxBalance,
+  toggleAiChat,
 } from './actions'
 import type { SatCode } from '@/lib/skydropx'
 import ZipSelector from '@/components/ZipSelector'
@@ -590,6 +591,60 @@ function SkydropxSection({ settings, packaging }: { settings: StoreSettings; pac
   )
 }
 
+// ── AISection ─────────────────────────────────────────────────────────────────
+function AISection({ settings }: { settings: StoreSettings }) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const enabled = settings.ai_chat_enabled ?? false
+
+  function toggle() {
+    startTransition(async () => {
+      await toggleAiChat(!enabled)
+      router.refresh()
+    })
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#0a0a0a', marginBottom: 3 }}>
+            asistente IA
+          </div>
+          <div style={{ fontSize: 12, color: M, lineHeight: 1.5 }}>
+            chat flotante en el panel admin con acceso a tus datos. usa la API de Anthropic —
+            cada conversación cuesta aprox. $0.003–$0.015 USD dependiendo de cuánto contexto se consulta.
+          </div>
+        </div>
+        <button
+          onClick={toggle}
+          disabled={isPending}
+          style={{
+            flexShrink: 0, padding: '7px 16px', borderRadius: 4, border: 'none',
+            background: enabled ? '#003a87' : '#e8e7e1',
+            color: enabled ? '#fff' : '#6b6a64',
+            fontWeight: 700, fontSize: 12, cursor: isPending ? 'default' : 'pointer',
+            opacity: isPending ? 0.6 : 1, transition: 'all 120ms',
+            fontFamily: 'var(--font-sans)', letterSpacing: '0.02em',
+            textTransform: 'uppercase',
+          }}
+        >
+          {enabled ? 'ACTIVO' : 'INACTIVO'}
+        </button>
+      </div>
+      {enabled && (
+        <div style={{
+          background: 'rgba(0,58,135,0.05)', border: '1px solid rgba(0,58,135,0.15)',
+          borderRadius: 6, padding: '10px 14px', fontSize: 12, color: '#003a87', lineHeight: 1.5,
+        }}>
+          el asistente aparece como botón en la esquina inferior derecha de todas las páginas del admin.
+          requiere la variable <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>ANTHROPIC_API_KEY</code> en Vercel.
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── StripeSection ─────────────────────────────────────────────────────────────
 function StripeSection({ settings }: { settings: StoreSettings }) {
   const [isPending, startTransition] = useTransition()
@@ -815,6 +870,7 @@ function SectionCard({ id, title, desc, children }: { id: string; title: string;
 const NAV = [
   { id: 'stripe',     label: 'stripe' },
   { id: 'skydropx',   label: 'skydropx' },
+  { id: 'ai',         label: 'asistente IA' },
   { id: 'embalajes',  label: 'embalajes' },
   { id: 'categorias', label: 'categorías' },
   { id: 'tallas',     label: 'tallas' },
@@ -869,6 +925,11 @@ export default function ConfiguracionAdmin({ categories, sizes, packaging, setti
             <SectionCard id="skydropx" title="skydropx"
               desc="cotización automática. credenciales en pro.skydropx.com → api → credenciales de aplicación.">
               <SkydropxSection settings={settings} packaging={packaging} />
+            </SectionCard>
+
+            <SectionCard id="ai" title="asistente IA"
+              desc="chat inteligente en el panel admin. consulta órdenes, inventario y ventas en lenguaje natural.">
+              <AISection settings={settings} />
             </SectionCard>
 
             <SectionCard id="embalajes" title="embalajes"

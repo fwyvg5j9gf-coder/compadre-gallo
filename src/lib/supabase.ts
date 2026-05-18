@@ -85,6 +85,7 @@ export type StoreSettings = {
   stripe_webhook_secret: string
   stripe_statement_desc: string
   stripe_markup_pct: number
+  ai_chat_enabled: boolean
 }
 
 export type Show = {

@@ -167,6 +167,17 @@ export async function POST(req: Request) {
     return Response.json({ error: 'no autorizado' }, { status: 401 })
   }
 
+  // Verificar que el asistente esté activo
+  const { data: settings } = await supabaseAdmin
+    .from('store_settings')
+    .select('ai_chat_enabled')
+    .eq('id', 1)
+    .single()
+
+  if (!settings?.ai_chat_enabled) {
+    return Response.json({ error: 'disabled' }, { status: 503 })
+  }
+
   const { messages } = (await req.json()) as { messages: Anthropic.MessageParam[] }
 
   // Agentic loop — máx 5 rondas

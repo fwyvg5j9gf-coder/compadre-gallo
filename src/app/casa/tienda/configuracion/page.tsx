@@ -15,6 +15,7 @@ const DEFAULT_SETTINGS: StoreSettings = {
   stripe_test_mode: true, stripe_pk_test: '', stripe_sk_test: '',
   stripe_pk_live: '', stripe_sk_live: '', stripe_webhook_secret: '',
   stripe_statement_desc: 'GALLO', stripe_markup_pct: 0,
+  ai_chat_enabled: false,
 }
 
 export default async function ConfiguracionPage() {
