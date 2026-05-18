@@ -1,3 +1,5 @@
+import AdminAI from './AdminAI'
+
 type AdminShellProps = {
   crumb: string
   crumbHref?: string
@@ -65,6 +67,7 @@ export default function AdminShell({ crumb, crumbHref, right, children }: AdminS
         )}
       </header>
       {children}
+      <AdminAI />
     </div>
   )
 }
