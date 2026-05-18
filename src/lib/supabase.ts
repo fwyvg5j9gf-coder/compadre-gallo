@@ -5,6 +5,8 @@ export type ProductVariant = {
   product_id: string
   size: string
   stock: number
+  sku?: string | null
+  reorder_point?: number
   created_at: string
   updated_at: string
 }
@@ -29,6 +31,8 @@ export type Product = {
   price_mxn: number
   weight_grams: number | null
   category: string
+  sku?: string | null
+  barcode?: string | null
   image_url: string | null
   is_published: boolean
   sort_order: number

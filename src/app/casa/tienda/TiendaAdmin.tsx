@@ -148,6 +148,11 @@ function ProductForm({
             </span>
           )}
         </label>
+        <label style={styles.label}>
+          SKU del producto
+          <input name="sku" defaultValue={initial?.sku ?? ''} style={{ ...styles.input, fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }} placeholder="auto-generar" />
+          <span style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>deja vacío para generar automáticamente</span>
+        </label>
       </div>
 
       <SizeManager variants={initial?.product_variants} sizes={sizes} />
@@ -218,6 +223,7 @@ function ProductRow({ product, onEdit, onRefresh, selected, onSelect }: {
         <div style={{ fontWeight: 600, fontSize: 14, color: '#0a0a0a' }}>{product.name}</div>
         <div style={{ fontSize: 12, color: '#6b6a64', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <span>{product.category}</span>
+          {product.sku && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#9a9994' }}>{product.sku}</span>}
           {product.weight_grams && <span>· {product.weight_grams}g</span>}
           {(() => {
             const s = skydropxStatus(product)

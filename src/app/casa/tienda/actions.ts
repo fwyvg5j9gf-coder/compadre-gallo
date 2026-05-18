@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import { requireAdminOrThrow, requireAdminUserId } from '@/lib/auth.server'
 import { logAction } from '@/lib/audit.server'
+import { buildProductSku, buildVariantSku } from '@/lib/sku'
 
 export async function getUploadUrl(filename: string, contentType: string) {
   await requireAdmin()
@@ -54,6 +55,17 @@ export async function createProduct(formData: FormData) {
   const name = (formData.get('name') as string).trim()
   const packagingId = (formData.get('packaging_type_id') as string) || null
 
+  // SKU: use provided value or auto-generate from category + count
+  const skuInput = (formData.get('sku') as string)?.trim().toUpperCase() || null
+  let productSku = skuInput
+  if (!productSku) {
+    const { count } = await supabaseAdmin
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('category', category)
+    productSku = buildProductSku(category, (count ?? 0) + 1)
+  }
+
   const { data, error } = await supabaseAdmin.from('products').insert({
     name,
     description: (formData.get('description') as string)?.trim() || null,
@@ -63,16 +75,22 @@ export async function createProduct(formData: FormData) {
     packaging_type_id: packagingId,
     image_url: (formData.get('image_url') as string)?.trim() || null,
     is_published: false,
+    sku: productSku,
   }).select('id').single()
 
   if (error) throw new Error(error.message)
 
   const variants = extractVariants(formData, data.id)
-  const { error: vErr } = await supabaseAdmin.from('product_variants').insert(variants)
+  const variantsWithSku = variants.map(v => ({
+    ...v,
+    sku: buildVariantSku(productSku!, v.size),
+  }))
+  const { error: vErr } = await supabaseAdmin.from('product_variants').insert(variantsWithSku)
   if (vErr) throw new Error(vErr.message)
 
-  logAction({ userId, action: 'create', tableName: 'products', recordId: data.id, summary: `creó producto "${name}"` })
+  logAction({ userId, action: 'create', tableName: 'products', recordId: data.id, summary: `creó producto "${name}" · SKU ${productSku}` })
   revalidatePath('/casa/tienda')
+  revalidatePath('/casa/inventario')
 }
 
 export async function updateProduct(id: string, formData: FormData) {
@@ -82,8 +100,8 @@ export async function updateProduct(id: string, formData: FormData) {
   const pricePesos = parseFloat(formData.get('price_mxn') as string)
   const weightRaw = formData.get('weight_grams') as string
   const name = (formData.get('name') as string).trim()
-
   const packagingId = (formData.get('packaging_type_id') as string) || null
+  const skuInput = (formData.get('sku') as string)?.trim().toUpperCase() || null
 
   const { error } = await supabaseAdmin.from('products').update({
     name,
@@ -93,6 +111,7 @@ export async function updateProduct(id: string, formData: FormData) {
     category,
     packaging_type_id: packagingId,
     image_url: (formData.get('image_url') as string)?.trim() || null,
+    sku: skuInput,
     updated_at: new Date().toISOString(),
   }).eq('id', id)
 

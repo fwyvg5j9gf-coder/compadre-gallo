@@ -213,6 +213,24 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
     }
   }
 
+  // ── 6.5. Log sale movements (fire-and-forget) ───────────────────────────────
+  Promise.allSettled(
+    payload.items
+      .filter(item => !!item.variantId)
+      .map(item =>
+        supabaseAdmin.rpc('log_sale_movement', {
+          p_product_id: item.productId,
+          p_variant_id: item.variantId!,
+          p_qty: item.qty,
+          p_order_id: order.id,
+        })
+      )
+  ).then(results => {
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') console.error(`[createOrder] movement log ${i} failed:`, r.reason)
+    })
+  })
+
   // ── 7. Increment discount code usage ────────────────────────────────────────
   if (payload.discountCodeId) {
     await supabaseAdmin.rpc('increment_discount_uses', { p_code_id: payload.discountCodeId })
