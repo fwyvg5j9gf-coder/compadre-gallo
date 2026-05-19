@@ -240,16 +240,19 @@ export default function LandingHero({
             </div>
           )}
 
-          {/* Mascot */}
+          {/* Mascot — mix-blend-mode on the outer container so the float
+              animation doesn't create an isolated compositing layer that
+              would break the blend with the page background */}
           <div className="gl-mascot" style={{
             width: 'clamp(140px,26vw,268px)',
             height: 'clamp(175px,33vw,340px)',
             maxHeight: '48%',
             position: 'relative', flexShrink: 0,
+            mixBlendMode: 'multiply',
           }}>
             <div className="gl-float" style={{ width: '100%', height: '100%', position: 'relative' }}>
               <Image
-                src="/assets/gallo-mascot-reference.png"
+                src="/assets/gallo-mascot.jpg"
                 alt="el gallo"
                 fill
                 style={{ objectFit: 'contain' }}
