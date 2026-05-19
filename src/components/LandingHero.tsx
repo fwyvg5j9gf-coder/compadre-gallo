@@ -140,6 +140,7 @@ function CtaPanel({
 // ── Main component ────────────────────────────────────────────────────────────
 export default function LandingHero({
   tagline = 'compadregallo.com',
+  subtitle = 'productora musical · cdmx',
   leftTitle = 'artist\nroom',
   leftSubtitle = '',
   leftCta = 'entrar',
@@ -152,6 +153,7 @@ export default function LandingHero({
   rightBg = '#ff0100',
 }: {
   tagline?: string
+  subtitle?: string
   leftTitle?: string; leftSubtitle?: string; leftCta?: string
   leftLink?: string; leftBg?: string
   rightTitle?: string; rightSubtitle?: string; rightCta?: string
@@ -228,13 +230,15 @@ export default function LandingHero({
           }} />
 
           {/* Subtitle */}
-          <div className="gl-sub" style={{
-            fontSize: 'clamp(10px,1.2vw,13px)', fontWeight: 600,
-            letterSpacing: '0.18em', textTransform: 'uppercase',
-            color: '#9a9994', marginBottom: 'clamp(12px,2vh,24px)',
-          }}>
-            productora musical · cdmx
-          </div>
+          {subtitle && (
+            <div className="gl-sub" style={{
+              fontSize: 'clamp(10px,1.2vw,13px)', fontWeight: 600,
+              letterSpacing: '0.18em', textTransform: 'uppercase',
+              color: '#9a9994', marginBottom: 'clamp(12px,2vh,24px)',
+            }}>
+              {subtitle}
+            </div>
+          )}
 
           {/* Mascot */}
           <div className="gl-mascot" style={{
@@ -245,10 +249,10 @@ export default function LandingHero({
           }}>
             <div className="gl-float" style={{ width: '100%', height: '100%', position: 'relative' }}>
               <Image
-                src="/assets/gallo-mascot.jpg"
+                src="/assets/gallo-mascot-reference.png"
                 alt="el gallo"
                 fill
-                style={{ objectFit: 'contain', mixBlendMode: 'multiply' }}
+                style={{ objectFit: 'contain' }}
                 priority
               />
             </div>

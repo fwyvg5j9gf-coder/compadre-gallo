@@ -34,6 +34,7 @@ export default async function HomePage() {
       <>
         <LandingHero
           tagline={h.tagline}
+          subtitle={h.subtitle}
           leftTitle={c.left_title}   leftSubtitle={c.left_subtitle}
           leftCta={c.left_cta}       leftLink={c.left_link}   leftBg={c.left_bg}
           rightTitle={c.right_title} rightSubtitle={c.right_subtitle}

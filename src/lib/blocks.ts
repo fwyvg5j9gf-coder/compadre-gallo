@@ -50,9 +50,10 @@ export const BLOCK_META: Record<BlockType, { label: string; description: string;
 
 export const BLOCK_FIELDS: Record<BlockType, { key: string; label: string; type: 'text' | 'textarea' | 'color' | 'image' | 'url' }[]> = {
   'hero-mascot': [
-    { key: 'tagline',       label: 'Tagline',        type: 'text' },
-    { key: 'mascot_image',  label: 'Imagen mascota', type: 'image' },
-    { key: 'bg_color',      label: 'Color de fondo', type: 'color' },
+    { key: 'tagline',       label: 'Tagline (esquina sup izq)', type: 'text' },
+    { key: 'subtitle',      label: 'Subtítulo bajo el wordmark', type: 'text' },
+    { key: 'mascot_image',  label: 'Imagen mascota',             type: 'image' },
+    { key: 'bg_color',      label: 'Color de fondo',             type: 'color' },
   ],
   'cta-split': [
     { key: 'left_title',    label: 'Panel izq — título',    type: 'textarea' },
