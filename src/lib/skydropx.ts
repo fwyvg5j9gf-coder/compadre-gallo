@@ -269,22 +269,31 @@ export async function getConsignmentNoteClasses(clientId: string, clientSecret: 
       })
       if (!res.ok) break
       const json = await res.json()
-      const items: Record<string, unknown>[] = json?.data ?? (Array.isArray(json) ? json : [])
+
+      // Handle multiple possible response structures from different API versions
+      const items: Record<string, unknown>[] =
+        json?.data ??
+        json?.items ??
+        json?.consignment_notes ??
+        json?.classes ??
+        (Array.isArray(json) ? json : [])
+
       if (items.length === 0) break
 
       for (const i of items) {
-        // Skydropx returns either {consignment_note, description} or {code, name} depending on version
-        const id   = String(i.consignment_note ?? i.code ?? i.id ?? '')
-        const name = String(i.description ?? i.name ?? '')
+        const id   = String(i.consignment_note ?? i.code ?? i.id ?? i.key ?? '')
+        const name = String(i.description ?? i.name ?? i.title ?? '')
         if (id) all.push({ id, name })
       }
 
-      // Detect pagination: meta.last_page, meta.total_pages, or fewer items than requested
       const meta = json?.meta as Record<string, unknown> | undefined
-      const lastPage = Number(meta?.last_page ?? meta?.total_pages ?? 0)
+      const total    = Number(meta?.total ?? 0)
+      const perPage  = Number(meta?.per_page ?? meta?.page_size ?? 100)
+      const derived  = total && perPage ? Math.ceil(total / perPage) : 0
+      const lastPage = Number(meta?.last_page ?? meta?.total_pages ?? derived ?? 0)
       if (lastPage > 0 && page >= lastPage) break
       if (items.length < 100) break
-      if (page >= 50) break  // safety cap at 5000 entries
+      if (page >= 50) break
       page++
     }
 
