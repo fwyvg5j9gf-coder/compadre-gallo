@@ -17,6 +17,7 @@ const CARDS = [
   { title: 'editor',        desc: 'contenido y apariencia del sitio',      href: '/casa/editor',                accent: '#ffe200' },
   { title: 'media',         desc: 'imágenes y archivos',                   href: '/casa/media',                 accent: '#9a9994' },
   { title: 'bitácora',     desc: 'historial de acciones admin',            href: '/casa/bitacora',              accent: '#6b6a64' },
+  { title: 'desarrollo',   desc: 'progreso, changelog y tareas',           href: '/casa/desarrollo',            accent: '#ffe200' },
 ]
 
 const fmt = (cents: number) =>
