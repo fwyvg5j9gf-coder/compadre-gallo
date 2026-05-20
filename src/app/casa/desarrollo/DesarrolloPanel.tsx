@@ -109,7 +109,7 @@ const TASKS: {
     section: 'producción',
     accent: '#ff0100',
     items: [
-      { status: 'pending', text: 'Cambiar Clerk de pk_test_ a pk_live_', note: 'Vercel + Clerk Dashboard + actualizar env vars' },
+      { status: 'done',    text: 'Cambiar Clerk de pk_test_ a pk_live_', note: 'Keys live configuradas en Vercel' },
       { status: 'pending', text: 'Registrar webhook Stripe en producción', note: 'Stripe Dashboard → /api/stripe/webhook → copiar whsec_...' },
       { status: 'pending', text: 'Verificar RESEND_API_KEY y ADMIN_EMAIL en Vercel', note: 'Sin esto los correos salen silenciosamente vacíos' },
       { status: 'done',    text: 'Conectar dominio compadregallo.com en Vercel', note: 'Dominio activo en producción' },
@@ -352,7 +352,7 @@ function CodigoTab() {
             { key: 'NEXT_PUBLIC_SUPABASE_URL',         status: 'ok',      note: 'URL del proyecto Supabase' },
             { key: 'NEXT_PUBLIC_SUPABASE_ANON_KEY',    status: 'ok',      note: 'clave pública de Supabase' },
             { key: 'SUPABASE_SERVICE_ROLE_KEY',        status: 'ok',      note: 'clave privada de Supabase (solo servidor)' },
-            { key: 'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY', status: 'warn',   note: 'actualmente pk_test_ — cambiar a pk_live_ para producción' },
+            { key: 'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY', status: 'ok',    note: 'pk_live_ configurada en Vercel' },
             { key: 'CLERK_SECRET_KEY',                 status: 'ok',      note: 'clave privada de Clerk' },
             { key: 'STRIPE_SECRET_KEY',                status: 'ok',      note: 'sk_test_ o sk_live_ desde store_settings' },
             { key: 'STRIPE_WEBHOOK_SECRET',            status: 'pending', note: 'registrar endpoint en Stripe Dashboard primero' },
