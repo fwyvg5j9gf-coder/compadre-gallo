@@ -76,35 +76,48 @@ export async function fetchRatesForNewOrder({
   }
 }
 
-export async function lookupUser(email: string): Promise<{ data?: UserLookup; error?: string }> {
+export async function lookupUser(query: string): Promise<{ data?: UserLookup; error?: string }> {
   try {
     await requireAdmin()
-    const q = email.trim().toLowerCase()
+    const q = query.trim().toLowerCase()
     if (!q) return { error: 'escribe un correo o nombre' }
 
+    // 1. Buscar en tabla users (usuarios registrados con cuenta)
     const { data: user } = await supabaseAdmin
       .from('users')
       .select('email, name')
       .or(`email.ilike.%${q}%,name.ilike.%${q}%,username.ilike.%${q}%`)
       .limit(1)
-      .single()
+      .maybeSingle()
 
-    if (!user) return { error: 'usuario no encontrado' }
+    // 2. Si no está en users, buscar directamente en orders (clientes sin cuenta / pruebas)
+    const emailForOrders = user?.email ?? (q.includes('@') ? q : null)
 
-    // Buscar última dirección de envío en órdenes previas
-    const { data: lastOrder } = await supabaseAdmin
-      .from('orders')
-      .select('customer_phone, shipping_address')
-      .eq('customer_email', user.email)
-      .not('shipping_address', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
+    const { data: lastOrder } = emailForOrders
+      ? await supabaseAdmin
+          .from('orders')
+          .select('customer_email, customer_name, customer_phone, shipping_address')
+          .eq('customer_email', emailForOrders)
+          .not('shipping_address', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : await supabaseAdmin
+          .from('orders')
+          .select('customer_email, customer_name, customer_phone, shipping_address')
+          .or(`customer_email.ilike.%${q}%,customer_name.ilike.%${q}%`)
+          .not('shipping_address', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+    const resolvedEmail = user?.email ?? lastOrder?.customer_email
+    if (!resolvedEmail) return { error: 'cliente no encontrado' }
 
     return {
       data: {
-        email: user.email,
-        name: user.name,
+        email: resolvedEmail,
+        name: user?.name ?? lastOrder?.customer_name ?? null,
         phone: lastOrder?.customer_phone ?? null,
         address: lastOrder?.shipping_address as Record<string, string> | null,
       },

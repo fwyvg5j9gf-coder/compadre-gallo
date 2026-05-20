@@ -116,6 +116,7 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [pendingLookup, startLookup] = useTransition()
+  const [pendingRate, startRate] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [isTest, setIsTest] = useState(false)
   const [showAddress, setShowAddress] = useState(true)
@@ -145,26 +146,28 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
   const fmt = (c: number) => (c / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
   const fmtPesos = (p: number) => p.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
 
-  async function handleCotizarEnvio() {
+  function handleCotizarEnvio() {
     setRateError(null)
     setRateStep('fetching')
     const productIds = items.filter(i => i.productId).map(i => i.productId)
-    const { rates: fetched, error } = await fetchRatesForNewOrder({
-      destZip: addrZip,
-      destState: addrState,
-      destCity: addrCity,
-      destColonia: addrColonia,
-      productIds,
+    startRate(async () => {
+      const { rates: fetched, error } = await fetchRatesForNewOrder({
+        destZip: addrZip,
+        destState: addrState,
+        destCity: addrCity,
+        destColonia: addrColonia,
+        productIds,
+      })
+      if (error || !fetched) {
+        setRateError(error ?? 'error al cotizar')
+        setRateStep('idle')
+        return
+      }
+      setRates(fetched)
+      setSelectedRate(fetched[0] ?? null)
+      if (fetched[0]) setShippingMxn(Math.round(fetched[0].total_mxn * 100))
+      setRateStep('selecting')
     })
-    if (error || !fetched) {
-      setRateError(error ?? 'error al cotizar')
-      setRateStep('idle')
-      return
-    }
-    setRates(fetched)
-    setSelectedRate(fetched[0] ?? null)
-    if (fetched[0]) setShippingMxn(Math.round(fetched[0].total_mxn * 100))
-    setRateStep('selecting')
   }
 
   function handleSelectRate(rate: ShippingRate) {
@@ -400,11 +403,15 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
                   />
                 </div>
 
-                {/* Botón cotizar */}
-                {addrZip && (() => {
+                {/* Botón cotizar — siempre visible, condiciones como disabled */}
+                {(() => {
                   const hasProduct = items.some(i => i.productId)
-                  const busy = rateStep === 'fetching'
-                  const blocked = !hasProduct || busy
+                  const hasZip = !!addrZip.trim()
+                  const busy = rateStep === 'fetching' || pendingRate
+                  const blocked = !hasProduct || !hasZip || busy
+                  const hint = !hasProduct ? 'selecciona un producto primero'
+                    : !hasZip ? 'ingresa el C.P. de destino'
+                    : undefined
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <span style={{ fontSize: 11, fontWeight: 700, color: M }}>paquetería</span>
@@ -412,7 +419,7 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
                         type="button"
                         onClick={handleCotizarEnvio}
                         disabled={blocked}
-                        title={!hasProduct ? 'selecciona al menos un producto primero' : undefined}
+                        title={hint}
                         style={{
                           height: 36, padding: '0 16px', background: '#003a87', color: '#fff',
                           border: 'none', borderRadius: 4, fontWeight: 700, fontSize: 13,
@@ -422,9 +429,7 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
                       >
                         {busy ? 'cotizando…' : 'cotizar envío'}
                       </button>
-                      {!hasProduct && (
-                        <span style={{ fontSize: 11, color: S }}>selecciona un producto primero</span>
-                      )}
+                      {hint && <span style={{ fontSize: 11, color: S }}>{hint}</span>}
                     </div>
                   )
                 })()}
