@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
-import { requireAdmin, requireAdminUserId } from '@/lib/auth.server'
+import { requireAdmin, requireAdminOrThrow, requireAdminUserId } from '@/lib/auth.server'
 import { logAction } from '@/lib/audit.server'
 import { createShipment, getShippingRates, getShipmentStatus, cancelShipmentInSkydropx, getBalance, type ShippingRate, type ShipmentStatus } from '@/lib/skydropx'
 
@@ -230,7 +230,7 @@ export type RatesResult = { rates: ShippingRate[]; error?: string }
 
 export async function getSkydropxRatesForOrder(orderId: string): Promise<RatesResult> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
     const { settings, parcel, addr } = await buildOrderShipmentData(orderId)
     const rates = await getShippingRates({
       clientId: settings.skydropx_client_id,
@@ -376,7 +376,7 @@ export type ShipmentStatusResult = { data?: ShipmentStatus; error?: string }
 
 export async function fetchSkydropxShipmentStatus(orderId: string): Promise<ShipmentStatusResult> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
     const { data: order } = await supabaseAdmin.from('orders').select('skydropx_shipment_id, label_url').eq('id', orderId).single()
     if (!order?.skydropx_shipment_id) return { error: 'esta orden no tiene shipment ID de Skydropx' }
 
@@ -450,7 +450,7 @@ export async function cancelSkydropxShipment(orderId: string, reason: string): P
 
 export async function fetchSkydropxBalance(): Promise<{ balance?: number; currency?: string; error?: string }> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
     const { data: settings } = await supabaseAdmin
       .from('store_settings')
       .select('skydropx_client_id, skydropx_client_secret, skydropx_enabled')

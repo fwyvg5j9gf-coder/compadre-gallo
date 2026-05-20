@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
-import { requireAdmin } from '@/lib/auth.server'
+import { requireAdminOrThrow } from '@/lib/auth.server'
 import { getShippingRates, type ShippingRate } from '@/lib/skydropx'
 
 export type UserLookup = {
@@ -25,7 +25,7 @@ export async function fetchRatesForNewOrder({
   productIds: string[]
 }): Promise<{ rates?: ShippingRate[]; error?: string }> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
 
     const { data: settings } = await supabaseAdmin
       .from('store_settings')
@@ -78,38 +78,55 @@ export async function fetchRatesForNewOrder({
 
 export async function lookupUser(query: string): Promise<{ data?: UserLookup; error?: string }> {
   try {
-    await requireAdmin()
-    const q = query.trim().toLowerCase()
+    await requireAdminOrThrow()
+    const q = query.trim()
     if (!q) return { error: 'escribe un correo o nombre' }
 
-    // 1. Buscar en tabla users (usuarios registrados con cuenta)
-    const { data: user } = await supabaseAdmin
-      .from('users')
-      .select('email, name')
-      .or(`email.ilike.%${q}%,name.ilike.%${q}%,username.ilike.%${q}%`)
-      .limit(1)
-      .maybeSingle()
+    const isEmail = q.includes('@')
 
-    // 2. Si no está en users, buscar directamente en orders (clientes sin cuenta / pruebas)
-    const emailForOrders = user?.email ?? (q.includes('@') ? q : null)
+    // 1. Buscar en tabla users
+    let user: { email: string; name: string | null } | null = null
+    if (isEmail) {
+      const { data } = await supabaseAdmin
+        .from('users')
+        .select('email, name')
+        .ilike('email', q)
+        .limit(1)
+        .maybeSingle()
+      user = data
+    } else {
+      const { data } = await supabaseAdmin
+        .from('users')
+        .select('email, name')
+        .ilike('name', `%${q}%`)
+        .limit(1)
+        .maybeSingle()
+      user = data
+    }
 
-    const { data: lastOrder } = emailForOrders
-      ? await supabaseAdmin
-          .from('orders')
-          .select('customer_email, customer_name, customer_phone, shipping_address')
-          .eq('customer_email', emailForOrders)
-          .not('shipping_address', 'is', null)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-      : await supabaseAdmin
-          .from('orders')
-          .select('customer_email, customer_name, customer_phone, shipping_address')
-          .or(`customer_email.ilike.%${q}%,customer_name.ilike.%${q}%`)
-          .not('shipping_address', 'is', null)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
+    // 2. Buscar en orders — primero por email exacto, luego por nombre
+    let lastOrder: { customer_email: string; customer_name: string | null; customer_phone: string | null; shipping_address: unknown } | null = null
+    const emailForOrders = user?.email ?? (isEmail ? q : null)
+
+    if (emailForOrders) {
+      const { data } = await supabaseAdmin
+        .from('orders')
+        .select('customer_email, customer_name, customer_phone, shipping_address')
+        .ilike('customer_email', emailForOrders)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      lastOrder = data
+    } else {
+      const { data } = await supabaseAdmin
+        .from('orders')
+        .select('customer_email, customer_name, customer_phone, shipping_address')
+        .ilike('customer_name', `%${q}%`)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      lastOrder = data
+    }
 
     const resolvedEmail = user?.email ?? lastOrder?.customer_email
     if (!resolvedEmail) return { error: 'cliente no encontrado' }
@@ -140,7 +157,7 @@ export type ManualOrderResult = { orderId?: string; error?: string }
 
 export async function createManualOrder(formData: FormData): Promise<ManualOrderResult> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
 
     const customerEmail = (formData.get('customer_email') as string ?? '').trim()
     const customerName  = (formData.get('customer_name')  as string ?? '').trim()
