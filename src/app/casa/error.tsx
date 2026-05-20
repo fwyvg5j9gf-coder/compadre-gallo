@@ -23,8 +23,13 @@ export default function AdminError({
         error en el panel
       </div>
       <p style={{ color: '#6b6a64', margin: 0, maxWidth: '40ch' }}>
-        {error.message || 'algo salió mal. intenta de nuevo.'}
+        algo salió mal. intenta de nuevo.
       </p>
+      {error.digest && (
+        <p style={{ color: '#9a9994', margin: 0, fontSize: 11, fontFamily: 'monospace' }}>
+          digest: {error.digest}
+        </p>
+      )}
       <button
         onClick={reset}
         style={{

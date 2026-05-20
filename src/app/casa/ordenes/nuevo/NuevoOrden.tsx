@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createManualOrder, lookupUser, fetchRatesForNewOrder, type ManualItem, type ShippingRate } from './actions'
 import AdminShell from '../../AdminShell'
@@ -27,9 +27,6 @@ const lbl: React.CSSProperties = {
   display: 'flex', flexDirection: 'column', gap: 4,
   fontSize: 12, fontWeight: 600, color: M, letterSpacing: '0.03em',
 }
-
-let _id = 0
-function uid() { return String(++_id) }
 
 function ItemRow({
   item, products, onChange, onRemove,
@@ -114,6 +111,7 @@ function ItemRow({
 
 export default function NuevoOrden({ products }: { products: ProductOption[] }) {
   const router = useRouter()
+  const nextKey = useRef(1)
   const [isPending, startTransition] = useTransition()
   const [pendingLookup, startLookup] = useTransition()
   const [pendingRate, startRate] = useTransition()
@@ -132,7 +130,7 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
   const [lookupQuery, setLookupQuery] = useState('')
   const [lookupError, setLookupError] = useState<string | null>(null)
   const [items, setItems] = useState<({ _key: string } & ManualItem)[]>([
-    { _key: uid(), productId: '', productName: '', variantId: null, size: null, quantity: 1, unitPriceMxn: 0 },
+    { _key: '0', productId: '', productName: '', variantId: null, size: null, quantity: 1, unitPriceMxn: 0 },
   ])
 
   // Cotización Skydropx
@@ -195,7 +193,7 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
   }
 
   function addItem() {
-    setItems(prev => [...prev, { _key: uid(), productId: '', productName: '', variantId: null, size: null, quantity: 1, unitPriceMxn: 0 }])
+    setItems(prev => [...prev, { _key: String(nextKey.current++), productId: '', productName: '', variantId: null, size: null, quantity: 1, unitPriceMxn: 0 }])
   }
 
   function updateItem(key: string, data: ManualItem) {
