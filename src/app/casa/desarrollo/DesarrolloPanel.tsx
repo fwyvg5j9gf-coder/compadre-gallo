@@ -50,8 +50,6 @@ const CHANGELOG: {
     tag: 'sprint 4',
     items: [
       { type: 'feature',  text: 'Landing hero rediseñado — letras staggered, mascot flotante, paneles CTA animados, noise + spotlight' },
-      { type: 'feature',  text: 'Asistente IA en /casa/* — chat flotante con 4 herramientas: ventas, inventario, órdenes, productos' },
-      { type: 'feature',  text: 'Toggle para activar/desactivar IA desde configuración → asistente IA (apagado por defecto)' },
       { type: 'feature',  text: 'Sistema de SKU auto-generado: CAT3-SEQ4 para productos, CAT-SKU-TALLA para variantes' },
       { type: 'feature',  text: 'Card "inventario" en dashboard de /casa' },
       { type: 'feature',  text: 'Log de movimientos de venta en checkout (fire-and-forget RPC)' },
@@ -114,7 +112,6 @@ const TASKS: {
       { status: 'pending', text: 'Cambiar Clerk de pk_test_ a pk_live_', note: 'Vercel + Clerk Dashboard + actualizar env vars' },
       { status: 'pending', text: 'Registrar webhook Stripe en producción', note: 'Stripe Dashboard → /api/stripe/webhook → copiar whsec_...' },
       { status: 'pending', text: 'Verificar RESEND_API_KEY y ADMIN_EMAIL en Vercel', note: 'Sin esto los correos salen silenciosamente vacíos' },
-      { status: 'pending', text: 'Agregar ANTHROPIC_API_KEY en Vercel si quieren activar IA', note: 'Activar luego desde /casa/tienda/configuracion → asistente IA' },
       { status: 'done',    text: 'Conectar dominio compadregallo.com en Vercel', note: 'Dominio activo en producción' },
     ],
   },
@@ -127,7 +124,7 @@ const TASKS: {
       { status: 'done',    text: 'Security headers HTTP — CSP, X-Frame-Options, nosniff en next.config' },
       { status: 'done',    text: 'Precios re-fetcheados server-side antes de crear PI' },
       { status: 'done',    text: 'Mutaciones admin protegidas con requireAdminUserId()' },
-      { status: 'pending', text: 'Rate limiting en /api/stripe/create-intent y /api/ai', note: 'Upstash Ratelimit o Vercel Edge Middleware' },
+      { status: 'pending', text: 'Rate limiting en /api/stripe/create-intent', note: 'Upstash Ratelimit o Vercel Edge Middleware' },
       { status: 'pending', text: 'Validación de schema con Zod en server actions del checkout', note: 'Solo hay .trim() y parseFloat() actualmente' },
       { status: 'pending', text: 'Validar MIME en getUploadUrl() antes de firmar URL', note: 'Actualmente acepta cualquier contentType' },
     ],
@@ -153,7 +150,6 @@ const TASKS: {
       { status: 'done', text: 'Stripe — test/live keys en DB (store_settings)' },
       { status: 'done', text: 'Resend — emails transaccionales' },
       { status: 'done', text: 'Skydropx Pro — cotizar, generar guía, rastrear, cancelar' },
-      { status: 'done', text: 'Anthropic SDK — asistente IA con agentic loop (desactivado por defecto)' },
     ],
   },
 ]
@@ -166,7 +162,6 @@ const CODE_STATE = [
   { file: 'src/lib/sku.ts',                          desc: 'buildProductSku (CAT3-SEQ4), buildVariantSku' },
   { file: 'src/app/api/stripe/webhook/route.ts',     desc: 'webhook Stripe con constructEvent' },
   { file: 'src/app/api/clerk/webhook/route.ts',      desc: 'webhook Clerk con svix' },
-  { file: 'src/app/api/ai/route.ts',                 desc: 'asistente IA — agentic loop, 4 tools, admin-only' },
   { file: 'src/app/(platform)/carrito/checkout/',    desc: 'createOrder, getRates, decrementStock' },
   { file: 'src/app/casa/ordenes/[id]/actions.ts',    desc: 'Skydropx shipment, status, cancel' },
   { file: 'src/app/casa/tienda/actions.ts',          desc: 'CRUD productos + variantes + SKU auto-gen' },
@@ -366,7 +361,6 @@ function CodigoTab() {
             { key: 'ADMIN_EMAIL',                      status: 'ok',      note: 'para notificaciones de pedidos al admin' },
             { key: 'NEXT_PUBLIC_APP_URL',              status: 'ok',      note: 'https://compadregallo.com' },
             { key: 'ADMIN_USER_IDS',                   status: 'ok',      note: 'IDs de Clerk con rol admin (separados por coma)' },
-            { key: 'ANTHROPIC_API_KEY',                status: 'pending', note: 'opcional — solo si activan asistente IA' },
           ].map((row, i, arr) => {
             const color = row.status === 'ok' ? '#1a6b35' : row.status === 'warn' ? '#cc7700' : M
             const bg    = row.status === 'ok' ? 'rgba(26,107,53,0.06)' : row.status === 'warn' ? 'rgba(204,119,0,0.07)' : '#f6f5f1'
@@ -406,7 +400,6 @@ function CodigoTab() {
             { name: 'Stripe v22',      sub: 'PI + webhook + test/live',      color: '#635bff' },
             { name: 'Resend',          sub: 'emails transaccionales',        color: '#0a0a0a' },
             { name: 'Skydropx Pro',    sub: 'envíos + carta porte',          color: '#003a87' },
-            { name: 'Anthropic SDK',   sub: 'asistente IA con tools',        color: '#cc5500' },
             { name: 'Vercel',          sub: 'deploy desde GitHub main',      color: '#0a0a0a' },
           ].map(tech => (
             <div key={tech.name} style={{
