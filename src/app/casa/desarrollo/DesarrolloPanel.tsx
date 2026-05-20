@@ -16,16 +16,23 @@ const CHANGELOG: {
 }[] = [
   {
     date: '2026-05-20',
-    tag: 'sesión actual',
+    tag: 'sesión 6',
     items: [
       { type: 'feature', text: 'Skydropx: siempre cotizar antes de generar guía — pre-selecciona paquetería del cliente, advierte si se cambia' },
       { type: 'feature', text: 'Nueva orden: cotizar envío con Skydropx al crear orden manual — selección de paquetería + costo auto-llenado' },
       { type: 'feature', text: 'Nueva orden: dirección de envío visible por defecto (necesaria para Skydropx)' },
+      { type: 'feature', text: 'Saldo Skydropx en panel de crear guía (OrderActions) — badge verde/naranja, alerta si < $200 MXN' },
+      { type: 'feature', text: 'Badge de saldo Skydropx en barra de /casa/ordenes — visible sin entrar a ninguna orden' },
       { type: 'feature', text: '/cuenta pedidos: tarjeta muestra productos y guía sin expandir; expandida agrega dirección de envío completa' },
+      { type: 'feature', text: '/teamovavi — página secreta sin auth: corazones pixel art que ascienden como globos, animación ease-in de entrada' },
       { type: 'fix',     text: '"en camino" solo muestra status=shipped; paid va a sección "confirmados"' },
       { type: 'fix',     text: 'Botón cotizar bloqueado hasta seleccionar producto Y C.P. de destino — con hints claros' },
       { type: 'fix',     text: 'Cotizar envío: Server Action envuelta en useTransition para compatibilidad con App Router' },
-      { type: 'fix',     text: 'Lookup de cliente: maybeSingle() evita crash si no se encuentra; busca en orders como fallback para usuarios sin cuenta' },
+      { type: 'fix',     text: 'Lookup de cliente: maybeSingle() evita crash; busca en orders como fallback para clientes sin cuenta' },
+      { type: 'fix',     text: 'requireAdmin() → requireAdminOrThrow() en todas las Server Actions con try/catch — redirect() lanza NEXT_REDIRECT (no instanceof Error), silenciaba todos los errores de auth' },
+      { type: 'fix',     text: 'lookupUser reescrito con .ilike() secuencial — elimina .or() compuesto que falló con wildcards en producción' },
+      { type: 'fix',     text: 'Bug crítico: contador _id module-level en NuevoOrden → useRef por instancia — lambda caliente incrementaba _id entre requests, React 19 lo promovía a hydration error fatal' },
+      { type: 'fix',     text: 'Error boundary /casa muestra digest del error — facilita búsqueda en Vercel function logs' },
     ],
   },
   {
