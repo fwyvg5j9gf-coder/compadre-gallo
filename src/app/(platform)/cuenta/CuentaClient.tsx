@@ -59,26 +59,47 @@ function OrderCard({ order }: { order: Order }) {
       <button
         onClick={() => setExpanded(e => !e)}
         style={{
-          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          width: '100%', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
           padding: 'var(--space-4) var(--space-5)', background: '#fff', border: 'none',
           cursor: 'pointer', gap: 'var(--space-4)', textAlign: 'left',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flex: 1, minWidth: 0 }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: '#003a87', flexShrink: 0 }}>
-            {folio(order.folio_number)}
-          </span>
-          <span style={{ fontSize: 12, color: 'var(--fg-muted)', flexShrink: 0 }}>
-            {new Date(order.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}
-          </span>
-          <span style={{
-            fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-            background: sc.bg, color: sc.text, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap',
-          }}>
-            {STATUS_LABEL[order.status] ?? order.status}
-          </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap', marginBottom: items.length > 0 ? 6 : 0 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: '#003a87', flexShrink: 0 }}>
+              {folio(order.folio_number)}
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--fg-muted)', flexShrink: 0 }}>
+              {new Date(order.created_at).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' })}
+            </span>
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+              background: sc.bg, color: sc.text, textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap',
+            }}>
+              {STATUS_LABEL[order.status] ?? order.status}
+            </span>
+          </div>
+          {items.length > 0 && (
+            <div style={{ fontSize: 13, color: 'var(--fg-muted)', lineHeight: 1.4 }}>
+              {items.slice(0, 2).map((item, i) => (
+                <span key={i}>
+                  {i > 0 && ', '}
+                  {item.product_name}
+                  {item.size && item.size !== 'única' ? ` (${item.size})` : ''}
+                  {item.quantity > 1 ? ` ×${item.quantity}` : ''}
+                </span>
+              ))}
+              {items.length > 2 && <span> +{items.length - 2} más</span>}
+            </div>
+          )}
+          {order.tracking_number && !expanded && (
+            <div style={{ fontSize: 11, color: '#007a8c', fontWeight: 600, marginTop: 4 }}>
+              guía: <span style={{ fontFamily: 'var(--font-mono)' }}>{order.tracking_number}</span>
+              {order.shipping_carrier ? ` · ${order.shipping_carrier}` : ''}
+            </div>
+          )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexShrink: 0, paddingTop: 2 }}>
           <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', fontSize: 15 }}>{fmt(order.total_mxn)}</span>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"
             style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 150ms', color: 'var(--fg-muted)' }}>
@@ -113,10 +134,33 @@ function OrderCard({ order }: { order: Order }) {
               <span>envío</span><span style={{ fontFamily: 'var(--font-mono)' }}>{order.shipping_mxn === 0 ? 'gratis' : fmt(order.shipping_mxn)}</span>
             </div>
           </div>
+
+          {/* Dirección de envío */}
+          {order.shipping_address && (
+            <div style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', borderRadius: 6, padding: '12px 16px' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                dirección de envío
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--fg)', lineHeight: 1.6 }}>
+                {order.shipping_address.name && <div style={{ fontWeight: 600 }}>{order.shipping_address.name}</div>}
+                {order.shipping_address.street && <div>{order.shipping_address.street}</div>}
+                {(order.shipping_address.colonia || order.shipping_address.zip) && (
+                  <div>
+                    {[order.shipping_address.colonia, order.shipping_address.zip].filter(Boolean).join(', ')}
+                  </div>
+                )}
+                {(order.shipping_address.city || order.shipping_address.state) && (
+                  <div>{[order.shipping_address.city, order.shipping_address.state].filter(Boolean).join(', ')}</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Guía de rastreo */}
           {order.tracking_number && (
             <div style={{ background: 'rgba(0,58,135,0.06)', border: '1px solid rgba(0,58,135,0.15)', borderRadius: 6, padding: '12px 16px' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#007a8c', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
-                guía de rastreo {order.shipping_carrier ? `· ${order.shipping_carrier}` : ''}
+                número de guía {order.shipping_carrier ? `· ${order.shipping_carrier}` : ''}
               </div>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: '#003a87' }}>
                 {order.tracking_number}
