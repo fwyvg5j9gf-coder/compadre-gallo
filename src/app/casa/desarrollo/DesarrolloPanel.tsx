@@ -110,8 +110,8 @@ const TASKS: {
     accent: '#ff0100',
     items: [
       { status: 'done',    text: 'Cambiar Clerk de pk_test_ a pk_live_', note: 'Keys live configuradas en Vercel' },
-      { status: 'pending', text: 'Registrar webhook Stripe en producción', note: 'Stripe Dashboard → /api/stripe/webhook → copiar whsec_...' },
-      { status: 'pending', text: 'Verificar RESEND_API_KEY y ADMIN_EMAIL en Vercel', note: 'Sin esto los correos salen silenciosamente vacíos' },
+      { status: 'done',    text: 'Registrar webhook Stripe en producción', note: 'STRIPE_WEBHOOK_SECRET configurado en Vercel — ojo: store_settings aún en modo test' },
+      { status: 'done',    text: 'Verificar RESEND_API_KEY y ADMIN_EMAIL en Vercel', note: 'Configurados en Vercel' },
       { status: 'done',    text: 'Conectar dominio compadregallo.com en Vercel', note: 'Dominio activo en producción' },
     ],
   },
