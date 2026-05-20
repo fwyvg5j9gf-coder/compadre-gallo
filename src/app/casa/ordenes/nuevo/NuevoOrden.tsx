@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { createManualOrder, lookupUser, fetchRatesForNewOrder, type ManualItem, type ShippingRate } from './actions'
+import { createManualOrder, type ManualItem, type ShippingRate } from './actions'
 import AdminShell from '../../AdminShell'
 
 type ProductOption = {
@@ -150,21 +150,20 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
     setPendingRate(true)
     const productIds = items.filter(i => i.productId).map(i => i.productId)
     try {
-      const { rates: fetched, error } = await fetchRatesForNewOrder({
-        destZip: addrZip,
-        destState: addrState,
-        destCity: addrCity,
-        destColonia: addrColonia,
-        productIds,
+      const res = await fetch('/api/admin/shipping-rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ destZip: addrZip, destState: addrState, destCity: addrCity, destColonia: addrColonia, productIds }),
       })
-      if (error || !fetched) {
-        setRateError(error ?? 'error al cotizar')
+      const json = await res.json() as { rates?: ShippingRate[]; error?: string }
+      if (json.error || !json.rates) {
+        setRateError(json.error ?? 'error al cotizar')
         setRateStep('idle')
         return
       }
-      setRates(fetched)
-      setSelectedRate(fetched[0] ?? null)
-      if (fetched[0]) setShippingMxn(Math.round(fetched[0].total_mxn * 100))
+      setRates(json.rates)
+      setSelectedRate(json.rates[0] ?? null)
+      if (json.rates[0]) setShippingMxn(Math.round(json.rates[0].total_mxn * 100))
       setRateStep('selecting')
     } catch (e) {
       setRateError(e instanceof Error ? e.message : 'error al cotizar envío')
@@ -183,17 +182,19 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
     setLookupError(null)
     setPendingLookup(true)
     try {
-      const { data, error: err } = await lookupUser(lookupQuery)
-      if (err || !data) { setLookupError(err ?? 'no encontrado'); return }
-      setCustomerEmail(data.email)
-      setCustomerName(data.name ?? '')
-      setCustomerPhone(data.phone ?? '')
-      if (data.address) {
-        setAddrStreet(data.address.street ?? '')
-        setAddrColonia(data.address.colonia ?? '')
-        setAddrZip(data.address.zip ?? '')
-        setAddrCity(data.address.city ?? '')
-        setAddrState(data.address.state ?? '')
+      const res = await fetch(`/api/admin/lookup-user?q=${encodeURIComponent(lookupQuery)}`)
+      const json = await res.json() as { data?: { email: string; name: string | null; phone: string | null; address: Record<string, string> | null }; error?: string }
+      if (json.error || !json.data) { setLookupError(json.error ?? 'no encontrado'); return }
+      const d = json.data
+      setCustomerEmail(d.email)
+      setCustomerName(d.name ?? '')
+      setCustomerPhone(d.phone ?? '')
+      if (d.address) {
+        setAddrStreet(d.address.street ?? '')
+        setAddrColonia(d.address.colonia ?? '')
+        setAddrZip(d.address.zip ?? '')
+        setAddrCity(d.address.city ?? '')
+        setAddrState(d.address.state ?? '')
         setShowAddress(true)
       }
     } catch (e) {
