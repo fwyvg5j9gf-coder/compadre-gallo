@@ -3,12 +3,77 @@
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import { requireAdmin } from '@/lib/auth.server'
+import { getShippingRates, type ShippingRate } from '@/lib/skydropx'
 
 export type UserLookup = {
   email: string
   name: string | null
   phone: string | null
   address: Record<string, string> | null
+}
+
+export type { ShippingRate }
+
+export async function fetchRatesForNewOrder({
+  destZip, destState, destCity, destColonia,
+  productIds,
+}: {
+  destZip: string
+  destState: string
+  destCity: string
+  destColonia: string
+  productIds: string[]
+}): Promise<{ rates?: ShippingRate[]; error?: string }> {
+  try {
+    await requireAdmin()
+
+    const { data: settings } = await supabaseAdmin
+      .from('store_settings')
+      .select('skydropx_client_id, skydropx_client_secret, origin_zip, origin_state, origin_city, origin_colonia, skydropx_enabled')
+      .single()
+
+    if (!settings?.skydropx_enabled) return { error: 'Skydropx no está habilitado' }
+    if (!settings.skydropx_client_id || !settings.skydropx_client_secret) return { error: 'faltan credenciales de Skydropx' }
+    if (!settings.origin_zip) return { error: 'falta código postal de origen en configuración' }
+    if (!destZip) return { error: 'agrega el código postal de destino' }
+
+    let parcel = { weight_kg: 0.5, length_cm: 30, width_cm: 20, height_cm: 10 }
+
+    if (productIds.length > 0) {
+      const { data: product } = await supabaseAdmin
+        .from('products').select('packaging_type_id, weight_grams').eq('id', productIds[0]).single()
+      if (product?.packaging_type_id) {
+        const { data: pkg } = await supabaseAdmin
+          .from('packaging_types').select('weight_grams, length_cm, width_cm, height_cm').eq('id', product.packaging_type_id).single()
+        if (pkg) {
+          parcel = {
+            weight_kg: Math.max(0.01, (product.weight_grams ?? pkg.weight_grams) / 1000),
+            length_cm: Number(pkg.length_cm),
+            width_cm: Number(pkg.width_cm),
+            height_cm: Number(pkg.height_cm),
+          }
+        }
+      }
+    }
+
+    const rates = await getShippingRates({
+      clientId: settings.skydropx_client_id,
+      clientSecret: settings.skydropx_client_secret,
+      originZip: settings.origin_zip,
+      originState: settings.origin_state ?? '',
+      originCity: settings.origin_city ?? '',
+      originColonia: settings.origin_colonia ?? '',
+      destZip,
+      destState,
+      destCity,
+      destColonia,
+      parcel,
+    })
+
+    return { rates }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'error al cotizar' }
+  }
 }
 
 export async function lookupUser(email: string): Promise<{ data?: UserLookup; error?: string }> {

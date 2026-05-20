@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createManualOrder, lookupUser, type ManualItem } from './actions'
+import { createManualOrder, lookupUser, fetchRatesForNewOrder, type ManualItem, type ShippingRate } from './actions'
 import AdminShell from '../../AdminShell'
 
 type ProductOption = {
@@ -134,8 +134,43 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
     { _key: uid(), productId: '', productName: '', variantId: null, size: null, quantity: 1, unitPriceMxn: 0 },
   ])
 
+  // Cotización Skydropx
+  const [rateStep, setRateStep] = useState<'idle' | 'fetching' | 'selecting'>('idle')
+  const [rates, setRates] = useState<ShippingRate[]>([])
+  const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null)
+  const [rateError, setRateError] = useState<string | null>(null)
+  const [shippingMxn, setShippingMxn] = useState(0)
+
   const subtotal = items.reduce((s, i) => s + i.unitPriceMxn * i.quantity, 0)
   const fmt = (c: number) => (c / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
+  const fmtPesos = (p: number) => p.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
+
+  async function handleCotizarEnvio() {
+    setRateError(null)
+    setRateStep('fetching')
+    const productIds = items.filter(i => i.productId).map(i => i.productId)
+    const { rates: fetched, error } = await fetchRatesForNewOrder({
+      destZip: addrZip,
+      destState: addrState,
+      destCity: addrCity,
+      destColonia: addrColonia,
+      productIds,
+    })
+    if (error || !fetched) {
+      setRateError(error ?? 'error al cotizar')
+      setRateStep('idle')
+      return
+    }
+    setRates(fetched)
+    setSelectedRate(fetched[0] ?? null)
+    if (fetched[0]) setShippingMxn(Math.round(fetched[0].total_mxn * 100))
+    setRateStep('selecting')
+  }
+
+  function handleSelectRate(rate: ShippingRate) {
+    setSelectedRate(rate)
+    setShippingMxn(Math.round(rate.total_mxn * 100))
+  }
 
   function handleLookup() {
     setLookupError(null)
@@ -185,8 +220,6 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
       router.push(`/casa/ordenes/${orderId}`)
     })
   }
-
-  const shippingMxnInput = { ...inp, width: 120 }
 
   return (
     <AdminShell crumb="nueva orden" crumbHref="/casa/ordenes">
@@ -298,21 +331,18 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
           {/* Envío */}
           <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, padding: '20px 24px' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 16 }}>envío</div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
-              <label style={lbl}>
-                costo de envío ($)
-                <input name="shipping_mxn" type="number" min="0" step="0.01" defaultValue="0" style={shippingMxnInput} />
-              </label>
-              <button
-                type="button"
-                onClick={() => setShowAddress(v => !v)}
-                style={{ height: 36, padding: '0 14px', border: `1px solid ${B}`, borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 13, color: M, whiteSpace: 'nowrap' }}
-              >
-                {showAddress ? '− ocultar dirección' : '+ agregar dirección'}
-              </button>
-            </div>
+
+            {/* Dirección toggle */}
+            <button
+              type="button"
+              onClick={() => setShowAddress(v => !v)}
+              style={{ marginBottom: 12, height: 36, padding: '0 14px', border: `1px solid ${B}`, borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 13, color: M, whiteSpace: 'nowrap' }}
+            >
+              {showAddress ? '− ocultar dirección' : '+ agregar dirección de envío'}
+            </button>
+
             {showAddress && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
                 <label style={{ ...lbl, gridColumn: '1 / -1' }}>
                   calle y número
                   <input name="addr_street" value={addrStreet} onChange={e => setAddrStreet(e.target.value)} style={inp} placeholder="Av. Insurgentes 123" />
@@ -335,6 +365,97 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
                 </label>
               </div>
             )}
+
+            {/* Cotización Skydropx */}
+            <div style={{ borderTop: showAddress ? `1px solid ${B}` : 'none', paddingTop: showAddress ? 16 : 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                {/* Hidden input to submit shipping value */}
+                <input type="hidden" name="shipping_mxn" value={(shippingMxn / 100).toFixed(2)} />
+
+                {/* Costo actual */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: M }}>costo de envío</span>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 16, color: '#0a0a0a' }}>
+                    {fmtPesos(shippingMxn / 100)}
+                    {selectedRate && (
+                      <span style={{ fontSize: 12, fontWeight: 600, color: S, marginLeft: 8 }}>
+                        {selectedRate.carrier} · {selectedRate.service_level}
+                        {selectedRate.days ? ` · ${selectedRate.days}d` : ''}
+                      </span>
+                    )}
+                  </span>
+                </div>
+
+                {/* Override manual */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: M }}>o ingresar manualmente</span>
+                  <input
+                    type="number" min="0" step="0.01"
+                    value={(shippingMxn / 100).toFixed(2)}
+                    onChange={e => {
+                      setShippingMxn(Math.round(parseFloat(e.target.value || '0') * 100))
+                      setSelectedRate(null)
+                    }}
+                    style={{ ...inp, width: 120 }}
+                  />
+                </div>
+
+                {/* Botón cotizar */}
+                {addrZip && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: M }}>paquetería</span>
+                    <button
+                      type="button"
+                      onClick={handleCotizarEnvio}
+                      disabled={rateStep === 'fetching'}
+                      style={{
+                        height: 36, padding: '0 16px', background: '#003a87', color: '#fff',
+                        border: 'none', borderRadius: 4, fontWeight: 700, fontSize: 13,
+                        cursor: rateStep === 'fetching' ? 'default' : 'pointer',
+                        opacity: rateStep === 'fetching' ? 0.6 : 1, whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {rateStep === 'fetching' ? 'cotizando…' : 'cotizar envío'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {rateError && (
+                <p style={{ fontSize: 12, color: '#cc0000', marginTop: 8 }}>{rateError}</p>
+              )}
+
+              {/* Lista de tarifas */}
+              {rateStep === 'selecting' && rates.length > 0 && (
+                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {rates.map(rate => {
+                    const isSelected = selectedRate?.rate_id === rate.rate_id
+                    return (
+                      <button
+                        key={rate.rate_id}
+                        type="button"
+                        onClick={() => handleSelectRate(rate)}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '10px 14px', borderRadius: 6, cursor: 'pointer', textAlign: 'left',
+                          border: isSelected ? '2px solid #003a87' : `1px solid ${B}`,
+                          background: isSelected ? 'rgba(0,58,135,0.04)' : '#fff',
+                          transition: 'border-color 120ms',
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span style={{ fontWeight: 700, fontSize: 13, color: '#0a0a0a' }}>{rate.carrier}</span>
+                          <span style={{ fontSize: 11, color: S }}>{rate.service_level}{rate.days ? ` · ${rate.days} días hábiles` : ''}</span>
+                        </div>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, color: isSelected ? '#003a87' : '#0a0a0a' }}>
+                          {fmtPesos(rate.total_mxn)}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Estado + notas */}
