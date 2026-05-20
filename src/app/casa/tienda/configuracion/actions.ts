@@ -227,18 +227,23 @@ export async function testShippingQuote(destZip: string, destState: string, dest
 
 export async function saveStripeConfig(formData: FormData) {
   await requireAdmin()
-  const { error } = await supabaseAdmin.from('store_settings').update({
-    stripe_test_mode:     formData.get('test_mode') === 'true',
-    stripe_pk_test:       (formData.get('pk_test') as string ?? '').trim(),
-    stripe_sk_test:       (formData.get('sk_test') as string ?? '').trim(),
-    stripe_pk_live:       (formData.get('pk_live') as string ?? '').trim(),
-    stripe_sk_live:       (formData.get('sk_live') as string ?? '').trim(),
-    stripe_webhook_secret:(formData.get('webhook_secret') as string ?? '').trim(),
-    stripe_statement_desc:(formData.get('statement_desc') as string ?? '').trim().slice(0, 22),
-    stripe_markup_pct:    parseFloat((formData.get('markup_pct') as string) || '0'),
-    updated_at: new Date().toISOString(),
-  }).eq('id', 1)
+  const [{ error }, { error: secretsError }] = await Promise.all([
+    supabaseAdmin.from('store_settings').update({
+      stripe_test_mode:     formData.get('test_mode') === 'true',
+      stripe_pk_test:       (formData.get('pk_test') as string ?? '').trim(),
+      stripe_pk_live:       (formData.get('pk_live') as string ?? '').trim(),
+      stripe_statement_desc:(formData.get('statement_desc') as string ?? '').trim().slice(0, 22),
+      stripe_markup_pct:    parseFloat((formData.get('markup_pct') as string) || '0'),
+      updated_at: new Date().toISOString(),
+    }).eq('id', 1),
+    supabaseAdmin.from('store_secrets').update({
+      stripe_sk_test:       (formData.get('sk_test') as string ?? '').trim(),
+      stripe_sk_live:       (formData.get('sk_live') as string ?? '').trim(),
+      stripe_webhook_secret:(formData.get('webhook_secret') as string ?? '').trim(),
+    }).eq('id', 1),
+  ])
   if (error) throw new Error(error.message)
+  if (secretsError) throw new Error(secretsError.message)
   revalidatePath('/casa/tienda/configuracion')
 }
 

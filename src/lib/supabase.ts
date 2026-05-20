@@ -79,13 +79,21 @@ export type StoreSettings = {
   origin_colonia: string
   stripe_test_mode: boolean
   stripe_pk_test: string
-  stripe_sk_test: string
   stripe_pk_live: string
-  stripe_sk_live: string
-  stripe_webhook_secret: string
   stripe_statement_desc: string
   stripe_markup_pct: number
   ai_chat_enabled: boolean
+  // merged from store_secrets server-side — never exposed via public read
+  stripe_sk_test: string
+  stripe_sk_live: string
+  stripe_webhook_secret: string
+}
+
+export type StoreSecrets = {
+  id: number
+  stripe_sk_test: string
+  stripe_sk_live: string
+  stripe_webhook_secret: string
 }
 
 export type Show = {

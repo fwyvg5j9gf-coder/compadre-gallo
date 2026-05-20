@@ -92,14 +92,13 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
   const Stripe = (await import('stripe')).default
 
   // ── 1. Verify Stripe payment server-side ────────────────────────────────────
-  const { data: storeSettings } = await supabaseAdmin
-    .from('store_settings')
-    .select('stripe_test_mode, stripe_sk_test, stripe_sk_live')
-    .eq('id', 1)
-    .single()
+  const [{ data: storeSettings }, { data: storeSecrets }] = await Promise.all([
+    supabaseAdmin.from('store_settings').select('stripe_test_mode').eq('id', 1).single(),
+    supabaseAdmin.from('store_secrets').select('stripe_sk_test, stripe_sk_live').eq('id', 1).single(),
+  ])
 
   const useTest = storeSettings?.stripe_test_mode ?? true
-  const dbKey = useTest ? storeSettings?.stripe_sk_test : storeSettings?.stripe_sk_live
+  const dbKey = useTest ? storeSecrets?.stripe_sk_test : storeSecrets?.stripe_sk_live
   const stripeKey = (dbKey && dbKey.length > 10) ? dbKey : process.env.STRIPE_SECRET_KEY!
   const stripe = new Stripe(stripeKey)
 

@@ -3,14 +3,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase.server'
 
 async function getStripeClient() {
-  const { data: s } = await supabaseAdmin
-    .from('store_settings')
-    .select('stripe_test_mode, stripe_sk_test, stripe_sk_live, stripe_markup_pct')
-    .eq('id', 1)
-    .single()
+  const [{ data: s }, { data: secrets }] = await Promise.all([
+    supabaseAdmin.from('store_settings').select('stripe_test_mode, stripe_markup_pct').eq('id', 1).single(),
+    supabaseAdmin.from('store_secrets').select('stripe_sk_test, stripe_sk_live').eq('id', 1).single(),
+  ])
 
   const useTest = s?.stripe_test_mode ?? true
-  const dbKey = useTest ? s?.stripe_sk_test : s?.stripe_sk_live
+  const dbKey = useTest ? secrets?.stripe_sk_test : secrets?.stripe_sk_live
   const key = (dbKey && dbKey.length > 10) ? dbKey : process.env.STRIPE_SECRET_KEY!
   const markupPct = Number(s?.stripe_markup_pct ?? 0)
 
