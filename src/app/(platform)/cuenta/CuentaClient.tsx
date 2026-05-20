@@ -380,8 +380,9 @@ export default function CuentaClient({
   const { signOut } = useClerk()
   const router = useRouter()
 
-  const activeOrders = orders.filter(o => ['paid', 'shipped'].includes(o.status))
-  const historyOrders = orders.filter(o => !['paid', 'shipped'].includes(o.status))
+  const shippedOrders  = orders.filter(o => o.status === 'shipped')
+  const pendingOrders  = orders.filter(o => o.status === 'paid')
+  const historyOrders  = orders.filter(o => !['paid', 'shipped'].includes(o.status))
   const upcomingTickets = tickets.filter(t => t.shows?.date && new Date(t.shows.date) >= new Date())
   const pastTickets = tickets.filter(t => !upcomingTickets.includes(t))
 
@@ -495,17 +496,27 @@ export default function CuentaClient({
               </div>
             ) : (
               <>
-                {activeOrders.length > 0 && (
+                {shippedOrders.length > 0 && (
                   <div style={{ marginBottom: 'var(--space-7)' }}>
                     <h2 style={{ marginBottom: 'var(--space-4)' }}>en camino</h2>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                      {activeOrders.map(o => <OrderCard key={o.id} order={o} />)}
+                      {shippedOrders.map(o => <OrderCard key={o.id} order={o} />)}
+                    </div>
+                  </div>
+                )}
+                {pendingOrders.length > 0 && (
+                  <div style={{ marginBottom: 'var(--space-7)' }}>
+                    <h2 style={{ marginBottom: 'var(--space-4)' }}>confirmados</h2>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                      {pendingOrders.map(o => <OrderCard key={o.id} order={o} />)}
                     </div>
                   </div>
                 )}
                 {historyOrders.length > 0 && (
                   <div>
-                    <h2 style={{ marginBottom: 'var(--space-4)' }}>{activeOrders.length > 0 ? 'historial' : 'mis pedidos'}</h2>
+                    <h2 style={{ marginBottom: 'var(--space-4)' }}>
+                      {shippedOrders.length > 0 || pendingOrders.length > 0 ? 'historial' : 'mis pedidos'}
+                    </h2>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                       {historyOrders.map(o => <OrderCard key={o.id} order={o} />)}
                     </div>
