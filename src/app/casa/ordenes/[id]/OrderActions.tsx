@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { updateOrderStatus, updateTrackingNumber, createSkydropxShipment, getSkydropxRatesForOrder, deleteOrder, updateOrderDetails, fetchSkydropxShipmentStatus, cancelSkydropxShipment } from './actions'
+import { updateOrderStatus, updateTrackingNumber, createSkydropxShipment, getSkydropxRatesForOrder, deleteOrder, updateOrderDetails, fetchSkydropxShipmentStatus, cancelSkydropxShipment, fetchSkydropxBalance } from './actions'
 import type { ShippingRate, ShipmentStatus } from '@/lib/skydropx'
 import type { ReadinessItem, SkydropxEvent } from './actions'
 
@@ -114,9 +114,21 @@ export default function OrderActions({
   const [cancelShipmentError, setCancelShipmentError] = useState<string | null>(null)
   const [cancelShipmentMsg, setCancelShipmentMsg] = useState<string | null>(null)
   const [cancelReason, setCancelReason] = useState('')
+  const [skyBalance, setSkyBalance] = useState<number | null>(null)
+  const [skyBalanceCurrency, setSkyBalanceCurrency] = useState('MXN')
 
   const hasTracking = !!tracking
   const hasRateId = !!shippingRateId
+
+  useEffect(() => {
+    if (hasTracking) return
+    fetchSkydropxBalance().then(({ balance, currency }) => {
+      if (balance != null) {
+        setSkyBalance(balance)
+        if (currency) setSkyBalanceCurrency(currency)
+      }
+    })
+  }, [hasTracking])
 
   function handleTrackShipment() {
     setTrackError(null)
@@ -379,8 +391,23 @@ export default function OrderActions({
       {/* Crear guía Skydropx */}
       {!hasTracking && (
         <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, padding: '20px 24px' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 14 }}>
-            skydropx
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              skydropx
+            </div>
+            {skyBalance != null && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: M, letterSpacing: '0.04em', textTransform: 'uppercase' }}>saldo</span>
+                <span style={{
+                  fontFamily: 'monospace', fontSize: 13, fontWeight: 700,
+                  color: skyBalance < 200 ? '#cc4400' : '#1a6b35',
+                  background: skyBalance < 200 ? 'rgba(204,68,0,0.07)' : 'rgba(26,107,53,0.07)',
+                  padding: '2px 8px', borderRadius: 4,
+                }}>
+                  {skyBalance.toLocaleString('es-MX', { style: 'currency', currency: skyBalanceCurrency })}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Readiness checklist */}

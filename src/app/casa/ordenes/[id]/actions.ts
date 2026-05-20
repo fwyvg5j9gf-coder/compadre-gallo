@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import { requireAdmin, requireAdminUserId } from '@/lib/auth.server'
 import { logAction } from '@/lib/audit.server'
-import { createShipment, getShippingRates, getShipmentStatus, cancelShipmentInSkydropx, type ShippingRate, type ShipmentStatus } from '@/lib/skydropx'
+import { createShipment, getShippingRates, getShipmentStatus, cancelShipmentInSkydropx, getBalance, type ShippingRate, type ShipmentStatus } from '@/lib/skydropx'
 
 export type SkydropxEvent = {
   type: 'created' | 'cancelled'
@@ -445,5 +445,22 @@ export async function cancelSkydropxShipment(orderId: string, reason: string): P
     return skydropxError ? { skydropxError } : {}
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'error al cancelar' }
+  }
+}
+
+export async function fetchSkydropxBalance(): Promise<{ balance?: number; currency?: string; error?: string }> {
+  try {
+    await requireAdmin()
+    const { data: settings } = await supabaseAdmin
+      .from('store_settings')
+      .select('skydropx_client_id, skydropx_client_secret, skydropx_enabled')
+      .single()
+    if (!settings?.skydropx_enabled || !settings.skydropx_client_id || !settings.skydropx_client_secret) {
+      return { error: 'Skydropx no configurado' }
+    }
+    const { balance, currency } = await getBalance(settings.skydropx_client_id, settings.skydropx_client_secret)
+    return { balance, currency }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'error al consultar saldo' }
   }
 }
