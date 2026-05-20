@@ -113,8 +113,8 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
   const router = useRouter()
   const nextKey = useRef(1)
   const [isPending, startTransition] = useTransition()
-  const [pendingLookup, startLookup] = useTransition()
-  const [pendingRate, startRate] = useTransition()
+  const [pendingLookup, setPendingLookup] = useState(false)
+  const [pendingRate, setPendingRate] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isTest, setIsTest] = useState(false)
   const [showAddress, setShowAddress] = useState(true)
@@ -144,33 +144,34 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
   const fmt = (c: number) => (c / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
   const fmtPesos = (p: number) => p.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
 
-  function handleCotizarEnvio() {
+  async function handleCotizarEnvio() {
     setRateError(null)
     setRateStep('fetching')
+    setPendingRate(true)
     const productIds = items.filter(i => i.productId).map(i => i.productId)
-    startRate(async () => {
-      try {
-        const { rates: fetched, error } = await fetchRatesForNewOrder({
-          destZip: addrZip,
-          destState: addrState,
-          destCity: addrCity,
-          destColonia: addrColonia,
-          productIds,
-        })
-        if (error || !fetched) {
-          setRateError(error ?? 'error al cotizar')
-          setRateStep('idle')
-          return
-        }
-        setRates(fetched)
-        setSelectedRate(fetched[0] ?? null)
-        if (fetched[0]) setShippingMxn(Math.round(fetched[0].total_mxn * 100))
-        setRateStep('selecting')
-      } catch (e) {
-        setRateError(e instanceof Error ? e.message : 'error al cotizar envío')
+    try {
+      const { rates: fetched, error } = await fetchRatesForNewOrder({
+        destZip: addrZip,
+        destState: addrState,
+        destCity: addrCity,
+        destColonia: addrColonia,
+        productIds,
+      })
+      if (error || !fetched) {
+        setRateError(error ?? 'error al cotizar')
         setRateStep('idle')
+        return
       }
-    })
+      setRates(fetched)
+      setSelectedRate(fetched[0] ?? null)
+      if (fetched[0]) setShippingMxn(Math.round(fetched[0].total_mxn * 100))
+      setRateStep('selecting')
+    } catch (e) {
+      setRateError(e instanceof Error ? e.message : 'error al cotizar envío')
+      setRateStep('idle')
+    } finally {
+      setPendingRate(false)
+    }
   }
 
   function handleSelectRate(rate: ShippingRate) {
@@ -178,27 +179,28 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
     setShippingMxn(Math.round(rate.total_mxn * 100))
   }
 
-  function handleLookup() {
+  async function handleLookup() {
     setLookupError(null)
-    startLookup(async () => {
-      try {
-        const { data, error: err } = await lookupUser(lookupQuery)
-        if (err || !data) { setLookupError(err ?? 'no encontrado'); return }
-        setCustomerEmail(data.email)
-        setCustomerName(data.name ?? '')
-        setCustomerPhone(data.phone ?? '')
-        if (data.address) {
-          setAddrStreet(data.address.street ?? '')
-          setAddrColonia(data.address.colonia ?? '')
-          setAddrZip(data.address.zip ?? '')
-          setAddrCity(data.address.city ?? '')
-          setAddrState(data.address.state ?? '')
-          setShowAddress(true)
-        }
-      } catch (e) {
-        setLookupError(e instanceof Error ? e.message : 'error al buscar cliente')
+    setPendingLookup(true)
+    try {
+      const { data, error: err } = await lookupUser(lookupQuery)
+      if (err || !data) { setLookupError(err ?? 'no encontrado'); return }
+      setCustomerEmail(data.email)
+      setCustomerName(data.name ?? '')
+      setCustomerPhone(data.phone ?? '')
+      if (data.address) {
+        setAddrStreet(data.address.street ?? '')
+        setAddrColonia(data.address.colonia ?? '')
+        setAddrZip(data.address.zip ?? '')
+        setAddrCity(data.address.city ?? '')
+        setAddrState(data.address.state ?? '')
+        setShowAddress(true)
       }
-    })
+    } catch (e) {
+      setLookupError(e instanceof Error ? e.message : 'error al buscar cliente')
+    } finally {
+      setPendingLookup(false)
+    }
   }
 
   function addItem() {
@@ -346,14 +348,30 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
           <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, padding: '20px 24px' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 16 }}>envío</div>
 
-            {/* Dirección toggle */}
-            <button
-              type="button"
-              onClick={() => setShowAddress(v => !v)}
-              style={{ marginBottom: 12, height: 36, padding: '0 14px', border: `1px solid ${B}`, borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 13, color: M, whiteSpace: 'nowrap' }}
-            >
-              {showAddress ? '− ocultar dirección' : '+ agregar dirección de envío'}
-            </button>
+            {/* Dirección toggle + dirección de prueba */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setShowAddress(v => !v)}
+                style={{ height: 36, padding: '0 14px', border: `1px solid ${B}`, borderRadius: 4, background: '#fff', cursor: 'pointer', fontSize: 13, color: M, whiteSpace: 'nowrap' }}
+              >
+                {showAddress ? '− ocultar dirección' : '+ agregar dirección de envío'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAddrStreet('Av. Insurgentes Sur 1602')
+                  setAddrColonia('Crédito Constructor')
+                  setAddrZip('03940')
+                  setAddrCity('Ciudad de México')
+                  setAddrState('CDMX')
+                  setShowAddress(true)
+                }}
+                style={{ height: 36, padding: '0 14px', border: `1px dashed ${B}`, borderRadius: 4, background: 'rgba(255,226,0,0.06)', cursor: 'pointer', fontSize: 13, color: '#7a6000', whiteSpace: 'nowrap' }}
+              >
+                usar dirección de prueba
+              </button>
+            </div>
 
             {showAddress && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
