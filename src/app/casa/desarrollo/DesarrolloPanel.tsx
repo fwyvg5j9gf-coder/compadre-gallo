@@ -16,6 +16,18 @@ const CHANGELOG: {
 }[] = [
   {
     date: '2026-05-20',
+    tag: 'sesión 7',
+    items: [
+      { type: 'security', text: 'Stripe SK keys + webhook secret movidos a tabla store_secrets (RLS sin policies = solo service role) — antes estaban en store_settings con política public read' },
+      { type: 'security', text: 'Skydropx client_id y client_secret movidos a store_secrets — mismo fix que Stripe' },
+      { type: 'fix',     text: 'Nueva orden: lookupUser y fetchRatesForNewOrder convertidos de Server Actions a API routes (/api/admin/lookup-user, /api/admin/shipping-rates)' },
+      { type: 'doc',     text: 'Root cause documentado: Server Actions re-renderizan el Server Component de la página al ejecutarse; si ese componente llama auth()+redirect(), el redirect() lanza excepción especial que Next.js reporta como "Server Components render error" y no puede ser atrapada con try/catch en el cliente. Fix: usar API routes para operaciones de lectura.' },
+      { type: 'feature', text: 'Nueva orden: botón "usar dirección de prueba" rellena dirección CDMX para testing rápido de Skydropx' },
+      { type: 'feature', text: 'claude.app — acceso directo en la carpeta del proyecto, doble clic abre Terminal + Claude Code en el directorio correcto' },
+    ],
+  },
+  {
+    date: '2026-05-20',
     tag: 'sesión 6',
     items: [
       { type: 'feature', text: 'Skydropx: siempre cotizar antes de generar guía — pre-selecciona paquetería del cliente, advierte si se cambia' },
@@ -133,6 +145,7 @@ const TASKS: {
     section: 'features',
     accent: '#003a87',
     items: [
+      { status: 'pending', text: 'Cuentas — panel admin y flujo fan', note: 'Renombrar "clientes" → "cuentas"; unificar fans con cuenta Clerk + compradores invitados (sin cuenta); agregar guest checkout en tienda' },
       { status: 'pending', text: 'Checkout de boletos/shows', note: 'CheckoutClient.tsx es mock (setTimeout, sin Stripe ni DB) — falta conectar PI + tabla tickets' },
       { status: 'done',    text: 'Vista reducida para artistas (portal)', note: 'ArtistDetail filtra tabs por adminOnly; ingresos y ClerkLinkCard solo para admin' },
       { status: 'pending', text: 'SEO dinámico — generateMetadata en /artista/[slug] y /tienda/[id]', note: 'Ninguna página de plataforma tiene generateMetadata todavía' },
