@@ -115,7 +115,7 @@ const TASKS: {
       { status: 'pending', text: 'Registrar webhook Stripe en producción', note: 'Stripe Dashboard → /api/stripe/webhook → copiar whsec_...' },
       { status: 'pending', text: 'Verificar RESEND_API_KEY y ADMIN_EMAIL en Vercel', note: 'Sin esto los correos salen silenciosamente vacíos' },
       { status: 'pending', text: 'Agregar ANTHROPIC_API_KEY en Vercel si quieren activar IA', note: 'Activar luego desde /casa/tienda/configuracion → asistente IA' },
-      { status: 'pending', text: 'Conectar dominio compadregallo.com en Vercel', note: 'Settings → Domains → agregar dominio → actualizar NEXT_PUBLIC_APP_URL' },
+      { status: 'done',    text: 'Conectar dominio compadregallo.com en Vercel', note: 'Dominio activo en producción' },
     ],
   },
   {
@@ -364,7 +364,7 @@ function CodigoTab() {
             { key: 'RESEND_API_KEY',                   status: 'ok',      note: 'para emails transaccionales' },
             { key: 'RESEND_FROM_EMAIL',                status: 'ok',      note: 'pedidos@compadregallo.com' },
             { key: 'ADMIN_EMAIL',                      status: 'ok',      note: 'para notificaciones de pedidos al admin' },
-            { key: 'NEXT_PUBLIC_APP_URL',              status: 'pending', note: 'cambiar a https://compadregallo.com al conectar dominio' },
+            { key: 'NEXT_PUBLIC_APP_URL',              status: 'ok',      note: 'https://compadregallo.com' },
             { key: 'ADMIN_USER_IDS',                   status: 'ok',      note: 'IDs de Clerk con rol admin (separados por coma)' },
             { key: 'ANTHROPIC_API_KEY',                status: 'pending', note: 'opcional — solo si activan asistente IA' },
           ].map((row, i, arr) => {
