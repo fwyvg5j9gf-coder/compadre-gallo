@@ -149,22 +149,27 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
     setRateStep('fetching')
     const productIds = items.filter(i => i.productId).map(i => i.productId)
     startRate(async () => {
-      const { rates: fetched, error } = await fetchRatesForNewOrder({
-        destZip: addrZip,
-        destState: addrState,
-        destCity: addrCity,
-        destColonia: addrColonia,
-        productIds,
-      })
-      if (error || !fetched) {
-        setRateError(error ?? 'error al cotizar')
+      try {
+        const { rates: fetched, error } = await fetchRatesForNewOrder({
+          destZip: addrZip,
+          destState: addrState,
+          destCity: addrCity,
+          destColonia: addrColonia,
+          productIds,
+        })
+        if (error || !fetched) {
+          setRateError(error ?? 'error al cotizar')
+          setRateStep('idle')
+          return
+        }
+        setRates(fetched)
+        setSelectedRate(fetched[0] ?? null)
+        if (fetched[0]) setShippingMxn(Math.round(fetched[0].total_mxn * 100))
+        setRateStep('selecting')
+      } catch (e) {
+        setRateError(e instanceof Error ? e.message : 'error al cotizar envío')
         setRateStep('idle')
-        return
       }
-      setRates(fetched)
-      setSelectedRate(fetched[0] ?? null)
-      if (fetched[0]) setShippingMxn(Math.round(fetched[0].total_mxn * 100))
-      setRateStep('selecting')
     })
   }
 
@@ -176,18 +181,22 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
   function handleLookup() {
     setLookupError(null)
     startLookup(async () => {
-      const { data, error: err } = await lookupUser(lookupQuery)
-      if (err || !data) { setLookupError(err ?? 'no encontrado'); return }
-      setCustomerEmail(data.email)
-      setCustomerName(data.name ?? '')
-      setCustomerPhone(data.phone ?? '')
-      if (data.address) {
-        setAddrStreet(data.address.street ?? '')
-        setAddrColonia(data.address.colonia ?? '')
-        setAddrZip(data.address.zip ?? '')
-        setAddrCity(data.address.city ?? '')
-        setAddrState(data.address.state ?? '')
-        setShowAddress(true)
+      try {
+        const { data, error: err } = await lookupUser(lookupQuery)
+        if (err || !data) { setLookupError(err ?? 'no encontrado'); return }
+        setCustomerEmail(data.email)
+        setCustomerName(data.name ?? '')
+        setCustomerPhone(data.phone ?? '')
+        if (data.address) {
+          setAddrStreet(data.address.street ?? '')
+          setAddrColonia(data.address.colonia ?? '')
+          setAddrZip(data.address.zip ?? '')
+          setAddrCity(data.address.city ?? '')
+          setAddrState(data.address.state ?? '')
+          setShowAddress(true)
+        }
+      } catch (e) {
+        setLookupError(e instanceof Error ? e.message : 'error al buscar cliente')
       }
     })
   }
@@ -216,9 +225,13 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
     fd.set('is_test', isTest ? '1' : '0')
 
     startTransition(async () => {
-      const { orderId, error: err } = await createManualOrder(fd)
-      if (err || !orderId) { setError(err ?? 'error desconocido'); return }
-      router.push(`/casa/ordenes/${orderId}`)
+      try {
+        const { orderId, error: err } = await createManualOrder(fd)
+        if (err || !orderId) { setError(err ?? 'error desconocido'); return }
+        router.push(`/casa/ordenes/${orderId}`)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'error al crear la orden')
+      }
     })
   }
 
