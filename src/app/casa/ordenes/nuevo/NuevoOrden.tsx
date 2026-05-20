@@ -401,24 +401,33 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
                 </div>
 
                 {/* Botón cotizar */}
-                {addrZip && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: M }}>paquetería</span>
-                    <button
-                      type="button"
-                      onClick={handleCotizarEnvio}
-                      disabled={rateStep === 'fetching'}
-                      style={{
-                        height: 36, padding: '0 16px', background: '#003a87', color: '#fff',
-                        border: 'none', borderRadius: 4, fontWeight: 700, fontSize: 13,
-                        cursor: rateStep === 'fetching' ? 'default' : 'pointer',
-                        opacity: rateStep === 'fetching' ? 0.6 : 1, whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {rateStep === 'fetching' ? 'cotizando…' : 'cotizar envío'}
-                    </button>
-                  </div>
-                )}
+                {addrZip && (() => {
+                  const hasProduct = items.some(i => i.productId)
+                  const busy = rateStep === 'fetching'
+                  const blocked = !hasProduct || busy
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: M }}>paquetería</span>
+                      <button
+                        type="button"
+                        onClick={handleCotizarEnvio}
+                        disabled={blocked}
+                        title={!hasProduct ? 'selecciona al menos un producto primero' : undefined}
+                        style={{
+                          height: 36, padding: '0 16px', background: '#003a87', color: '#fff',
+                          border: 'none', borderRadius: 4, fontWeight: 700, fontSize: 13,
+                          cursor: blocked ? 'not-allowed' : 'pointer',
+                          opacity: blocked ? 0.4 : 1, whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {busy ? 'cotizando…' : 'cotizar envío'}
+                      </button>
+                      {!hasProduct && (
+                        <span style={{ fontSize: 11, color: S }}>selecciona un producto primero</span>
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
 
               {rateError && (
