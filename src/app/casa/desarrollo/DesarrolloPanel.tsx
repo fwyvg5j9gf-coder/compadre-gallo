@@ -136,11 +136,11 @@ const TASKS: {
     section: 'features',
     accent: '#003a87',
     items: [
-      { status: 'pending', text: 'Checkout de boletos/shows', note: 'UI en /preventa existe, tabla tickets existe, falta el flujo de pago' },
-      { status: 'pending', text: 'Vista reducida para artistas (portal)', note: 'isAdmin prop ya pasa al componente, falta ocultar trash/publish para no-admin' },
-      { status: 'pending', text: 'SEO dinámico — generateMetadata en /artista/[slug] y /tienda/[id]' },
+      { status: 'pending', text: 'Checkout de boletos/shows', note: 'CheckoutClient.tsx es mock (setTimeout, sin Stripe ni DB) — falta conectar PI + tabla tickets' },
+      { status: 'done',    text: 'Vista reducida para artistas (portal)', note: 'ArtistDetail filtra tabs por adminOnly; ingresos y ClerkLinkCard solo para admin' },
+      { status: 'pending', text: 'SEO dinámico — generateMetadata en /artista/[slug] y /tienda/[id]', note: 'Ninguna página de plataforma tiene generateMetadata todavía' },
       { status: 'pending', text: 'RLS en Supabase', note: 'Todo va por service role actualmente; sin restricciones por fila' },
-      { status: 'pending', text: 'Optimización mobile del panel admin' },
+      { status: 'pending', text: 'Optimización mobile del panel admin', note: 'Solo EditorShell tiene algún responsive; el resto del panel no está optimizado para móvil' },
     ],
   },
   {
