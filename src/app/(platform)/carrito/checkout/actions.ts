@@ -12,12 +12,12 @@ export async function getRatesForCheckout(
   destColonia: string,
   packagingTypeId: string,
 ): Promise<ShippingRate[]> {
-  const { data: settings } = await supabaseAdmin
-    .from('store_settings')
-    .select('skydropx_enabled, skydropx_client_id, skydropx_client_secret, origin_zip, origin_state, origin_city, origin_colonia, skydropx_markup_pct, skydropx_allowed_carriers')
-    .single()
+  const [{ data: settings }, { data: secrets }] = await Promise.all([
+    supabaseAdmin.from('store_settings').select('skydropx_enabled, origin_zip, origin_state, origin_city, origin_colonia, skydropx_markup_pct, skydropx_allowed_carriers').single(),
+    supabaseAdmin.from('store_secrets').select('skydropx_client_id, skydropx_client_secret').single(),
+  ])
 
-  if (!settings?.skydropx_enabled || !settings.skydropx_client_id) return []
+  if (!settings?.skydropx_enabled || !secrets?.skydropx_client_id) return []
 
   const { data: pkg } = await supabaseAdmin
     .from('packaging_types')
@@ -29,8 +29,8 @@ export async function getRatesForCheckout(
 
   try {
     let rates = await getShippingRates({
-      clientId: settings.skydropx_client_id,
-      clientSecret: settings.skydropx_client_secret,
+      clientId: secrets!.skydropx_client_id,
+      clientSecret: secrets!.skydropx_client_secret,
       originZip: settings.origin_zip,
       originState: settings.origin_state,
       originCity: settings.origin_city,

@@ -65,8 +65,6 @@ export type StoreSettings = {
   return_policy: string
   shipping_policy: string
   skydropx_enabled: boolean
-  skydropx_client_id: string
-  skydropx_client_secret: string
   skydropx_markup_pct: number
   skydropx_allowed_carriers: string[]
   origin_name: string
@@ -87,6 +85,8 @@ export type StoreSettings = {
   stripe_sk_test: string
   stripe_sk_live: string
   stripe_webhook_secret: string
+  skydropx_client_id: string
+  skydropx_client_secret: string
 }
 
 export type StoreSecrets = {
@@ -94,6 +94,8 @@ export type StoreSecrets = {
   stripe_sk_test: string
   stripe_sk_live: string
   stripe_webhook_secret: string
+  skydropx_client_id: string
+  skydropx_client_secret: string
 }
 
 export type Show = {

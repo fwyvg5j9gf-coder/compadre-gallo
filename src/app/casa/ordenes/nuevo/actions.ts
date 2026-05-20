@@ -27,13 +27,13 @@ export async function fetchRatesForNewOrder({
   try {
     await requireAdminOrThrow()
 
-    const { data: settings } = await supabaseAdmin
-      .from('store_settings')
-      .select('skydropx_client_id, skydropx_client_secret, origin_zip, origin_state, origin_city, origin_colonia, skydropx_enabled')
-      .single()
+    const [{ data: settings }, { data: secrets }] = await Promise.all([
+      supabaseAdmin.from('store_settings').select('origin_zip, origin_state, origin_city, origin_colonia, skydropx_enabled').single(),
+      supabaseAdmin.from('store_secrets').select('skydropx_client_id, skydropx_client_secret').single(),
+    ])
 
     if (!settings?.skydropx_enabled) return { error: 'Skydropx no está habilitado' }
-    if (!settings.skydropx_client_id || !settings.skydropx_client_secret) return { error: 'faltan credenciales de Skydropx' }
+    if (!secrets?.skydropx_client_id || !secrets?.skydropx_client_secret) return { error: 'faltan credenciales de Skydropx' }
     if (!settings.origin_zip) return { error: 'falta código postal de origen en configuración' }
     if (!destZip) return { error: 'agrega el código postal de destino' }
 
@@ -57,8 +57,8 @@ export async function fetchRatesForNewOrder({
     }
 
     const rates = await getShippingRates({
-      clientId: settings.skydropx_client_id,
-      clientSecret: settings.skydropx_client_secret,
+      clientId: secrets!.skydropx_client_id,
+      clientSecret: secrets!.skydropx_client_secret,
       originZip: settings.origin_zip,
       originState: settings.origin_state ?? '',
       originCity: settings.origin_city ?? '',

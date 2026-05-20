@@ -109,13 +109,13 @@ async function buildOrderShipmentData(orderId: string) {
     .single()
   if (!order) throw new Error('orden no encontrada')
 
-  const { data: settings } = await supabaseAdmin
-    .from('store_settings')
-    .select('skydropx_client_id, skydropx_client_secret, origin_zip, origin_state, origin_city, origin_colonia, origin_street, origin_phone, origin_email, origin_name, skydropx_enabled')
-    .single()
+  const [{ data: settings }, { data: secrets }] = await Promise.all([
+    supabaseAdmin.from('store_settings').select('origin_zip, origin_state, origin_city, origin_colonia, origin_street, origin_phone, origin_email, origin_name, skydropx_enabled').single(),
+    supabaseAdmin.from('store_secrets').select('skydropx_client_id, skydropx_client_secret').single(),
+  ])
   if (!settings?.skydropx_enabled) throw new Error('Skydropx no está habilitado en ajustes de la tienda')
-  if (!settings.skydropx_client_id) throw new Error('falta la clave de cliente de Skydropx en configuración')
-  if (!settings.skydropx_client_secret) throw new Error('falta la clave secreta de Skydropx en configuración')
+  if (!secrets?.skydropx_client_id) throw new Error('falta la clave de cliente de Skydropx en configuración')
+  if (!secrets?.skydropx_client_secret) throw new Error('falta la clave secreta de Skydropx en configuración')
   if (!settings.origin_zip) throw new Error('falta el código postal de origen en configuración')
   if (!settings.origin_state) throw new Error('falta el estado de origen en configuración')
   if (!settings.origin_city) throw new Error('falta la ciudad de origen en configuración')
@@ -147,7 +147,7 @@ async function buildOrderShipmentData(orderId: string) {
   const addr = order.shipping_address as Record<string, string> | null
   if (!addr?.zip) throw new Error('la orden no tiene dirección de envío completa')
 
-  return { order, settings, parcel, addr }
+  return { order, settings, secrets, parcel, addr }
 }
 
 // ── Readiness check (sin llamar a Skydropx) ──────────────────────────────────
@@ -157,11 +157,12 @@ export type ReadinessItem = { label: string; ok: boolean; detail?: string }
 export async function checkShipmentReadiness(orderId: string): Promise<{ ready: boolean; items: ReadinessItem[] }> {
   await requireAdmin()
 
-  const [{ data: order }, { data: settings }] = await Promise.all([
+  const [{ data: order }, { data: settings }, { data: secrets }] = await Promise.all([
     supabaseAdmin.from('orders').select('*, order_items(product_id)').eq('id', orderId).single(),
     supabaseAdmin.from('store_settings').select(
-      'skydropx_enabled, skydropx_client_id, skydropx_client_secret, origin_zip, origin_state, origin_city, origin_colonia, origin_street, origin_phone, origin_email'
+      'skydropx_enabled, origin_zip, origin_state, origin_city, origin_colonia, origin_street, origin_phone, origin_email'
     ).single(),
+    supabaseAdmin.from('store_secrets').select('skydropx_client_id, skydropx_client_secret').single(),
   ])
 
   const addr = (order?.shipping_address ?? null) as Record<string, string> | null
@@ -190,8 +191,8 @@ export async function checkShipmentReadiness(orderId: string): Promise<{ ready: 
     },
     {
       label: 'credenciales',
-      ok: !!(settings?.skydropx_client_id && settings?.skydropx_client_secret),
-      detail: !settings?.skydropx_client_id ? 'falta client_id' : !settings?.skydropx_client_secret ? 'falta client_secret' : undefined,
+      ok: !!(secrets?.skydropx_client_id && secrets?.skydropx_client_secret),
+      detail: !secrets?.skydropx_client_id ? 'falta client_id' : !secrets?.skydropx_client_secret ? 'falta client_secret' : undefined,
     },
     {
       label: 'origen configurado',
@@ -231,10 +232,10 @@ export type RatesResult = { rates: ShippingRate[]; error?: string }
 export async function getSkydropxRatesForOrder(orderId: string): Promise<RatesResult> {
   try {
     await requireAdminOrThrow()
-    const { settings, parcel, addr } = await buildOrderShipmentData(orderId)
+    const { settings, secrets, parcel, addr } = await buildOrderShipmentData(orderId)
     const rates = await getShippingRates({
-      clientId: settings.skydropx_client_id,
-      clientSecret: settings.skydropx_client_secret,
+      clientId: secrets!.skydropx_client_id,
+      clientSecret: secrets!.skydropx_client_secret,
       originZip: settings.origin_zip,
       originState: settings.origin_state,
       originCity: settings.origin_city,
@@ -260,7 +261,7 @@ export type ShipmentResult = { data?: ShipmentActionResult; error?: string }
 export async function createSkydropxShipment(orderId: string, overrideRateId?: string, overrideQuotationId?: string, protection = false): Promise<ShipmentResult> {
   try {
     const userId = await requireAdminUserId()
-    const { order, settings, parcel, addr } = await buildOrderShipmentData(orderId)
+    const { order, settings, secrets, parcel, addr } = await buildOrderShipmentData(orderId)
 
     if (order.tracking_number) return { error: 'esta orden ya tiene guía de envío' }
 
@@ -294,8 +295,8 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
 
     if (!quotationId) {
       const freshRates = await getShippingRates({
-        clientId: settings.skydropx_client_id,
-        clientSecret: settings.skydropx_client_secret,
+        clientId: secrets!.skydropx_client_id,
+        clientSecret: secrets!.skydropx_client_secret,
         originZip: settings.origin_zip,
         originState: settings.origin_state,
         originCity: settings.origin_city,
@@ -318,8 +319,8 @@ export async function createSkydropxShipment(orderId: string, overrideRateId?: s
     if (!rateId) return { error: 'no hay tarifa seleccionada para crear la guía' }
 
     const result = await createShipment({
-      clientId: settings.skydropx_client_id,
-      clientSecret: settings.skydropx_client_secret,
+      clientId: secrets!.skydropx_client_id,
+      clientSecret: secrets!.skydropx_client_secret,
       rateId,
       quotationId,
       addressFrom,
@@ -380,11 +381,11 @@ export async function fetchSkydropxShipmentStatus(orderId: string): Promise<Ship
     const { data: order } = await supabaseAdmin.from('orders').select('skydropx_shipment_id, label_url').eq('id', orderId).single()
     if (!order?.skydropx_shipment_id) return { error: 'esta orden no tiene shipment ID de Skydropx' }
 
-    const { data: settings } = await supabaseAdmin
-      .from('store_settings').select('skydropx_client_id, skydropx_client_secret').single()
-    if (!settings?.skydropx_client_id) return { error: 'faltan credenciales de Skydropx' }
+    const { data: secrets } = await supabaseAdmin
+      .from('store_secrets').select('skydropx_client_id, skydropx_client_secret').single()
+    if (!secrets?.skydropx_client_id) return { error: 'faltan credenciales de Skydropx' }
 
-    const status = await getShipmentStatus(settings.skydropx_client_id, settings.skydropx_client_secret, order.skydropx_shipment_id)
+    const status = await getShipmentStatus(secrets.skydropx_client_id, secrets.skydropx_client_secret, order.skydropx_shipment_id)
 
     // Si la orden no tiene label_url pero Skydropx sí lo devuelve, guardarlo
     if (status.labelUrl && !order.label_url) {
@@ -411,13 +412,13 @@ export async function cancelSkydropxShipment(orderId: string, reason: string): P
     let skydropxError: string | undefined
 
     if (shipmentId) {
-      const { data: settings } = await supabaseAdmin
-        .from('store_settings').select('skydropx_client_id, skydropx_client_secret').single()
+      const { data: secrets } = await supabaseAdmin
+        .from('store_secrets').select('skydropx_client_id, skydropx_client_secret').single()
 
-      if (settings?.skydropx_client_id) {
+      if (secrets?.skydropx_client_id) {
         const result = await cancelShipmentInSkydropx(
-          settings.skydropx_client_id,
-          settings.skydropx_client_secret,
+          secrets.skydropx_client_id,
+          secrets.skydropx_client_secret,
           shipmentId,
           reason || 'Cancelado desde el panel de administración',
         )
@@ -451,14 +452,14 @@ export async function cancelSkydropxShipment(orderId: string, reason: string): P
 export async function fetchSkydropxBalance(): Promise<{ balance?: number; currency?: string; error?: string }> {
   try {
     await requireAdminOrThrow()
-    const { data: settings } = await supabaseAdmin
-      .from('store_settings')
-      .select('skydropx_client_id, skydropx_client_secret, skydropx_enabled')
-      .single()
-    if (!settings?.skydropx_enabled || !settings.skydropx_client_id || !settings.skydropx_client_secret) {
+    const [{ data: settings }, { data: secrets }] = await Promise.all([
+      supabaseAdmin.from('store_settings').select('skydropx_enabled').single(),
+      supabaseAdmin.from('store_secrets').select('skydropx_client_id, skydropx_client_secret').single(),
+    ])
+    if (!settings?.skydropx_enabled || !secrets?.skydropx_client_id || !secrets?.skydropx_client_secret) {
       return { error: 'Skydropx no configurado' }
     }
-    const { balance, currency } = await getBalance(settings.skydropx_client_id, settings.skydropx_client_secret)
+    const { balance, currency } = await getBalance(secrets.skydropx_client_id, secrets.skydropx_client_secret)
     return { balance, currency }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'error al consultar saldo' }

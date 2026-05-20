@@ -154,19 +154,24 @@ export async function reorderPackaging(id: string, direction: 'up' | 'down') {
 
 export async function saveSkydropxConfig(formData: FormData) {
   await requireAdmin()
-  const { error } = await supabaseAdmin.from('store_settings').update({
-    skydropx_client_id:     (formData.get('client_id') as string).replace(/\s+/g, ''),
-    skydropx_client_secret: (formData.get('client_secret') as string).replace(/\s+/g, ''),
-    origin_name:    (formData.get('origin_name') as string ?? '').trim(),
-    origin_street:  (formData.get('origin_street') as string ?? '').trim(),
-    origin_phone:   (formData.get('origin_phone') as string ?? '').trim(),
-    origin_email:   (formData.get('origin_email') as string ?? '').trim(),
-    origin_zip:     (formData.get('origin_zip') as string).trim(),
-    origin_state:   (formData.get('origin_state') as string).trim(),
-    origin_city:    (formData.get('origin_city') as string).trim(),
-    origin_colonia: (formData.get('origin_colonia') as string ?? '').trim(),
-    updated_at: new Date().toISOString(),
-  }).eq('id', 1)
+  const [{ error: secretsErr }, { error }] = await Promise.all([
+    supabaseAdmin.from('store_secrets').update({
+      skydropx_client_id:     (formData.get('client_id') as string).replace(/\s+/g, ''),
+      skydropx_client_secret: (formData.get('client_secret') as string).replace(/\s+/g, ''),
+    }).eq('id', 1),
+    supabaseAdmin.from('store_settings').update({
+      origin_name:    (formData.get('origin_name') as string ?? '').trim(),
+      origin_street:  (formData.get('origin_street') as string ?? '').trim(),
+      origin_phone:   (formData.get('origin_phone') as string ?? '').trim(),
+      origin_email:   (formData.get('origin_email') as string ?? '').trim(),
+      origin_zip:     (formData.get('origin_zip') as string).trim(),
+      origin_state:   (formData.get('origin_state') as string).trim(),
+      origin_city:    (formData.get('origin_city') as string).trim(),
+      origin_colonia: (formData.get('origin_colonia') as string ?? '').trim(),
+      updated_at: new Date().toISOString(),
+    }).eq('id', 1),
+  ])
+  if (secretsErr) throw new Error(secretsErr.message)
   if (error) throw new Error(error.message)
   revalidatePath('/casa/tienda/configuracion')
 }
@@ -192,20 +197,21 @@ export async function toggleAiChat(enabled: boolean) {
 export async function testShippingQuote(destZip: string, destState: string, destCity: string, destColonia: string, packagingId: string): Promise<ShippingRate[]> {
   await requireAdmin()
 
-  const [{ data: settings }, { data: pkg }] = await Promise.all([
-    supabaseAdmin.from('store_settings').select('skydropx_enabled, skydropx_client_id, skydropx_client_secret, origin_zip, origin_state, origin_city, origin_colonia').eq('id', 1).single(),
+  const [{ data: settings }, { data: secrets }, { data: pkg }] = await Promise.all([
+    supabaseAdmin.from('store_settings').select('skydropx_enabled, origin_zip, origin_state, origin_city, origin_colonia').eq('id', 1).single(),
+    supabaseAdmin.from('store_secrets').select('skydropx_client_id, skydropx_client_secret').eq('id', 1).single(),
     supabaseAdmin.from('packaging_types').select('*').eq('id', packagingId).single(),
   ])
 
   if (!settings?.skydropx_enabled) throw new Error('activa SkyDropX primero')
-  if (!settings.skydropx_client_id) throw new Error('falta la clave de cliente de SkyDropX')
-  if (!settings.skydropx_client_secret) throw new Error('falta la clave secreta de SkyDropX')
+  if (!secrets?.skydropx_client_id) throw new Error('falta la clave de cliente de SkyDropX')
+  if (!secrets?.skydropx_client_secret) throw new Error('falta la clave secreta de SkyDropX')
   if (!settings.origin_zip) throw new Error('falta el CP de origen')
   if (!pkg) throw new Error('embalaje no encontrado')
 
   return getShippingRates({
-    clientId: settings.skydropx_client_id,
-    clientSecret: settings.skydropx_client_secret,
+    clientId: secrets.skydropx_client_id,
+    clientSecret: secrets.skydropx_client_secret,
     originZip: settings.origin_zip,
     originState: settings.origin_state,
     originCity: settings.origin_city,
@@ -248,11 +254,11 @@ export async function saveStripeConfig(formData: FormData) {
 }
 
 async function getSkydropxCredentials() {
-  const { data: settings } = await supabaseAdmin
-    .from('store_settings').select('skydropx_client_id, skydropx_client_secret').single()
-  if (!settings?.skydropx_client_id || !settings.skydropx_client_secret)
+  const { data: secrets } = await supabaseAdmin
+    .from('store_secrets').select('skydropx_client_id, skydropx_client_secret').single()
+  if (!secrets?.skydropx_client_id || !secrets.skydropx_client_secret)
     throw new Error('configura las credenciales de Skydropx primero')
-  return { clientId: settings.skydropx_client_id, clientSecret: settings.skydropx_client_secret }
+  return { clientId: secrets.skydropx_client_id, clientSecret: secrets.skydropx_client_secret }
 }
 
 export async function fetchSkydropxBalance(): Promise<{ balance?: number; currency?: string; error?: string }> {

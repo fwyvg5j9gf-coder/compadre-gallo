@@ -27,7 +27,7 @@ export default async function ConfiguracionPage() {
     supabaseAdmin.from('store_sizes').select('*').order('sort_order'),
     supabaseAdmin.from('packaging_types').select('*').order('sort_order'),
     supabaseAdmin.from('store_settings').select('*').eq('id', 1).single(),
-    supabaseAdmin.from('store_secrets').select('stripe_sk_test, stripe_sk_live, stripe_webhook_secret').eq('id', 1).single(),
+    supabaseAdmin.from('store_secrets').select('stripe_sk_test, stripe_sk_live, stripe_webhook_secret, skydropx_client_id, skydropx_client_secret').eq('id', 1).single(),
   ])
 
   const settings = { ...(settingsRes.data ?? DEFAULT_SETTINGS), ...(secretsRes.data ?? {}) } as StoreSettings
