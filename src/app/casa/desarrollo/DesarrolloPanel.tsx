@@ -15,8 +15,22 @@ const CHANGELOG: {
   items: { type: 'feature' | 'fix' | 'security' | 'doc'; text: string }[]
 }[] = [
   {
-    date: '2026-05-19',
+    date: '2026-05-20',
     tag: 'sesión actual',
+    items: [
+      { type: 'feature', text: 'Skydropx: siempre cotizar antes de generar guía — pre-selecciona paquetería del cliente, advierte si se cambia' },
+      { type: 'feature', text: 'Nueva orden: cotizar envío con Skydropx al crear orden manual — selección de paquetería + costo auto-llenado' },
+      { type: 'feature', text: 'Nueva orden: dirección de envío visible por defecto (necesaria para Skydropx)' },
+      { type: 'feature', text: '/cuenta pedidos: tarjeta muestra productos y guía sin expandir; expandida agrega dirección de envío completa' },
+      { type: 'fix',     text: '"en camino" solo muestra status=shipped; paid va a sección "confirmados"' },
+      { type: 'fix',     text: 'Botón cotizar bloqueado hasta seleccionar producto Y C.P. de destino — con hints claros' },
+      { type: 'fix',     text: 'Cotizar envío: Server Action envuelta en useTransition para compatibilidad con App Router' },
+      { type: 'fix',     text: 'Lookup de cliente: maybeSingle() evita crash si no se encuentra; busca en orders como fallback para usuarios sin cuenta' },
+    ],
+  },
+  {
+    date: '2026-05-19',
+    tag: 'sesión 5',
     items: [
       { type: 'fix',      text: 'SAT class codes — parser robusto (5 estructuras) + paginación via total÷per_page' },
       { type: 'doc',      text: 'ARCHITECTURE.md actualizado — estado real de seguridad verificado en código' },
