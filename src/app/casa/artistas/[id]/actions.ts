@@ -36,7 +36,7 @@ export async function updateArtistProfile(id: string, formData: FormData) {
     tiktok:       (formData.get('tiktok')       as string | null)?.trim() || null,
     spotify:      (formData.get('spotify')      as string | null)?.trim() || null,
     youtube:      (formData.get('youtube')      as string | null)?.trim() || null,
-    is_published: formData.get('is_published') === 'true',
+    is_published: formData.getAll('is_published').includes('true'),
     updated_at:   new Date().toISOString(),
   }).eq('id', id)
   await reval(id)
