@@ -22,6 +22,7 @@ const CHANGELOG: {
       { type: 'feature', text: '/cuenta sidebar: @username ahora es el identificador principal — se muestra en monospace bold antes del nombre; si no tiene username aún, sigue mostrando el nombre como antes' },
       { type: 'feature', text: 'Guest checkout: pantalla de confirmación diferenciada para invitados — muestra "crear cuenta" → /cuenta/registro en vez de "ver mis pedidos", con nudge sobre los beneficios de tener cuenta' },
       { type: 'doc',     text: 'CLAUDE.md + memoria persistente: rutina de inicio de sesión — leer DesarrolloPanel.tsx al comenzar cada conversación para evitar repetir trabajo y retomar contexto' },
+      { type: 'feature', text: 'claude.app: ícono reemplazado con el favicon de GALLO (icon-512.png → .icns con todas las resoluciones via sips + iconutil)' },
     ],
   },
   {
