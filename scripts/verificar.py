@@ -32,7 +32,7 @@ CHECKS = [
     ("GET",  "/casa/tienda",               [307,302,308],   "admin tienda (→ login)"),
     ("GET",  "/casa/ordenes",              [307,302,308],   "admin órdenes (→ login)"),
     ("GET",  "/casa/usuarios",             [307,302,308],   "admin usuarios (→ login)"),
-    ("GET",  "/casa/clientes",             [307,302,308],   "admin clientes (→ login)"),
+    ("GET",  "/casa/cuentas",              [307,302,308],   "admin cuentas (→ login)"),
     # APIs — sin payload deben rechazar, no crashear
     ("POST", "/api/stripe/create-intent",  [400,401,422],   "stripe create-intent (sin payload)"),
     ("POST", "/api/stripe/webhook",        [400,401,422],   "stripe webhook (sin firma)"),

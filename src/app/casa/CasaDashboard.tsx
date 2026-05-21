@@ -10,7 +10,7 @@ const CARDS = [
   { title: 'inventario',    desc: 'SKUs, stock y movimientos',             href: '/casa/inventario',            accent: '#003a87' },
   { title: 'órdenes',       desc: 'compras, envíos y estados',             href: '/casa/ordenes',               accent: '#003a87' },
   { title: 'descuentos',    desc: 'códigos de descuento y promociones',    href: '/casa/descuentos',            accent: '#1a6b35' },
-  { title: 'clientes',      desc: 'fans — pedidos y boletos',              href: '/casa/clientes',              accent: '#00c4df' },
+  { title: 'cuentas',       desc: 'fans con cuenta + compradores invitados', href: '/casa/cuentas',               accent: '#00c4df' },
   { title: 'artistas',      desc: 'catálogo, bios y shows',                href: '/casa/artistas',              accent: '#ffd49a' },
   { title: 'correos',       desc: 'historial y envíos masivos',            href: '/casa/correos',               accent: '#ffd49a' },
   { title: 'configuración', desc: 'stripe, skydropx y tarifas',            href: '/casa/tienda/configuracion',  accent: '#6b6a64' },
