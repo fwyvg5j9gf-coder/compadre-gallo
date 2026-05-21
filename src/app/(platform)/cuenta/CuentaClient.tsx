@@ -430,8 +430,17 @@ export default function CuentaClient({
       {/* Sidebar */}
       <aside className="account-sidebar">
         <div style={{ marginBottom: 'var(--space-5)' }}>
-          <div style={{ fontWeight: 700, fontSize: 17, textTransform: 'lowercase' }}>{firstName}</div>
-          <div style={{ fontSize: 13, color: 'var(--fg-muted)', marginTop: 2 }}>{email}</div>
+          {currentUsername ? (
+            <>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: 17, color: 'var(--fg)', letterSpacing: '-0.01em' }}>
+                @{currentUsername}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--fg-muted)', marginTop: 2, textTransform: 'lowercase' }}>{firstName}</div>
+            </>
+          ) : (
+            <div style={{ fontWeight: 700, fontSize: 17, textTransform: 'lowercase' }}>{firstName}</div>
+          )}
+          <div style={{ fontSize: 12, color: 'var(--fg-muted)', marginTop: 1 }}>{email}</div>
         </div>
         {NAV.map(({ key, label, count }) => (
           <button

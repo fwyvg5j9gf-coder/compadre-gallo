@@ -15,6 +15,14 @@ const CHANGELOG: {
   items: { type: 'feature' | 'fix' | 'security' | 'doc'; text: string }[]
 }[] = [
   {
+    date: '2026-05-21',
+    tag: 'sesión 8',
+    items: [
+      { type: 'feature', text: '/cuenta sidebar: @username ahora es el identificador principal — se muestra en monospace bold antes del nombre; si no tiene username aún, sigue mostrando el nombre como antes' },
+      { type: 'feature', text: 'Guest checkout: pantalla de confirmación diferenciada para invitados — muestra "crear cuenta" → /cuenta/registro en vez de "ver mis pedidos", con nudge sobre los beneficios de tener cuenta' },
+    ],
+  },
+  {
     date: '2026-05-20',
     tag: 'sesión 7',
     items: [
@@ -145,7 +153,7 @@ const TASKS: {
     section: 'features',
     accent: '#003a87',
     items: [
-      { status: 'pending', text: 'Cuentas — panel admin y flujo fan', note: 'Renombrar "clientes" → "cuentas"; unificar fans con cuenta Clerk + compradores invitados (sin cuenta); agregar guest checkout en tienda' },
+      { status: 'done',    text: 'Cuentas — panel admin y flujo fan', note: '/casa/cuentas con tabs "con cuenta" (username primario) + "invitados"; /cuenta sidebar muestra @username como ID principal; guest checkout con pantalla de confirmación diferenciada' },
       { status: 'pending', text: 'Checkout de boletos/shows', note: 'CheckoutClient.tsx es mock (setTimeout, sin Stripe ni DB) — falta conectar PI + tabla tickets' },
       { status: 'done',    text: 'Vista reducida para artistas (portal)', note: 'ArtistDetail filtra tabs por adminOnly; ingresos y ClerkLinkCard solo para admin' },
       { status: 'pending', text: 'SEO dinámico — generateMetadata en /artista/[slug] y /tienda/[id]', note: 'Ninguna página de plataforma tiene generateMetadata todavía' },

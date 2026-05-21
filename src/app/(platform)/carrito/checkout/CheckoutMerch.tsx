@@ -57,7 +57,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 // ── Confirmación ──────────────────────────────────────────────────────────────
-function Confirmation({ orderId, folioNumber }: { orderId: string; folioNumber: number }) {
+function Confirmation({ orderId, folioNumber, isGuest }: { orderId: string; folioNumber: number; isGuest: boolean }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -81,10 +81,19 @@ function Confirmation({ orderId, folioNumber }: { orderId: string; folioNumber: 
           {folio(folioNumber)}
         </p>
       </div>
-      <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-        <Link href="/cuenta" className="btn btn-primary btn-lg">ver mis pedidos</Link>
+      <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', justifyContent: 'center' }}>
+        {isGuest ? (
+          <Link href="/cuenta/registro" className="btn btn-primary btn-lg">crear cuenta</Link>
+        ) : (
+          <Link href="/cuenta" className="btn btn-primary btn-lg">ver mis pedidos</Link>
+        )}
         <Link href="/tienda" className="btn btn-ghost btn-lg">seguir comprando</Link>
       </div>
+      {isGuest && (
+        <p style={{ fontSize: 13, color: 'var(--fg-muted)', maxWidth: '38ch', margin: 0 }}>
+          con una cuenta puedes ver tu historial, guardar tu dirección y seguir artistas.
+        </p>
+      )}
     </div>
   )
 }
@@ -371,7 +380,7 @@ export default function CheckoutMerch({
   }, [savedData, items, clearCart])
 
   if (step === 'done' && orderResult) {
-    return <Confirmation orderId={orderResult.orderId} folioNumber={orderResult.folioNumber} />
+    return <Confirmation orderId={orderResult.orderId} folioNumber={orderResult.folioNumber} isGuest={!userEmail} />
   }
 
   if (items.length === 0) {
