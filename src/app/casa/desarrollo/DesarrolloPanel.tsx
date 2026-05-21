@@ -18,8 +18,10 @@ const CHANGELOG: {
     date: '2026-05-21',
     tag: 'sesión 8',
     items: [
+      { type: 'feature', text: '/casa/cuentas: clic en fila abre drawer lateral con detalle completo — pedidos (folio, status, productos con talla/cantidad, envío, total), boletos (artista, venue, ciudad, fecha show, folio, status), artistas seguidos (nombre, género, ciudad, desde cuándo). Lazy fetch via GET /api/admin/user-detail' },
       { type: 'feature', text: '/cuenta sidebar: @username ahora es el identificador principal — se muestra en monospace bold antes del nombre; si no tiene username aún, sigue mostrando el nombre como antes' },
       { type: 'feature', text: 'Guest checkout: pantalla de confirmación diferenciada para invitados — muestra "crear cuenta" → /cuenta/registro en vez de "ver mis pedidos", con nudge sobre los beneficios de tener cuenta' },
+      { type: 'doc',     text: 'CLAUDE.md + memoria persistente: rutina de inicio de sesión — leer DesarrolloPanel.tsx al comenzar cada conversación para evitar repetir trabajo y retomar contexto' },
     ],
   },
   {

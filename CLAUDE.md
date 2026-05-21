@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Rutina de inicio de sesión — OBLIGATORIO
+
+Al comenzar cualquier conversación en este proyecto, SIEMPRE leer primero:
+
+1. `src/app/casa/desarrollo/DesarrolloPanel.tsx` — changelog completo de sesiones anteriores, lista de tareas pendientes y estado del proyecto
+2. `memory/` — memorias persistentes del proyecto
+
+Esto evita repetir trabajo ya hecho y permite retomar exactamente donde se quedó.
+
 ## Commands
 
 ```bash
