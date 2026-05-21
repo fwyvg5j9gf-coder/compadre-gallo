@@ -70,20 +70,16 @@ function QuickRow({ order, isLast }: { order: OrderRow; isLast: boolean }) {
   return (
     <div
       onClick={() => router.push(`/casa/ordenes/${order.id}`)}
+      className="adm-orders-row"
       style={{
-        display: 'grid',
-        gridTemplateColumns: '120px 1fr 190px auto 80px 110px 200px',
-        gap: 12, alignItems: 'center', padding: '12px 20px',
-        borderBottom: isLast ? 'none' : '1px solid #f0efe9',
-        cursor: 'pointer',
         background: '#fff',
-        transition: 'background 100ms',
+        borderBottom: isLast ? 'none' : '1px solid #f0efe9',
       }}
       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#fafaf8' }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#fff' }}
     >
       {/* Folio */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div className="adm-col-folio" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#003a87', fontWeight: 700 }}>
           {folioStr}
         </span>
@@ -95,28 +91,28 @@ function QuickRow({ order, isLast }: { order: OrderRow; isLast: boolean }) {
       </div>
 
       {/* Cliente */}
-      <div>
+      <div className="adm-col-client">
         <div style={{ fontSize: 14, fontWeight: 600, color: '#0a0a0a' }}>{order.customer_name ?? '—'}</div>
         <div style={{ fontSize: 12, color: '#6b6a64' }}>{order.customer_email}</div>
       </div>
 
       {/* Productos */}
-      <div style={{ fontSize: 12, color: '#6b6a64', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div className="adm-col-products" style={{ fontSize: 12, color: '#6b6a64', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {summary || '—'}
       </div>
 
       {/* Total */}
-      <div style={{ fontSize: 14, fontWeight: 700, color: '#0a0a0a', fontVariantNumeric: 'tabular-nums' }}>
+      <div className="adm-col-total" style={{ fontSize: 14, fontWeight: 700, color: '#0a0a0a', fontVariantNumeric: 'tabular-nums' }}>
         {fmt(order.total_mxn)}
       </div>
 
       {/* Fecha */}
-      <div style={{ fontSize: 12, color: '#9a9994' }}>
+      <div className="adm-col-date" style={{ fontSize: 12, color: '#9a9994' }}>
         {order.created_at.slice(0, 10)}
       </div>
 
       {/* Estado badge */}
-      <span style={{
+      <span className="adm-col-status" style={{
         fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 999,
         background: sc.bg, color: sc.text,
         textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap',
@@ -128,6 +124,7 @@ function QuickRow({ order, isLast }: { order: OrderRow; isLast: boolean }) {
 
       {/* Acciones rápidas */}
       <div
+        className="adm-col-actions"
         onClick={e => e.stopPropagation()}
         style={{ display: 'flex', gap: 5, alignItems: 'center' }}
       >
@@ -246,11 +243,9 @@ export default function OrdenesClient({ orders }: { orders: OrderRow[] }) {
       ) : (
         <div style={{ background: '#fff', border: '1px solid #e8e7e1', borderRadius: 8, overflow: 'hidden' }}>
           {/* Header */}
-          <div style={{
-            display: 'grid', gridTemplateColumns: '120px 1fr 190px auto 80px 110px 200px',
-            gap: 12, padding: '8px 20px', background: '#f6f5f1', borderBottom: '1px solid #e8e7e1',
+          <div className="adm-orders-header" style={{
+            background: '#f6f5f1', borderBottom: '1px solid #e8e7e1',
             fontSize: 10, fontWeight: 700, color: '#9a9994', letterSpacing: '0.06em', textTransform: 'uppercase',
-            alignItems: 'center',
           }}>
             <div>folio</div>
             <div>cliente</div>

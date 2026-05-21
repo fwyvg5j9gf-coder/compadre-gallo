@@ -26,6 +26,10 @@ export interface Artist {
   tracks: Track[];
   shows: Show[];
   previewTimestamp: number;
+  instagram?: string | null;
+  tiktok?: string | null;
+  spotify?: string | null;
+  youtube?: string | null;
 }
 
 export interface Track {

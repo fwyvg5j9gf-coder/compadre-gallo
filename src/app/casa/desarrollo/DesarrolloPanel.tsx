@@ -16,6 +16,14 @@ const CHANGELOG: {
 }[] = [
   {
     date: '2026-05-21',
+    tag: 'sesión 9',
+    items: [
+      { type: 'feature', text: 'SEO dinámico: generateMetadata en /artista/[slug] y /tienda/[id] — title, description, og:title/description/image/type, twitter:card summary_large_image. Canonical URL por página. Instagram y TikTok leen og: correctamente; Twitter Card como fallback.' },
+      { type: 'feature', text: 'Mobile admin: KPI grid 4→2 cols, dashboard main grid 1-col, header search oculto, tabla de órdenes a tarjeta (folio/cliente/total/status), detalle de orden sidebar apilado, padding reducido a 20px 16px en < 600px — todo vía clases CSS en globals.css sin romper desktop' },
+    ],
+  },
+  {
+    date: '2026-05-21',
     tag: 'sesión 8',
     items: [
       { type: 'feature', text: '/casa/cuentas: clic en fila abre drawer lateral con detalle completo — pedidos (folio, status, productos con talla/cantidad, envío, total), boletos (artista, venue, ciudad, fecha show, folio, status), artistas seguidos (nombre, género, ciudad, desde cuándo). Lazy fetch via GET /api/admin/user-detail' },
@@ -159,9 +167,9 @@ const TASKS: {
       { status: 'done',    text: 'Cuentas — panel admin y flujo fan', note: '/casa/cuentas con tabs "con cuenta" (username primario) + "invitados"; /cuenta sidebar muestra @username como ID principal; guest checkout con pantalla de confirmación diferenciada' },
       { status: 'pending', text: 'Checkout de boletos/shows', note: 'CheckoutClient.tsx es mock (setTimeout, sin Stripe ni DB) — falta conectar PI + tabla tickets' },
       { status: 'done',    text: 'Vista reducida para artistas (portal)', note: 'ArtistDetail filtra tabs por adminOnly; ingresos y ClerkLinkCard solo para admin' },
-      { status: 'pending', text: 'SEO dinámico — generateMetadata en /artista/[slug] y /tienda/[id]', note: 'Ninguna página de plataforma tiene generateMetadata todavía' },
+      { status: 'done',    text: 'SEO dinámico — generateMetadata en /artista/[slug] y /tienda/[id]', note: 'og:image, og:type, canonical URL, twitter:card' },
       { status: 'pending', text: 'RLS en Supabase', note: 'Todo va por service role actualmente; sin restricciones por fila' },
-      { status: 'pending', text: 'Optimización mobile del panel admin', note: 'Solo EditorShell tiene algún responsive; el resto del panel no está optimizado para móvil' },
+      { status: 'done',    text: 'Optimización mobile del panel admin', note: 'Dashboard, tabla órdenes, detalle orden, header' },
     ],
   },
   {
@@ -454,7 +462,7 @@ export default function DesarrolloPanel() {
 
   return (
     <AdminShell crumb="desarrollo" crumbHref="/casa">
-      <main style={{ maxWidth: 960, margin: '0 auto', padding: '40px 28px 72px' }}>
+      <main style={{ maxWidth: 960, margin: '0 auto' }} className="adm-main-pad">
 
         {/* Header */}
         <div style={{ marginBottom: 32 }}>

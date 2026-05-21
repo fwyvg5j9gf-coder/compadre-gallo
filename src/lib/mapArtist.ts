@@ -12,6 +12,10 @@ type DbArtist = {
   bg_color: string; stripe_color: string; fg_color: string
   page_sections?: PageSection[] | null
   shows: DbShow[]
+  instagram?: string | null
+  tiktok?: string | null
+  spotify?: string | null
+  youtube?: string | null
 }
 
 function fmtShort(iso: string) {
@@ -54,5 +58,9 @@ export function mapArtist(a: DbArtist): Artist {
     previewTimestamp: next
       ? new Date(next.date + 'T12:00:00').getTime()
       : Date.now() + 86400000 * 30,
+    instagram: a.instagram ?? null,
+    tiktok:    a.tiktok    ?? null,
+    spotify:   a.spotify   ?? null,
+    youtube:   a.youtube   ?? null,
   }
 }

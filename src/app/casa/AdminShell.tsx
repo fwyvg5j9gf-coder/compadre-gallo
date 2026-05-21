@@ -38,7 +38,7 @@ export default function AdminShell({ crumb, crumbHref, right, children }: AdminS
         </div>
 
         {/* Search */}
-        <form action="/casa/buscar" method="GET" style={{ flex: 1, maxWidth: 320 }}>
+        <form action="/casa/buscar" method="GET" className="adm-header-search">
           <div style={{ position: 'relative' }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
               style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>

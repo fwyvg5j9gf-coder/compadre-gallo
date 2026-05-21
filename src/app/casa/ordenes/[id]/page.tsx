@@ -153,7 +153,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       crumb={folio(order.folio_number)}
       crumbHref="/casa/ordenes"
     >
-      <main style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 32px' }}>
+      <main style={{ maxWidth: 1100, margin: '0 auto' }} className="adm-main-pad">
 
         {/* Header */}
         <div style={{ marginBottom: 28, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
@@ -184,7 +184,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, alignItems: 'start' }}>
+        <div className="adm-order-detail-grid">
 
           {/* Left */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

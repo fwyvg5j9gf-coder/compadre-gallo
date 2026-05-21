@@ -43,7 +43,7 @@ export default async function OrdenesPage() {
         </div>
       }
     >
-      <main style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 32px' }}>
+      <main style={{ maxWidth: 1200, margin: '0 auto' }} className="adm-main-pad">
         <OrdenesClient orders={(orders ?? []) as Parameters<typeof OrdenesClient>[0]['orders']} />
       </main>
     </AdminShell>

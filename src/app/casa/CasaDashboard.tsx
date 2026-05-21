@@ -308,12 +308,12 @@ export default function CasaDashboard({
       crumb="casa"
       right={
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 13, color: '#6b6a64' }}>{email}</span>
+          <span className="adm-header-email">{email}</span>
           <UserButton />
         </div>
       }
     >
-      <main style={{ maxWidth: 1080, margin: '0 auto', padding: '40px 28px 72px' }}>
+      <main style={{ maxWidth: 1080, margin: '0 auto' }} className="adm-main-pad">
 
         {/* Greeting */}
         <div style={{ marginBottom: 28 }}>
@@ -329,7 +329,7 @@ export default function CasaDashboard({
         </div>
 
         {/* KPI row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+        <div className="adm-kpi-grid">
           <KpiCard
             label="ingresos 30d"
             value={fmt(revenue30d)}
@@ -366,7 +366,7 @@ export default function CasaDashboard({
         <AlertBar staleOrders={staleOrders} outOfStockCount={outOfStockCount} lowStockCount={lowStockProducts.length} />
 
         {/* Main grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16, marginBottom: 40 }}>
+        <div className="adm-dash-grid">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <ActivityFeed orders={recentOrders} />
           </div>
