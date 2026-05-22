@@ -72,9 +72,10 @@ function Confirmation({ folioCode, artistName, artistSlug }: { folioCode: string
 
 // ── PaymentForm — runs inside CheckoutElementsProvider ────────────────────────
 function PaymentForm({
-  orderTotal, onSuccess, onBack,
+  orderTotal, email, onSuccess, onBack,
 }: {
   orderTotal: number
+  email: string
   onSuccess: () => void
   onBack: () => void
 }) {
@@ -104,13 +105,18 @@ function PaymentForm({
     setIsPaying(true)
     setError(null)
 
-    const result = await checkout.confirm({ redirect: 'if_required' })
-    if (result.type === 'error') {
-      setError(result.error.message ?? 'error al procesar el pago')
-      setIsPaying(false)
-    } else {
-      onSuccess()
+    try {
+      const result = await checkout.confirm({ email, redirect: 'if_required' })
+      if (result.type === 'error') {
+        setError(result.error.message ?? 'error al procesar el pago')
+      } else {
+        onSuccess()
+        return
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'error inesperado al procesar el pago')
     }
+    setIsPaying(false)
   }
 
   return (
@@ -185,7 +191,7 @@ export default function CheckoutClient({
         const res = await fetch('/api/stripe/create-ticket-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ showId: selectedShowId, qty, slug: artist.slug }),
+          body: JSON.stringify({ showId: selectedShowId, qty, slug: artist.slug, email: email.trim() }),
         })
         if (!res.ok) {
           const { error } = await res.json().catch(() => ({ error: 'error desconocido' }))
@@ -391,6 +397,7 @@ export default function CheckoutClient({
             >
               <PaymentForm
                 orderTotal={orderTotal}
+                email={email}
                 onSuccess={handlePaymentSuccess}
                 onBack={() => setStep('info')}
               />

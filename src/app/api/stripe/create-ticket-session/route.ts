@@ -15,7 +15,7 @@ async function getStripeClient() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { showId, qty, slug } = await req.json() as { showId: string; qty: number; slug: string }
+    const { showId, qty, slug, email } = await req.json() as { showId: string; qty: number; slug: string; email?: string }
 
     if (!showId || !qty || qty < 1 || qty > 10 || !slug) {
       return NextResponse.json({ error: 'datos inválidos' }, { status: 400 })
@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
 
     const session = await stripe.checkout.sessions.create({
       ui_mode: 'elements',
+      ...(email ? { customer_email: email } : {}),
       line_items: [{
         price_data: {
           currency: 'mxn',
