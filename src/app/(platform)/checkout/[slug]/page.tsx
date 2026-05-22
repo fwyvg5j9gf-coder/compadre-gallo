@@ -5,13 +5,13 @@ import CheckoutClient from './CheckoutClient'
 export const dynamic = 'force-dynamic'
 
 async function getStripePublishableKey(): Promise<string> {
-  const [{ data: s }, { data: secrets }] = await Promise.all([
-    supabaseAdmin.from('store_settings').select('stripe_test_mode').eq('id', 1).single(),
-    supabaseAdmin.from('store_secrets').select('stripe_pk_test, stripe_pk_live').eq('id', 1).single(),
-  ])
+  const { data: s } = await supabaseAdmin
+    .from('store_settings')
+    .select('stripe_test_mode, stripe_pk_test, stripe_pk_live')
+    .single()
   const useTest = s?.stripe_test_mode ?? true
-  const key = useTest ? (secrets?.stripe_pk_test ?? '') : (secrets?.stripe_pk_live ?? '')
-  return (key && key.length > 10) ? key : (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '')
+  const dbPk = useTest ? s?.stripe_pk_test : s?.stripe_pk_live
+  return (dbPk && dbPk.length > 10) ? dbPk : (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '')
 }
 
 export default async function CheckoutPage({ params }: { params: Promise<{ slug: string }> }) {
