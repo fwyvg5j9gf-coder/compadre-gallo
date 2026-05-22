@@ -382,7 +382,8 @@ export async function sendTicketConfirmation(data: {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
 
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(data.folioCode)}&bgcolor=ffffff&color=0a0a0a&margin=4`
+  const boletoUrl = `${APP_URL}/boleto/${data.folioCode}`
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(boletoUrl)}&bgcolor=ffffff&color=0a0a0a&margin=4`
 
   const subject = `tus boletos para ${escapeHtml(artistName)} — ${data.folioCode}`
   const { data: res, error } = await getResend().emails.send({
