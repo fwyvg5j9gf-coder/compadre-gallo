@@ -360,6 +360,85 @@ export async function sendPaymentFailed(order: {
   })
 }
 
+// ── Ticket confirmation ──────────────────────────────────────────────────────
+export async function sendTicketConfirmation(data: {
+  customerName: string
+  customerEmail: string
+  folioCode: string
+  quantity: number
+  unitPriceMxn: number
+  totalMxn: number
+  artistId: string
+  venue: string
+  city: string
+  date: string
+}, isTest = false) {
+  // Fetch artist name for the email
+  const { data: artist } = await supabaseAdmin
+    .from('artists').select('name').eq('id', data.artistId).single()
+  const artistName = artist?.name ?? 'artista'
+
+  const showDate = new Date(data.date + 'T12:00:00').toLocaleDateString('es-MX', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  })
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(data.folioCode)}&bgcolor=ffffff&color=0a0a0a&margin=4`
+
+  const subject = `tus boletos para ${escapeHtml(artistName)} — ${data.folioCode}`
+  const { data: res, error } = await getResend().emails.send({
+    from: FROM,
+    to: data.customerEmail,
+    subject,
+    html: wrapEmail(`
+      <h2 style="margin:0 0 8px;font-size:22px;color:#0a0a0a">listo, ${escapeHtml(data.customerName)}.</h2>
+      <p style="margin:0 0 24px;color:#6b6a64;font-size:14px">tus boletos están confirmados. nos vemos en el show.</p>
+
+      <div style="background:#f6f5f1;border-radius:8px;padding:20px 24px;margin-bottom:24px;display:flex;align-items:flex-start;gap:20px">
+        <img src="${qrUrl}" alt="${data.folioCode}" width="80" height="80" style="flex-shrink:0;border-radius:4px" />
+        <div>
+          <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#9a9994;font-weight:700">folio</p>
+          <p style="margin:0;font-size:22px;font-weight:900;color:#003a87;font-family:monospace;letter-spacing:0.04em">${data.folioCode}</p>
+          <p style="margin:6px 0 0;font-size:13px;color:#6b6a64">${data.quantity} ${data.quantity === 1 ? 'boleto' : 'boletos'}</p>
+        </div>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+        <tr>
+          <td style="padding:8px 0;border-bottom:1px solid #f0efe9;font-size:13px;color:#6b6a64;width:120px">artista</td>
+          <td style="padding:8px 0;border-bottom:1px solid #f0efe9;font-size:13px;font-weight:600">${escapeHtml(artistName)}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;border-bottom:1px solid #f0efe9;font-size:13px;color:#6b6a64">venue</td>
+          <td style="padding:8px 0;border-bottom:1px solid #f0efe9;font-size:13px">${escapeHtml(data.venue)}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;border-bottom:1px solid #f0efe9;font-size:13px;color:#6b6a64">ciudad</td>
+          <td style="padding:8px 0;border-bottom:1px solid #f0efe9;font-size:13px">${escapeHtml(data.city)}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;border-bottom:1px solid #f0efe9;font-size:13px;color:#6b6a64">fecha</td>
+          <td style="padding:8px 0;border-bottom:1px solid #f0efe9;font-size:13px">${escapeHtml(showDate)}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;font-size:13px;color:#6b6a64">total</td>
+          <td style="padding:8px 0;font-size:16px;font-weight:900;font-family:monospace">${fmt(data.totalMxn)}</td>
+        </tr>
+      </table>
+
+      <a href="${APP_URL}/cuenta" style="display:inline-block;background:#0a0a0a;color:#fff;padding:12px 24px;border-radius:4px;text-decoration:none;font-size:13px;font-weight:700">
+        ver mis boletos →
+      </a>
+
+      <p style="margin:20px 0 0;font-size:12px;color:#9a9994">presenta el código QR o el folio en la entrada del show.</p>
+    `),
+  })
+  await logEmail('confirmacion_boleto', data.customerEmail, subject, {
+    resendId: res?.id,
+    error: error?.message,
+    isTest,
+  })
+}
+
 // ── Mass email ───────────────────────────────────────────────────────────────
 export async function sendMassEmail(
   subject: string,
