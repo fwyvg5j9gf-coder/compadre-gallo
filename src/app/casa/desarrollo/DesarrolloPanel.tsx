@@ -15,11 +15,17 @@ const CHANGELOG: {
   items: { type: 'feature' | 'fix' | 'security' | 'doc'; text: string }[]
 }[] = [
   {
-    date: '2026-05-21',
+    date: '2026-05-22',
     tag: 'sesión 9',
     items: [
-      { type: 'feature', text: 'SEO dinámico: generateMetadata en /artista/[slug] y /tienda/[id] — title, description, og:title/description/image/type, twitter:card summary_large_image. Canonical URL por página. Instagram y TikTok leen og: correctamente; Twitter Card como fallback.' },
-      { type: 'feature', text: 'Mobile admin: KPI grid 4→2 cols, dashboard main grid 1-col, header search oculto, tabla de órdenes a tarjeta (folio/cliente/total/status), detalle de orden sidebar apilado, padding reducido a 20px 16px en < 600px — todo vía clases CSS en globals.css sin romper desktop' },
+      { type: 'feature', text: 'Checkout de boletos real: Stripe Checkout Sessions API (ui_mode: elements) + CheckoutElementsProvider de @stripe/react-stripe-js/checkout. Flujo: datos → pago Stripe → createTicketOrder server action → folio_code único (T-XXXXXXXX) en tabla tickets → email con QR vía qrserver.com' },
+      { type: 'feature', text: 'SEO dinámico: generateMetadata en /artista/[slug] y /tienda/[id] — title, description, og:title/description/image/type, twitter:card summary_large_image. Canonical URL por página.' },
+      { type: 'feature', text: 'Mobile admin: KPI grid 4→2 cols, dashboard main grid 1-col, header search oculto, tabla de órdenes a tarjeta (folio/cliente/total/status), detalle de orden sidebar apilado' },
+      { type: 'feature', text: 'OG image dinámica: /opengraph-image.tsx con las letras "gallo" en 5 colores sobre fondo blanco (edge runtime, DM Sans 900)' },
+      { type: 'feature', text: 'Social links en perfil de artista: Instagram, TikTok, Spotify, YouTube con SVGs inline' },
+      { type: 'fix',     text: 'is_published siempre false al editar artista: formData.get() retornaba el hidden input "false"; fix con formData.getAll().includes("true")' },
+      { type: 'fix',     text: 'Checkout Sessions: customer_email en la sesión evita que PaymentElement pida email extra; try-catch en confirm() evita quedarse en "procesando..."' },
+      { type: 'fix',     text: 'DB tickets: ALTER TABLE tickets ALTER COLUMN user_id DROP NOT NULL (guest checkout); removido customer_phone del INSERT (columna inexistente)' },
     ],
   },
   {
