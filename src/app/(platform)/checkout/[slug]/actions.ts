@@ -68,7 +68,6 @@ export async function createTicketOrder(payload: TicketOrderPayload): Promise<Ti
         user_id:           dbUserId,
         customer_name:     name.trim(),
         customer_email:    email.trim().toLowerCase(),
-        customer_phone:    phone?.trim() || null,
         quantity:          qty,
         unit_price_mxn:    unitPrice,
         total_mxn:         totalMxn,
