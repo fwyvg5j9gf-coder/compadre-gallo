@@ -72,10 +72,9 @@ function Confirmation({ folioCode, artistName, artistSlug }: { folioCode: string
 
 // ── PaymentForm — runs inside CheckoutElementsProvider ────────────────────────
 function PaymentForm({
-  orderTotal, email, onSuccess, onBack,
+  orderTotal, onSuccess, onBack,
 }: {
   orderTotal: number
-  email: string
   onSuccess: () => void
   onBack: () => void
 }) {
@@ -106,7 +105,7 @@ function PaymentForm({
     setError(null)
 
     try {
-      const result = await checkout.confirm({ email, redirect: 'if_required' })
+      const result = await checkout.confirm({ redirect: 'if_required' })
       if (result.type === 'error') {
         setError(result.error.message ?? 'error al procesar el pago')
       } else {
@@ -397,7 +396,6 @@ export default function CheckoutClient({
             >
               <PaymentForm
                 orderTotal={orderTotal}
-                email={email}
                 onSuccess={handlePaymentSuccess}
                 onBack={() => setStep('info')}
               />
