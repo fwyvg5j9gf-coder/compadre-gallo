@@ -3,7 +3,7 @@
 import { useState, useCallback, useTransition } from 'react'
 import Link from 'next/link'
 import { loadStripe } from '@stripe/stripe-js'
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { CheckoutElementsProvider, PaymentElement, useCheckoutElements } from '@stripe/react-stripe-js/checkout'
 import { createTicketOrder } from './actions'
 
 let _stripePromise: ReturnType<typeof loadStripe> | null = null
@@ -70,40 +70,46 @@ function Confirmation({ folioCode, artistName, artistSlug }: { folioCode: string
   )
 }
 
-// ── PaymentForm ───────────────────────────────────────────────────────────────
+// ── PaymentForm — runs inside CheckoutElementsProvider ────────────────────────
 function PaymentForm({
   orderTotal, onSuccess, onBack,
 }: {
-  orderTotal: number; onSuccess: (piId: string) => void; onBack: () => void
+  orderTotal: number
+  onSuccess: () => void
+  onBack: () => void
 }) {
-  const stripe = useStripe()
-  const elements = useElements()
+  const result = useCheckoutElements()
   const [isPaying, setIsPaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  if (result.type === 'loading') {
+    return (
+      <div style={{ padding: 'var(--space-8) 0', color: 'var(--fg-muted)', fontStyle: 'italic', fontSize: 14 }}>
+        cargando formulario de pago…
+      </div>
+    )
+  }
+  if (result.type === 'error') {
+    return (
+      <div style={{ padding: '12px 16px', background: 'rgba(255,1,0,0.06)', border: '1px solid rgba(255,1,0,0.2)', borderRadius: 4 }}>
+        <p style={{ fontSize: 13, color: 'var(--gallo-red)', margin: 0 }}>error al cargar el pago: {result.error.message}</p>
+      </div>
+    )
+  }
+
+  const { checkout } = result
+
   async function handlePay(e: React.FormEvent) {
     e.preventDefault()
-    if (!stripe || !elements) return
     setIsPaying(true)
     setError(null)
 
-    const { error: submitErr } = await elements.submit()
-    if (submitErr) { setError(submitErr.message ?? 'error'); setIsPaying(false); return }
-
-    const { error: confirmErr, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: `${window.location.origin}${window.location.pathname}` },
-      redirect: 'if_required',
-    })
-
-    if (confirmErr) {
-      setError(confirmErr.message ?? 'error al procesar el pago')
+    const result = await checkout.confirm({ redirect: 'if_required' })
+    if (result.type === 'error') {
+      setError(result.error.message ?? 'error al procesar el pago')
       setIsPaying(false)
-    } else if (paymentIntent?.status === 'succeeded') {
-      onSuccess(paymentIntent.id)
     } else {
-      setError('el pago no se completó. intenta de nuevo.')
-      setIsPaying(false)
+      onSuccess()
     }
   }
 
@@ -118,7 +124,7 @@ function PaymentForm({
 
       <div>
         <div className="eyebrow" style={{ marginBottom: 'var(--space-3)' }}>datos de pago</div>
-        <PaymentElement options={{ layout: 'tabs' }} />
+        <PaymentElement />
       </div>
 
       {error && (
@@ -129,7 +135,7 @@ function PaymentForm({
 
       <button
         type="submit"
-        disabled={!stripe || !elements || isPaying}
+        disabled={isPaying}
         className="btn btn-primary btn-lg"
         style={{ alignSelf: 'flex-start' }}
       >
@@ -157,7 +163,7 @@ export default function CheckoutClient({
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [clientSecret, setClientSecret] = useState<string | null>(null)
-  const [pendingPiId, setPendingPiId] = useState<string | null>(null)
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const [folioCode, setFolioCode] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isGoingToPayment, startGoToPayment] = useTransition()
@@ -176,19 +182,19 @@ export default function CheckoutClient({
 
     startGoToPayment(async () => {
       try {
-        const res = await fetch('/api/stripe/create-ticket-intent', {
+        const res = await fetch('/api/stripe/create-ticket-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ showId: selectedShowId, qty }),
+          body: JSON.stringify({ showId: selectedShowId, qty, slug: artist.slug }),
         })
         if (!res.ok) {
           const { error } = await res.json().catch(() => ({ error: 'error desconocido' }))
           setSubmitError(error ?? 'error al iniciar el pago')
           return
         }
-        const { clientSecret: cs, paymentIntentId: piId } = await res.json()
+        const { clientSecret: cs, sessionId: sid } = await res.json()
         setClientSecret(cs)
-        setPendingPiId(piId)
+        setSessionId(sid)
         setStep('payment')
       } catch {
         setSubmitError('error de red. intenta de nuevo.')
@@ -196,10 +202,11 @@ export default function CheckoutClient({
     })
   }
 
-  const handlePaymentSuccess = useCallback((piId: string) => {
+  const handlePaymentSuccess = useCallback(() => {
+    if (!sessionId) return
     startCreateOrder(async () => {
       const { folioCode: fc, error } = await createTicketOrder({
-        stripePaymentId: piId,
+        checkoutSessionId: sessionId,
         showId: selectedShowId,
         qty,
         name: name.trim(),
@@ -214,19 +221,18 @@ export default function CheckoutClient({
       setFolioCode(fc)
       setStep('done')
     })
-  }, [selectedShowId, qty, name, email, phone])
+  }, [sessionId, selectedShowId, qty, name, email, phone])
 
   if (step === 'done' && folioCode) {
     return <Confirmation folioCode={folioCode} artistName={artist.name} artistSlug={artist.slug} />
   }
 
-  // Order summary sidebar (shared)
+  // Sidebar compartido
   const Summary = (
     <div>
       <div className="order-summary" style={{ position: 'sticky', top: 80 }}>
         <div className="order-summary-head">resumen</div>
         <div className="order-summary-body">
-          {/* Artist color block */}
           <div style={{
             width: '100%', aspectRatio: '16/9', borderRadius: 'var(--r-sm)',
             background: artist.bg, position: 'relative', overflow: 'hidden',
@@ -273,7 +279,6 @@ export default function CheckoutClient({
 
   return (
     <div style={{ maxWidth: 1040, margin: '0 auto', padding: 'var(--space-7) var(--outer-px) var(--space-9)' }}>
-      {/* Back */}
       <div style={{ marginBottom: 'var(--space-7)' }}>
         <Link href={`/artista/${artist.slug}`} style={{ fontSize: 13, color: 'var(--fg-muted)', display: 'inline-flex', alignItems: 'center', gap: 4, textDecoration: 'none', marginBottom: 'var(--space-4)' }}>
           ← {artist.name}
@@ -294,11 +299,11 @@ export default function CheckoutClient({
       </div>
 
       <div className="checkout-grid">
+
         {/* ── Paso 1: info ── */}
         {step === 'info' && (
           <form onSubmit={handleInfoSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
 
-            {/* Show selector (if multiple) */}
             {shows.length > 1 && (
               <div>
                 <div className="eyebrow" style={{ marginBottom: 'var(--space-3)' }}>show</div>
@@ -328,7 +333,6 @@ export default function CheckoutClient({
               </div>
             )}
 
-            {/* Qty */}
             <div>
               <div className="eyebrow" style={{ marginBottom: 'var(--space-3)' }}>boletos</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
@@ -341,7 +345,6 @@ export default function CheckoutClient({
               </div>
             </div>
 
-            {/* Buyer info */}
             <div>
               <div className="eyebrow" style={{ marginBottom: 'var(--space-3)' }}>datos del comprador</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
@@ -369,12 +372,7 @@ export default function CheckoutClient({
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={isGoingToPayment}
-              className="btn btn-primary btn-lg"
-              style={{ alignSelf: 'flex-start' }}
-            >
+            <button type="submit" disabled={isGoingToPayment} className="btn btn-primary btn-lg" style={{ alignSelf: 'flex-start' }}>
               {isGoingToPayment ? 'iniciando…' : `continuar al pago · ${fmt(orderTotal)}`}
             </button>
           </form>
@@ -382,36 +380,22 @@ export default function CheckoutClient({
 
         {/* ── Paso 2: pago ── */}
         {step === 'payment' && clientSecret && (
-          <Elements
-            stripe={stripePromise}
-            options={{
-              clientSecret,
-              appearance: {
-                theme: 'flat',
-                variables: {
-                  colorPrimary: '#0a0a0a',
-                  colorBackground: '#ffffff',
-                  colorText: '#0a0a0a',
-                  colorDanger: '#ff0100',
-                  fontFamily: 'Inter, sans-serif',
-                  borderRadius: '4px',
-                  focusBoxShadow: '0 0 0 3px rgba(255,226,0,0.35)',
-                },
-              },
-            }}
-          >
-            {isCreatingOrder ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 'var(--space-8) 0', color: 'var(--fg-muted)', fontStyle: 'italic', fontSize: 14 }}>
-                registrando boleto…
-              </div>
-            ) : (
+          isCreatingOrder ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 'var(--space-8) 0', color: 'var(--fg-muted)', fontStyle: 'italic', fontSize: 14 }}>
+              registrando boleto…
+            </div>
+          ) : (
+            <CheckoutElementsProvider
+              stripe={stripePromise}
+              options={{ clientSecret }}
+            >
               <PaymentForm
                 orderTotal={orderTotal}
                 onSuccess={handlePaymentSuccess}
                 onBack={() => setStep('info')}
               />
-            )}
-          </Elements>
+            </CheckoutElementsProvider>
+          )
         )}
 
         {Summary}

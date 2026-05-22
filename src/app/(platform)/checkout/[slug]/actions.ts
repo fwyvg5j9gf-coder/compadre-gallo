@@ -5,7 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase.server'
 import { auth } from '@clerk/nextjs/server'
 
 export type TicketOrderPayload = {
-  stripePaymentId: string
+  checkoutSessionId: string
   showId: string
   qty: number
   name: string
@@ -17,9 +17,9 @@ export type TicketOrderResult = { folioCode?: string; error?: string }
 
 export async function createTicketOrder(payload: TicketOrderPayload): Promise<TicketOrderResult> {
   try {
-    const { stripePaymentId, showId, qty, name, email, phone } = payload
+    const { checkoutSessionId, showId, qty, name, email, phone } = payload
 
-    // ── 1. Verify Stripe payment ───────────────────────────────────────────────
+    // ── 1. Verify Checkout Session server-side ─────────────────────────────────
     const [{ data: storeSettings }, { data: storeSecrets }] = await Promise.all([
       supabaseAdmin.from('store_settings').select('stripe_test_mode').eq('id', 1).single(),
       supabaseAdmin.from('store_secrets').select('stripe_sk_test, stripe_sk_live').eq('id', 1).single(),
@@ -29,12 +29,12 @@ export async function createTicketOrder(payload: TicketOrderPayload): Promise<Ti
     const stripeKey = (dbKey && dbKey.length > 10) ? dbKey : process.env.STRIPE_SECRET_KEY!
     const stripe = new Stripe(stripeKey)
 
-    const pi = await stripe.paymentIntents.retrieve(stripePaymentId)
-    if (pi.status !== 'succeeded') {
+    const session = await stripe.checkout.sessions.retrieve(checkoutSessionId)
+    if (session.payment_status !== 'paid') {
       return { error: 'el pago no está confirmado, intenta de nuevo' }
     }
 
-    // ── 2. Fetch real show price ───────────────────────────────────────────────
+    // ── 2. Fetch real show price from DB ───────────────────────────────────────
     const { data: show } = await supabaseAdmin
       .from('shows')
       .select('id, price_mxn, venue, city, date, artist_id')
@@ -56,15 +56,12 @@ export async function createTicketOrder(payload: TicketOrderPayload): Promise<Ti
     let dbUserId: string | null = null
     if (clerkUserId) {
       const { data: u } = await supabaseAdmin
-        .from('users')
-        .select('id')
-        .eq('clerk_user_id', clerkUserId)
-        .single()
+        .from('users').select('id').eq('clerk_user_id', clerkUserId).single()
       dbUserId = u?.id ?? null
     }
 
     // ── 5. Insert ticket ───────────────────────────────────────────────────────
-    const { data: ticket, error: insertErr } = await supabaseAdmin
+    const { error: insertErr } = await supabaseAdmin
       .from('tickets')
       .insert({
         show_id:           showId,
@@ -75,15 +72,13 @@ export async function createTicketOrder(payload: TicketOrderPayload): Promise<Ti
         quantity:          qty,
         unit_price_mxn:    unitPrice,
         total_mxn:         totalMxn,
-        stripe_payment_id: stripePaymentId,
+        stripe_payment_id: session.payment_intent as string ?? checkoutSessionId,
         folio_code:        folioCode,
         status:            'confirmed',
       })
-      .select('id')
-      .single()
 
-    if (insertErr || !ticket) {
-      return { error: 'tu pago fue procesado pero hubo un error al registrar el boleto. contacta soporte con ID: ' + stripePaymentId }
+    if (insertErr) {
+      return { error: 'tu pago fue procesado pero hubo un error al registrar el boleto. contacta soporte con ID: ' + checkoutSessionId }
     }
 
     // ── 6. Send confirmation email (fire-and-forget) ───────────────────────────

@@ -15,15 +15,15 @@ async function getStripeClient() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { showId, qty } = await req.json() as { showId: string; qty: number }
+    const { showId, qty, slug } = await req.json() as { showId: string; qty: number; slug: string }
 
-    if (!showId || !qty || qty < 1 || qty > 10) {
+    if (!showId || !qty || qty < 1 || qty > 10 || !slug) {
       return NextResponse.json({ error: 'datos inválidos' }, { status: 400 })
     }
 
     const { data: show } = await supabaseAdmin
       .from('shows')
-      .select('id, price_mxn, is_published, capacity, artist_id')
+      .select('id, price_mxn, is_published, venue, city, artists(name)')
       .eq('id', showId)
       .eq('is_published', true)
       .single()
@@ -33,24 +33,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'este show no tiene precio de boleto' }, { status: 400 })
     }
 
-    const subtotal = show.price_mxn * qty
     const { stripe, markupPct } = await getStripeClient()
-    const finalAmount = markupPct > 0 ? Math.round(subtotal * (1 + markupPct / 100)) : subtotal
+    const unitAmount = markupPct > 0
+      ? Math.round(show.price_mxn * (1 + markupPct / 100))
+      : show.price_mxn
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: finalAmount,
-      currency: 'mxn',
-      automatic_payment_methods: { enabled: true },
-      metadata: { showId, qty: String(qty) },
+    const artistName = (show.artists as unknown as { name: string } | null)?.name ?? 'artista'
+    const origin = req.headers.get('origin') ?? 'https://compadregallo.com'
+
+    const session = await stripe.checkout.sessions.create({
+      ui_mode: 'elements',
+      line_items: [{
+        price_data: {
+          currency: 'mxn',
+          product_data: {
+            name: `Boleto — ${artistName}`,
+            description: `${show.venue}, ${show.city}`,
+          },
+          unit_amount: unitAmount,
+        },
+        quantity: qty,
+      }],
+      mode: 'payment',
+      return_url: `${origin}/checkout/${slug}`,
     })
 
     return NextResponse.json({
-      clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id,
-      finalAmount,
+      clientSecret: session.client_secret,
+      sessionId: session.id,
     })
   } catch (err) {
-    console.error('create-ticket-intent error:', err)
+    console.error('create-ticket-session error:', err)
     return NextResponse.json({ error: 'error al iniciar el pago' }, { status: 500 })
   }
 }
