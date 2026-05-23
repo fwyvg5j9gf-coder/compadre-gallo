@@ -16,6 +16,19 @@ const CHANGELOG: {
 }[] = [
   {
     date: '2026-05-22',
+    tag: 'sesión 10',
+    items: [
+      { type: 'feature', text: 'Sistema QR completo: /boleto/[folio] — página pública de validación (estado válido/usado, datos del show, header con colores del artista). Admin ve nombre, correo y botones "marcar como usado" / "deshacer" con actualización optimista.' },
+      { type: 'feature', text: '/casa/scanner — pantalla oscura para staff en puerta: input de folio con redirect a /boleto/[folio]. También funciona directo con cámara: el QR del correo ya apunta a compadregallo.com/boleto/T-XXXXXXXX.' },
+      { type: 'feature', text: '/casa/boletos — hub admin de boletos: stats (total/válidos/usados/recaudado), tabla con filtros (todos/válidos/usados) y buscador (folio, nombre, correo, artista). Acciones inline por fila: reenviar correo + toggle usado/restaurar. Botón "escanear →" en header.' },
+      { type: 'fix',     text: 'QR en correo de confirmación: antes codificaba solo el folio (T-XXXXXXXX), ahora codifica la URL completa (compadregallo.com/boleto/T-XXXXXXXX) para que abrir el QR con cualquier cámara lleve directo a la página del boleto.' },
+      { type: 'feature', text: 'Buzón de soporte Resend Inbound: /api/email/inbound recibe webhooks de Resend (verificación Svix), fetcha el body completo vía /emails/receiving/{id} y guarda en tabla support_messages.' },
+      { type: 'feature', text: '/casa/soporte — bandeja de entrada: filtros (nuevos/respondidos/resueltos), vista del mensaje (HTML o texto), reply con threading (In-Reply-To / References), marcar leído / resuelto. Badge de nuevos mensajes en el header.' },
+      { type: 'doc',     text: 'supabase-auth.txt removido del repo (había sido commiteado accidentalmente); añadido a .gitignore.' },
+    ],
+  },
+  {
+    date: '2026-05-22',
     tag: 'sesión 9',
     items: [
       { type: 'feature', text: 'Checkout de boletos real: Stripe Checkout Sessions API (ui_mode: elements) + CheckoutElementsProvider de @stripe/react-stripe-js/checkout. Flujo: datos → pago Stripe → createTicketOrder server action → folio_code único (T-XXXXXXXX) en tabla tickets → email con QR vía qrserver.com' },
@@ -164,6 +177,7 @@ const TASKS: {
       { status: 'pending', text: 'Rate limiting en /api/stripe/create-intent', note: 'Upstash Ratelimit o Vercel Edge Middleware' },
       { status: 'pending', text: 'Validación de schema con Zod en server actions del checkout', note: 'Solo hay .trim() y parseFloat() actualmente' },
       { status: 'pending', text: 'Validar MIME en getUploadUrl() antes de firmar URL', note: 'Actualmente acepta cualquier contentType' },
+      { status: 'pending', text: 'Configurar Resend Inbound para hola@compadregallo.com', note: '1) Registro MX en GoDaddy desde Resend Dashboard → Receiving. 2) Crear ruta en Resend apuntando a /api/email/inbound. 3) Copiar signing secret y añadir RESEND_WEBHOOK_SIGNING_SECRET en Vercel + .env.local' },
     ],
   },
   {
@@ -171,7 +185,7 @@ const TASKS: {
     accent: '#003a87',
     items: [
       { status: 'done',    text: 'Cuentas — panel admin y flujo fan', note: '/casa/cuentas con tabs "con cuenta" (username primario) + "invitados"; /cuenta sidebar muestra @username como ID principal; guest checkout con pantalla de confirmación diferenciada' },
-      { status: 'pending', text: 'Checkout de boletos/shows', note: 'CheckoutClient.tsx es mock (setTimeout, sin Stripe ni DB) — falta conectar PI + tabla tickets' },
+      { status: 'done',    text: 'Checkout de boletos/shows', note: 'Stripe Checkout Sessions (ui_mode: elements), tabla tickets, folio T-XXXXXXXX, QR en correo; /boleto/[folio] validación pública, /casa/boletos hub admin, /casa/scanner para staff' },
       { status: 'done',    text: 'Vista reducida para artistas (portal)', note: 'ArtistDetail filtra tabs por adminOnly; ingresos y ClerkLinkCard solo para admin' },
       { status: 'done',    text: 'SEO dinámico — generateMetadata en /artista/[slug] y /tienda/[id]', note: 'og:image, og:type, canonical URL, twitter:card' },
       { status: 'pending', text: 'RLS en Supabase', note: 'Todo va por service role actualmente; sin restricciones por fila' },
@@ -200,6 +214,11 @@ const CODE_STATE = [
   { file: 'src/lib/sku.ts',                          desc: 'buildProductSku (CAT3-SEQ4), buildVariantSku' },
   { file: 'src/app/api/stripe/webhook/route.ts',     desc: 'webhook Stripe con constructEvent' },
   { file: 'src/app/api/clerk/webhook/route.ts',      desc: 'webhook Clerk con svix' },
+  { file: 'src/app/api/email/inbound/route.ts',      desc: 'webhook Resend Inbound — guarda en support_messages' },
+  { file: 'src/app/(platform)/boleto/[folio]/',      desc: 'página pública QR: estatus, datos show, botones admin' },
+  { file: 'src/app/casa/boletos/',                   desc: 'hub admin: lista tickets, stats, filtros, resend, toggle usado' },
+  { file: 'src/app/casa/scanner/',                   desc: 'pantalla staff para escanear / buscar folio' },
+  { file: 'src/app/casa/soporte/',                   desc: 'bandeja de entrada hola@compadregallo.com — read, reply, resolve' },
   { file: 'src/app/(platform)/carrito/checkout/',    desc: 'createOrder, getRates, decrementStock' },
   { file: 'src/app/casa/ordenes/[id]/actions.ts',    desc: 'Skydropx shipment, status, cancel' },
   { file: 'src/app/casa/tienda/actions.ts',          desc: 'CRUD productos + variantes + SKU auto-gen' },
@@ -399,6 +418,7 @@ function CodigoTab() {
             { key: 'ADMIN_EMAIL',                      status: 'ok',      note: 'para notificaciones de pedidos al admin' },
             { key: 'NEXT_PUBLIC_APP_URL',              status: 'ok',      note: 'https://compadregallo.com' },
             { key: 'ADMIN_USER_IDS',                   status: 'ok',      note: 'IDs de Clerk con rol admin (separados por coma)' },
+            { key: 'RESEND_WEBHOOK_SIGNING_SECRET',    status: 'pending', note: 'signing secret del webhook Resend Inbound (whsec_...) — pendiente de configurar' },
           ].map((row, i, arr) => {
             const color = row.status === 'ok' ? '#1a6b35' : row.status === 'warn' ? '#cc7700' : M
             const bg    = row.status === 'ok' ? 'rgba(26,107,53,0.06)' : row.status === 'warn' ? 'rgba(204,119,0,0.07)' : '#f6f5f1'
