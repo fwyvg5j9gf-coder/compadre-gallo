@@ -9,6 +9,7 @@ const CARDS = [
   { title: 'tienda',        desc: 'productos, stock y precios',            href: '/casa/tienda',                accent: '#ff0100' },
   { title: 'inventario',    desc: 'SKUs, stock y movimientos',             href: '/casa/inventario',            accent: '#003a87' },
   { title: 'órdenes',       desc: 'compras, envíos y estados',             href: '/casa/ordenes',               accent: '#003a87' },
+  { title: 'boletos',       desc: 'boletos vendidos, validación y scanner', href: '/casa/boletos',              accent: '#ff0100' },
   { title: 'descuentos',    desc: 'códigos de descuento y promociones',    href: '/casa/descuentos',            accent: '#1a6b35' },
   { title: 'cuentas',       desc: 'fans con cuenta + compradores invitados', href: '/casa/cuentas',               accent: '#00c4df' },
   { title: 'artistas',      desc: 'catálogo, bios y shows',                href: '/casa/artistas',              accent: '#ffd49a' },
