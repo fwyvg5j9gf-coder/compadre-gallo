@@ -13,6 +13,7 @@ const CARDS = [
   { title: 'descuentos',    desc: 'códigos de descuento y promociones',    href: '/casa/descuentos',            accent: '#1a6b35' },
   { title: 'cuentas',       desc: 'fans con cuenta + compradores invitados', href: '/casa/cuentas',               accent: '#00c4df' },
   { title: 'artistas',      desc: 'catálogo, bios y shows',                href: '/casa/artistas',              accent: '#ffd49a' },
+  { title: 'soporte',       desc: 'bandeja de entrada — hola@compadregallo.com', href: '/casa/soporte',            accent: '#00c4df' },
   { title: 'correos',       desc: 'historial y envíos masivos',            href: '/casa/correos',               accent: '#ffd49a' },
   { title: 'configuración', desc: 'stripe, skydropx y tarifas',            href: '/casa/tienda/configuracion',  accent: '#6b6a64' },
   { title: 'editor',        desc: 'contenido y apariencia del sitio',      href: '/casa/editor',                accent: '#ffe200' },
