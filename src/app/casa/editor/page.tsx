@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { draftMode } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { requireAdmin } from '@/lib/auth.server'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import type { Block, NavSettings, FooterSettings } from '@/lib/blocks'
 import { DEFAULT_NAV_LINKS, DEFAULT_FOOTER } from '@/lib/blocks'
@@ -12,6 +13,7 @@ export const dynamic = 'force-dynamic'
 export default async function EditorPage() {
   const { userId } = await auth()
   if (!userId) redirect('/casa/login')
+  await requireAdmin()
 
   await (await draftMode()).enable()
 

@@ -12,6 +12,8 @@ const CARDS = [
   { title: 'boletos',       desc: 'boletos vendidos, validación y scanner', href: '/casa/boletos',              accent: '#ff0100' },
   { title: 'descuentos',    desc: 'códigos de descuento y promociones',    href: '/casa/descuentos',            accent: '#1a6b35' },
   { title: 'cuentas',       desc: 'fans con cuenta + compradores invitados', href: '/casa/cuentas',               accent: '#00c4df' },
+  { title: 'usuarios',      desc: 'roles y permisos de admin',             href: '/casa/usuarios',              accent: '#6b6a64' },
+  { title: 'scanner',       desc: 'validar boletos en la puerta',          href: '/casa/scanner',               accent: '#ff0100' },
   { title: 'artistas',      desc: 'catálogo, bios y shows',                href: '/casa/artistas',              accent: '#ffd49a' },
   { title: 'soporte',       desc: 'bandeja de entrada — hola@compadregallo.com', href: '/casa/soporte',            accent: '#00c4df' },
   { title: 'correos',       desc: 'historial y envíos masivos',            href: '/casa/correos',               accent: '#ffd49a' },

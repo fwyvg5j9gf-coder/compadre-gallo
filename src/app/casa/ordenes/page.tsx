@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import { requireAdmin } from '@/lib/auth.server'
 import Link from 'next/link'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import AdminShell from '../AdminShell'
@@ -11,6 +12,7 @@ export const dynamic = 'force-dynamic'
 export default async function OrdenesPage() {
   const { userId } = await auth()
   if (!userId) redirect('/casa/login')
+  await requireAdmin()
 
   const { data: orders } = await supabaseAdmin
     .from('orders')

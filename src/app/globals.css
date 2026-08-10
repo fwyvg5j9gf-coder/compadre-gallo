@@ -869,3 +869,75 @@ img { display: block; }
   .adm-col-date,
   .adm-col-actions { display: none; }
 }
+
+/* ── Selector de sección en el header del admin ─────────────────────────────
+   <details> nativo: sin JS de cliente. Cierra al navegar o al volver a
+   clicar el título. Es el único índice completo de secciones del panel. */
+.adm-secmenu { position: relative; }
+.adm-secmenu > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  color: #f0efe9;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  user-select: none;
+  transition: background 120ms;
+}
+.adm-secmenu > summary::-webkit-details-marker { display: none; }
+.adm-secmenu > summary::marker { content: ''; }
+.adm-secmenu > summary:hover { background: rgba(255,255,255,0.08); }
+.adm-secmenu[open] > summary { background: rgba(255,255,255,0.1); }
+.adm-secmenu > summary svg { color: #6b6a64; transition: transform 140ms; }
+.adm-secmenu[open] > summary svg { transform: rotate(180deg); }
+
+.adm-secmenu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 60;
+  min-width: 460px;
+  padding: 8px 10px 12px;
+  background: #131310;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  box-shadow: 0 14px 38px -12px rgba(0,0,0,0.65);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0 10px;
+  align-content: start;
+}
+.adm-secmenu-panel > a:first-child { grid-column: 1 / -1; margin-bottom: 4px; }
+
+.adm-secmenu-group {
+  padding: 10px 8px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b6a64;
+}
+.adm-secmenu-item {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 5px;
+  color: #cfcec8;
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 100ms, color 100ms;
+}
+.adm-secmenu-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.adm-secmenu-item.active { background: #ffe200; color: #0a0a0a; font-weight: 700; }
+
+@media (max-width: 600px) {
+  .adm-secmenu-panel {
+    min-width: min(88vw, 340px);
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

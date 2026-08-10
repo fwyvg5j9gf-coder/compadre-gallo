@@ -5,6 +5,7 @@ import {
   sendWelcomeEmail, sendOrderCancelled, sendPaymentFailed, sendMassEmail,
 } from '@/lib/emails'
 import { supabaseAdmin } from '@/lib/supabase.server'
+import { requireAdminOrThrow } from '@/lib/auth.server'
 
 const TEST_ORDER = {
   id: 'test',
@@ -20,6 +21,7 @@ const TEST_ORDER = {
 }
 
 export async function sendTestEmail(tipo: string, toEmail: string): Promise<{ ok: boolean; error?: string }> {
+  await requireAdminOrThrow()
   try {
     switch (tipo) {
       case 'confirmacion_pedido':
@@ -54,6 +56,7 @@ export async function sendTestEmail(tipo: string, toEmail: string): Promise<{ ok
 }
 
 export async function getMassEmailRecipients(audience: string): Promise<{ email: string; name: string | null }[]> {
+  await requireAdminOrThrow()
   if (audience === 'compradores') {
     const { data } = await supabaseAdmin
       .from('orders')
@@ -97,6 +100,7 @@ export async function sendMasivo(
   bodyHtml: string,
   audience: string,
 ): Promise<{ ok: boolean; sent?: number; failed?: number; error?: string }> {
+  await requireAdminOrThrow()
   try {
     const recipients = await getMassEmailRecipients(audience)
     if (recipients.length === 0) return { ok: false, error: 'no hay destinatarios para esta audiencia' }

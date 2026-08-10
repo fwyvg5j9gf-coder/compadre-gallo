@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import { requireAdmin } from '@/lib/auth.server'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import AdminShell from '../AdminShell'
 import CorreosClient from './CorreosClient'
@@ -7,6 +8,7 @@ import CorreosClient from './CorreosClient'
 export default async function CorreosPage() {
   const { userId } = await auth()
   if (!userId) redirect('/casa/login')
+  await requireAdmin()
 
   const { data: logs } = await supabaseAdmin
     .from('email_logs')

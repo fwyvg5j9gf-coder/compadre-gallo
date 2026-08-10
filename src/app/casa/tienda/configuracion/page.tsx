@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import { requireAdmin } from '@/lib/auth.server'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import type { StoreCategory, StoreSize, StoreSettings, PackagingType } from '@/lib/supabase'
 import ConfiguracionAdmin from './ConfiguracionAdmin'
@@ -21,6 +22,7 @@ const DEFAULT_SETTINGS: StoreSettings = {
 export default async function ConfiguracionPage() {
   const { userId } = await auth()
   if (!userId) redirect('/casa/login')
+  await requireAdmin()
 
   const [categories, sizes, packaging, settingsRes, secretsRes] = await Promise.all([
     supabaseAdmin.from('store_categories').select('*').order('sort_order'),

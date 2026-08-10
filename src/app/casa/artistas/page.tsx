@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import { requireAdmin } from '@/lib/auth.server'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import AdminShell from '../AdminShell'
 import ArtistasAdmin from './ArtistasAdmin'
@@ -7,6 +8,7 @@ import ArtistasAdmin from './ArtistasAdmin'
 export default async function ArtistasPage() {
   const { userId } = await auth()
   if (!userId) redirect('/casa/login')
+  await requireAdmin()
 
   const { data: artists } = await supabaseAdmin
     .from('artists')

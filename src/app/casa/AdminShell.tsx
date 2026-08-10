@@ -7,7 +7,53 @@ type AdminShellProps = {
   children: React.ReactNode
 }
 
-export default function AdminShell({ crumb, crumbHref, right, children }: AdminShellProps) {
+// Todas las secciones del panel, agrupadas. Sirve de índice único: si una
+// sección no está aquí, no hay forma de llegar a ella salvo escribiendo la URL.
+const SECTIONS: { group: string; items: { label: string; href: string }[] }[] = [
+  {
+    group: 'tienda',
+    items: [
+      { label: 'tienda',        href: '/casa/tienda' },
+      { label: 'inventario',    href: '/casa/inventario' },
+      { label: 'órdenes',       href: '/casa/ordenes' },
+      { label: 'descuentos',    href: '/casa/descuentos' },
+      { label: 'configuración', href: '/casa/tienda/configuracion' },
+    ],
+  },
+  {
+    group: 'gente',
+    items: [
+      { label: 'cuentas',  href: '/casa/cuentas' },
+      { label: 'usuarios', href: '/casa/usuarios' },
+      { label: 'soporte',  href: '/casa/soporte' },
+      { label: 'correos',  href: '/casa/correos' },
+    ],
+  },
+  {
+    group: 'contenido',
+    items: [
+      { label: 'artistas', href: '/casa/artistas' },
+      { label: 'editor',   href: '/casa/editor' },
+      { label: 'media',    href: '/casa/media' },
+    ],
+  },
+  {
+    group: 'eventos',
+    items: [
+      { label: 'boletos', href: '/casa/boletos' },
+      { label: 'scanner', href: '/casa/scanner' },
+    ],
+  },
+  {
+    group: 'sistema',
+    items: [
+      { label: 'bitácora',   href: '/casa/bitacora' },
+      { label: 'desarrollo', href: '/casa/desarrollo' },
+    ],
+  },
+]
+
+export default function AdminShell({ crumb, right, children }: AdminShellProps) {
   return (
     <div style={{ minHeight: '100vh', background: '#f6f5f1', fontFamily: 'var(--font-sans)' }}>
       <header style={{
@@ -16,7 +62,7 @@ export default function AdminShell({ crumb, crumbHref, right, children }: AdminS
         position: 'sticky', top: 0, zIndex: 50,
         borderBottom: '1px solid rgba(255,255,255,0.06)',
       }}>
-        {/* Logo + crumb */}
+        {/* Logo + selector de sección */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           <a href="/casa" style={{ textDecoration: 'none', lineHeight: 0 }}>
             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 900, letterSpacing: '-0.05em', fontSize: 22, lineHeight: 1 }}>
@@ -28,13 +74,34 @@ export default function AdminShell({ crumb, crumbHref, right, children }: AdminS
             </span>
           </a>
           <span style={{ color: '#3a3a38', fontSize: 15, lineHeight: 1, userSelect: 'none' }}>/</span>
-          {crumbHref ? (
-            <a href={crumbHref} style={{ color: '#9a9994', fontSize: 13, textDecoration: 'none', fontWeight: 500 }}>
-              {crumb}
-            </a>
-          ) : (
-            <span style={{ color: '#f0efe9', fontSize: 13, fontWeight: 500 }}>{crumb}</span>
-          )}
+
+          <details className="adm-secmenu">
+            <summary className="adm-secmenu-btn">
+              <span>{crumb}</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </summary>
+            <nav className="adm-secmenu-panel">
+              <a href="/casa" className={`adm-secmenu-item${crumb === 'casa' ? ' active' : ''}`}>
+                inicio
+              </a>
+              {SECTIONS.map(section => (
+                <div key={section.group}>
+                  <div className="adm-secmenu-group">{section.group}</div>
+                  {section.items.map(item => (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      className={`adm-secmenu-item${crumb === item.label ? ' active' : ''}`}
+                    >
+                      {item.label}
+                    </a>
+                  ))}
+                </div>
+              ))}
+            </nav>
+          </details>
         </div>
 
         {/* Search */}

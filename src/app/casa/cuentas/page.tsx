@@ -1,11 +1,13 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import { requireAdmin } from '@/lib/auth.server'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import CuentasAdmin from './CuentasAdmin'
 
 export default async function CuentasPage() {
   const { userId } = await auth()
   if (!userId) redirect('/casa/login')
+  await requireAdmin()
 
   const [usersRes, ordersRes, ticketsRes, subsRes, guestOrdersRes] = await Promise.all([
     supabaseAdmin

@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import { requireAdmin } from '@/lib/auth.server'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import type { Product, StoreCategory, StoreSize, PackagingType } from '@/lib/supabase'
 import TiendaAdmin from './TiendaAdmin'
@@ -7,6 +8,7 @@ import TiendaAdmin from './TiendaAdmin'
 export default async function TiendaPage() {
   const { userId } = await auth()
   if (!userId) redirect('/casa/login')
+  await requireAdmin()
 
   const [products, categories, sizes, packaging] = await Promise.all([
     supabaseAdmin.from('products').select('*, product_variants(*), packaging_types(*)').order('created_at', { ascending: false }),

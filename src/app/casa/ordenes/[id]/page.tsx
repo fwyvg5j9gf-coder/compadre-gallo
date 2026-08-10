@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect, notFound } from 'next/navigation'
+import { requireAdmin } from '@/lib/auth.server'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import AdminShell from '../../AdminShell'
 import OrderActions from './OrderActions'
@@ -123,6 +124,7 @@ function OrderHistoryCard({
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth()
   if (!userId) redirect('/casa/login')
+  await requireAdmin()
 
   const { id } = await params
 

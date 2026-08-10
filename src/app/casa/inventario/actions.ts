@@ -124,6 +124,7 @@ export async function getVariantMovements(
 
 // ── Resumen global para el dashboard ─────────────────────────────────────────
 export async function getInventorySummary() {
+  await requireAdminUserId()
   const { data } = await supabaseAdmin
     .from('product_variants')
     .select('stock, reorder_point, products!inner(is_published)')
