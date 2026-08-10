@@ -326,7 +326,7 @@ export default function CheckoutMerch({
           body: JSON.stringify({
             items: items.map(i => ({ productId: i.productId, qty: i.qty })),
             shippingMxn: data.shippingMxn,
-            discountMxn: data.discount?.discountMxn ?? 0,
+            discountCode: data.discount?.code,
           }),
         })
         if (!res.ok) {
