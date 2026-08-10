@@ -1,15 +1,15 @@
 import { auth } from '@clerk/nextjs/server'
+import { isAdmin } from '@/lib/auth.server'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import { csvCell } from '@/lib/utils'
 
-const ADMIN_IDS = (process.env.ADMIN_USER_IDS ?? '').split(',').map(s => s.trim()).filter(Boolean)
-
 export async function GET() {
+  // isAdmin() checks ADMIN_USER_IDS *and* users.role — same rule as the rest of
+  // /casa. Never fall open when the env var is missing: this endpoint hands out
+  // every customer's name, email, phone and address.
   const { userId } = await auth()
   if (!userId) return new Response('No autorizado', { status: 401 })
-  if (ADMIN_IDS.length > 0 && !ADMIN_IDS.includes(userId)) {
-    return new Response('No autorizado', { status: 403 })
-  }
+  if (!(await isAdmin(userId))) return new Response('No autorizado', { status: 403 })
 
   const { data: orders, error } = await supabaseAdmin
     .from('orders')
