@@ -1,247 +1,89 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import AdminShell from '../AdminShell'
+import { addDevTask, deleteDevTask, setDevTaskStatus } from './actions'
+import type { DevTask, DevTaskStatus } from './actions'
+import type { Commit, CommitType, RepoFile } from './github'
 
 const B = '#e8e7e1'
 const M = '#6b6a64'
 const S = '#9a9994'
 
-// ── Data ───────────────────────────────────────────────────────────────────────
+// ── Formato ───────────────────────────────────────────────────────────────────
+// Las fechas se derivan del string ISO sin convertir zona horaria: el servidor
+// renderiza en UTC y el navegador en local, y cualquier conversión provocaría
+// un desajuste de hidratación.
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
-const CHANGELOG: {
-  date: string
-  tag: string
-  items: { type: 'feature' | 'fix' | 'security' | 'doc'; text: string }[]
-}[] = [
-  {
-    date: '2026-05-22',
-    tag: 'sesión 10',
-    items: [
-      { type: 'feature', text: 'Sistema QR completo: /boleto/[folio] — página pública de validación (estado válido/usado, datos del show, header con colores del artista). Admin ve nombre, correo y botones "marcar como usado" / "deshacer" con actualización optimista.' },
-      { type: 'feature', text: '/casa/scanner — pantalla oscura para staff en puerta: input de folio con redirect a /boleto/[folio]. También funciona directo con cámara: el QR del correo ya apunta a compadregallo.com/boleto/T-XXXXXXXX.' },
-      { type: 'feature', text: '/casa/boletos — hub admin de boletos: stats (total/válidos/usados/recaudado), tabla con filtros (todos/válidos/usados) y buscador (folio, nombre, correo, artista). Acciones inline por fila: reenviar correo + toggle usado/restaurar. Botón "escanear →" en header.' },
-      { type: 'fix',     text: 'QR en correo de confirmación: antes codificaba solo el folio (T-XXXXXXXX), ahora codifica la URL completa (compadregallo.com/boleto/T-XXXXXXXX) para que abrir el QR con cualquier cámara lleve directo a la página del boleto.' },
-      { type: 'feature', text: 'Buzón de soporte Resend Inbound: /api/email/inbound recibe webhooks de Resend (verificación Svix), fetcha el body completo vía /emails/receiving/{id} y guarda en tabla support_messages.' },
-      { type: 'feature', text: '/casa/soporte — bandeja de entrada: filtros (nuevos/respondidos/resueltos), vista del mensaje (HTML o texto), reply con threading (In-Reply-To / References), marcar leído / resuelto. Badge de nuevos mensajes en el header.' },
-      { type: 'doc',     text: 'supabase-auth.txt removido del repo (había sido commiteado accidentalmente); añadido a .gitignore.' },
-    ],
-  },
-  {
-    date: '2026-05-22',
-    tag: 'sesión 9',
-    items: [
-      { type: 'feature', text: 'Checkout de boletos real: Stripe Checkout Sessions API (ui_mode: elements) + CheckoutElementsProvider de @stripe/react-stripe-js/checkout. Flujo: datos → pago Stripe → createTicketOrder server action → folio_code único (T-XXXXXXXX) en tabla tickets → email con QR vía qrserver.com' },
-      { type: 'feature', text: 'SEO dinámico: generateMetadata en /artista/[slug] y /tienda/[id] — title, description, og:title/description/image/type, twitter:card summary_large_image. Canonical URL por página.' },
-      { type: 'feature', text: 'Mobile admin: KPI grid 4→2 cols, dashboard main grid 1-col, header search oculto, tabla de órdenes a tarjeta (folio/cliente/total/status), detalle de orden sidebar apilado' },
-      { type: 'feature', text: 'OG image dinámica: /opengraph-image.tsx con las letras "gallo" en 5 colores sobre fondo blanco (edge runtime, DM Sans 900)' },
-      { type: 'feature', text: 'Social links en perfil de artista: Instagram, TikTok, Spotify, YouTube con SVGs inline' },
-      { type: 'fix',     text: 'is_published siempre false al editar artista: formData.get() retornaba el hidden input "false"; fix con formData.getAll().includes("true")' },
-      { type: 'fix',     text: 'Checkout Sessions: customer_email en la sesión evita que PaymentElement pida email extra; try-catch en confirm() evita quedarse en "procesando..."' },
-      { type: 'fix',     text: 'DB tickets: ALTER TABLE tickets ALTER COLUMN user_id DROP NOT NULL (guest checkout); removido customer_phone del INSERT (columna inexistente)' },
-    ],
-  },
-  {
-    date: '2026-05-21',
-    tag: 'sesión 8',
-    items: [
-      { type: 'feature', text: '/casa/cuentas: clic en fila abre drawer lateral con detalle completo — pedidos (folio, status, productos con talla/cantidad, envío, total), boletos (artista, venue, ciudad, fecha show, folio, status), artistas seguidos (nombre, género, ciudad, desde cuándo). Lazy fetch via GET /api/admin/user-detail' },
-      { type: 'feature', text: '/cuenta sidebar: @username ahora es el identificador principal — se muestra en monospace bold antes del nombre; si no tiene username aún, sigue mostrando el nombre como antes' },
-      { type: 'feature', text: 'Guest checkout: pantalla de confirmación diferenciada para invitados — muestra "crear cuenta" → /cuenta/registro en vez de "ver mis pedidos", con nudge sobre los beneficios de tener cuenta' },
-      { type: 'doc',     text: 'CLAUDE.md + memoria persistente: rutina de inicio de sesión — leer DesarrolloPanel.tsx al comenzar cada conversación para evitar repetir trabajo y retomar contexto' },
-      { type: 'feature', text: 'claude.app: ícono reemplazado con el favicon de GALLO (icon-512.png → .icns con todas las resoluciones via sips + iconutil)' },
-    ],
-  },
-  {
-    date: '2026-05-20',
-    tag: 'sesión 7',
-    items: [
-      { type: 'security', text: 'Stripe SK keys + webhook secret movidos a tabla store_secrets (RLS sin policies = solo service role) — antes estaban en store_settings con política public read' },
-      { type: 'security', text: 'Skydropx client_id y client_secret movidos a store_secrets — mismo fix que Stripe' },
-      { type: 'fix',     text: 'Nueva orden: lookupUser y fetchRatesForNewOrder convertidos de Server Actions a API routes (/api/admin/lookup-user, /api/admin/shipping-rates)' },
-      { type: 'doc',     text: 'Root cause documentado: Server Actions re-renderizan el Server Component de la página al ejecutarse; si ese componente llama auth()+redirect(), el redirect() lanza excepción especial que Next.js reporta como "Server Components render error" y no puede ser atrapada con try/catch en el cliente. Fix: usar API routes para operaciones de lectura.' },
-      { type: 'feature', text: 'Nueva orden: botón "usar dirección de prueba" rellena dirección CDMX para testing rápido de Skydropx' },
-      { type: 'feature', text: 'claude.app — acceso directo en la carpeta del proyecto, doble clic abre Terminal + Claude Code en el directorio correcto' },
-    ],
-  },
-  {
-    date: '2026-05-20',
-    tag: 'sesión 6',
-    items: [
-      { type: 'feature', text: 'Skydropx: siempre cotizar antes de generar guía — pre-selecciona paquetería del cliente, advierte si se cambia' },
-      { type: 'feature', text: 'Nueva orden: cotizar envío con Skydropx al crear orden manual — selección de paquetería + costo auto-llenado' },
-      { type: 'feature', text: 'Nueva orden: dirección de envío visible por defecto (necesaria para Skydropx)' },
-      { type: 'feature', text: 'Saldo Skydropx en panel de crear guía (OrderActions) — badge verde/naranja, alerta si < $200 MXN' },
-      { type: 'feature', text: 'Badge de saldo Skydropx en barra de /casa/ordenes — visible sin entrar a ninguna orden' },
-      { type: 'feature', text: '/cuenta pedidos: tarjeta muestra productos y guía sin expandir; expandida agrega dirección de envío completa' },
-      { type: 'feature', text: '/teamovavi — página secreta sin auth: corazones pixel art que ascienden como globos, animación ease-in de entrada' },
-      { type: 'fix',     text: '"en camino" solo muestra status=shipped; paid va a sección "confirmados"' },
-      { type: 'fix',     text: 'Botón cotizar bloqueado hasta seleccionar producto Y C.P. de destino — con hints claros' },
-      { type: 'fix',     text: 'Cotizar envío: Server Action envuelta en useTransition para compatibilidad con App Router' },
-      { type: 'fix',     text: 'Lookup de cliente: maybeSingle() evita crash; busca en orders como fallback para clientes sin cuenta' },
-      { type: 'fix',     text: 'requireAdmin() → requireAdminOrThrow() en todas las Server Actions con try/catch — redirect() lanza NEXT_REDIRECT (no instanceof Error), silenciaba todos los errores de auth' },
-      { type: 'fix',     text: 'lookupUser reescrito con .ilike() secuencial — elimina .or() compuesto que falló con wildcards en producción' },
-      { type: 'fix',     text: 'Bug crítico: contador _id module-level en NuevoOrden → useRef por instancia — lambda caliente incrementaba _id entre requests, React 19 lo promovía a hydration error fatal' },
-      { type: 'fix',     text: 'Error boundary /casa muestra digest del error — facilita búsqueda en Vercel function logs' },
-    ],
-  },
-  {
-    date: '2026-05-19',
-    tag: 'sesión 5',
-    items: [
-      { type: 'fix',      text: 'SAT class codes — parser robusto (5 estructuras) + paginación via total÷per_page' },
-      { type: 'doc',      text: 'ARCHITECTURE.md actualizado — estado real de seguridad verificado en código' },
-      { type: 'security', text: 'Confirmadas firmas webhook Stripe (constructEvent) y Clerk (svix) — ya estaban implementadas' },
-      { type: 'security', text: 'Confirmados security headers HTTP en next.config — CSP, X-Frame-Options, nosniff' },
-    ],
-  },
-  {
-    date: '2026-05-18',
-    tag: 'sprint 4',
-    items: [
-      { type: 'feature',  text: 'Landing hero rediseñado — letras staggered, mascot flotante, paneles CTA animados, noise + spotlight' },
-      { type: 'feature',  text: 'Sistema de SKU auto-generado: CAT3-SEQ4 para productos, CAT-SKU-TALLA para variantes' },
-      { type: 'feature',  text: 'Card "inventario" en dashboard de /casa' },
-      { type: 'feature',  text: 'Log de movimientos de venta en checkout (fire-and-forget RPC)' },
-      { type: 'fix',      text: 'proxy.ts redirigía al admin a /cuenta/login en vez de /casa/login' },
-      { type: 'feature',  text: 'Email al cliente cuando se genera guía de rastreo Skydropx' },
-    ],
-  },
-  {
-    date: '2026-05-17',
-    tag: 'sprint 3',
-    items: [
-      { type: 'fix',      text: 'shipping_carrier no se guardaba en DB al crear guía Skydropx' },
-      { type: 'fix',      text: 'label_url quedaba null — polling ahora espera trackingNumber AND labelUrl' },
-      { type: 'fix',      text: 'Consultar estado no guardaba label_url si había quedado null' },
-      { type: 'fix',      text: 'Stock de productos sin variante no se verificaba en checkout' },
-      { type: 'fix',      text: 'RPC decrement_stock no cubría productos sin variante — nuevo RPC decrement_product_stock' },
-      { type: 'feature',  text: '/casa/inventario — lista de productos con stock, SKUs y movimientos' },
-      { type: 'feature',  text: '/casa/ordenes/nuevo — crear orden manual con buscador de cliente' },
-    ],
-  },
-  {
-    date: '2026-05-16',
-    tag: 'sprint 2',
-    items: [
-      { type: 'feature',  text: 'Skydropx completo: cotización, generar guía, rastreo, cancelar, historial JSONB, PDF/imprimir' },
-      { type: 'feature',  text: 'Cuenta del cliente (/cuenta) — tabs: pedidos, boletos, artistas seguidos, perfil' },
-      { type: 'feature',  text: 'Page builder CMS (/casa/editor)' },
-      { type: 'feature',  text: 'Biblioteca de medios (/casa/media)' },
-      { type: 'feature',  text: 'Configuración completa: Stripe test/live, Skydropx, embalajes SAT, tarifas, políticas' },
-      { type: 'feature',  text: 'Export CSV de órdenes (/api/export-orders)' },
-    ],
-  },
-  {
-    date: '2026-05-15',
-    tag: 'sprint 1 — base',
-    items: [
-      { type: 'feature',  text: 'Proyecto base: Next.js 16 + Clerk + Supabase + Stripe + Resend + Skydropx + Vercel' },
-      { type: 'feature',  text: 'Auth admin + fans con roles (admin / artista / fan)' },
-      { type: 'feature',  text: 'Artistas CRUD completo — tracks, shows, tasks, calendario, secciones, portal artista' },
-      { type: 'feature',  text: 'Tienda: productos con variantes, categorías, tallas, imagen con crop' },
-      { type: 'feature',  text: 'Pago con Stripe: Payment Intent + webhook fallback + createOrder' },
-      { type: 'feature',  text: 'Emails transaccionales: confirmación cliente + notificación admin (Resend)' },
-      { type: 'feature',  text: 'Órdenes admin: lista, detalle, cambiar estado, folios GALLO-NNNNN' },
-      { type: 'feature',  text: 'Design system GALLO — 5 colores, tipografía, tokens CSS, sin Tailwind' },
-    ],
-  },
-]
+function dayKey(iso: string) {
+  return iso.slice(0, 10)
+}
 
-type TaskStatus = 'done' | 'pending' | 'blocked'
+function fmtDay(key: string) {
+  const [y, m, d] = key.split('-')
+  if (!y || !m || !d) return key || 'sin fecha'
+  const mes = MESES[Number(m) - 1] ?? m
+  return `${Number(d)} ${mes} ${y}`
+}
 
-const TASKS: {
-  section: string
-  accent: string
-  items: { status: TaskStatus; text: string; note?: string }[]
-}[] = [
-  {
-    section: 'producción',
-    accent: '#ff0100',
-    items: [
-      { status: 'done',    text: 'Cambiar Clerk de pk_test_ a pk_live_', note: 'Keys live configuradas en Vercel' },
-      { status: 'done',    text: 'Registrar webhook Stripe en producción', note: 'STRIPE_WEBHOOK_SECRET configurado en Vercel — ojo: store_settings aún en modo test' },
-      { status: 'done',    text: 'Verificar RESEND_API_KEY y ADMIN_EMAIL en Vercel', note: 'Configurados en Vercel' },
-      { status: 'done',    text: 'Conectar dominio compadregallo.com en Vercel', note: 'Dominio activo en producción' },
-    ],
-  },
-  {
-    section: 'seguridad',
-    accent: '#cc5500',
-    items: [
-      { status: 'done',    text: 'Firmas webhook Stripe — constructEvent(body, sig, secret)' },
-      { status: 'done',    text: 'Firmas webhook Clerk — svix SDK con svix-signature' },
-      { status: 'done',    text: 'Security headers HTTP — CSP, X-Frame-Options, nosniff en next.config' },
-      { status: 'done',    text: 'Precios re-fetcheados server-side antes de crear PI' },
-      { status: 'done',    text: 'Mutaciones admin protegidas con requireAdminUserId()' },
-      { status: 'pending', text: 'Rate limiting en /api/stripe/create-intent', note: 'Upstash Ratelimit o Vercel Edge Middleware' },
-      { status: 'pending', text: 'Validación de schema con Zod en server actions del checkout', note: 'Solo hay .trim() y parseFloat() actualmente' },
-      { status: 'pending', text: 'Validar MIME en getUploadUrl() antes de firmar URL', note: 'Actualmente acepta cualquier contentType' },
-      { status: 'pending', text: 'Configurar Resend Inbound para hola@compadregallo.com', note: '1) Registro MX en GoDaddy desde Resend Dashboard → Receiving. 2) Crear ruta en Resend apuntando a /api/email/inbound. 3) Copiar signing secret y añadir RESEND_WEBHOOK_SIGNING_SECRET en Vercel + .env.local' },
-    ],
-  },
-  {
-    section: 'features',
-    accent: '#003a87',
-    items: [
-      { status: 'done',    text: 'Cuentas — panel admin y flujo fan', note: '/casa/cuentas con tabs "con cuenta" (username primario) + "invitados"; /cuenta sidebar muestra @username como ID principal; guest checkout con pantalla de confirmación diferenciada' },
-      { status: 'done',    text: 'Checkout de boletos/shows', note: 'Stripe Checkout Sessions (ui_mode: elements), tabla tickets, folio T-XXXXXXXX, QR en correo; /boleto/[folio] validación pública, /casa/boletos hub admin, /casa/scanner para staff' },
-      { status: 'done',    text: 'Vista reducida para artistas (portal)', note: 'ArtistDetail filtra tabs por adminOnly; ingresos y ClerkLinkCard solo para admin' },
-      { status: 'done',    text: 'SEO dinámico — generateMetadata en /artista/[slug] y /tienda/[id]', note: 'og:image, og:type, canonical URL, twitter:card' },
-      { status: 'pending', text: 'RLS en Supabase', note: 'Todo va por service role actualmente; sin restricciones por fila' },
-      { status: 'done',    text: 'Optimización mobile del panel admin', note: 'Dashboard, tabla órdenes, detalle orden, header' },
-    ],
-  },
-  {
-    section: 'infraestructura',
-    accent: '#6b6a64',
-    items: [
-      { status: 'done', text: 'Next.js 16 App Router en Vercel — auto-deploy desde GitHub main' },
-      { status: 'done', text: 'Supabase — base de datos + storage + RPCs' },
-      { status: 'done', text: 'Clerk — auth fans + admin, roles por DB' },
-      { status: 'done', text: 'Stripe — test/live keys en DB (store_settings)' },
-      { status: 'done', text: 'Resend — emails transaccionales' },
-      { status: 'done', text: 'Skydropx Pro — cotizar, generar guía, rastrear, cancelar' },
-    ],
-  },
-]
+function fmtKb(bytes: number) {
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  return `${Math.round(bytes / 1024)} KB`
+}
 
-const CODE_STATE = [
-  { file: 'src/proxy.ts',                            desc: 'middleware Clerk — protege /casa y /cuenta' },
-  { file: 'src/lib/skydropx.ts',                     desc: 'cliente Skydropx: cotizar, guía, rastrear, cancelar, balance, SAT' },
-  { file: 'src/lib/emails.ts',                       desc: 'Resend: confirmación, envío, admin alert' },
-  { file: 'src/lib/auth.server.ts',                  desc: 'requireAdmin, isAdmin, getLinkedArtist' },
-  { file: 'src/lib/sku.ts',                          desc: 'buildProductSku (CAT3-SEQ4), buildVariantSku' },
-  { file: 'src/app/api/stripe/webhook/route.ts',     desc: 'webhook Stripe con constructEvent' },
-  { file: 'src/app/api/clerk/webhook/route.ts',      desc: 'webhook Clerk con svix' },
-  { file: 'src/app/api/email/inbound/route.ts',      desc: 'webhook Resend Inbound — guarda en support_messages' },
-  { file: 'src/app/(platform)/boleto/[folio]/',      desc: 'página pública QR: estatus, datos show, botones admin' },
-  { file: 'src/app/casa/boletos/',                   desc: 'hub admin: lista tickets, stats, filtros, resend, toggle usado' },
-  { file: 'src/app/casa/scanner/',                   desc: 'pantalla staff para escanear / buscar folio' },
-  { file: 'src/app/casa/soporte/',                   desc: 'bandeja de entrada hola@compadregallo.com — read, reply, resolve' },
-  { file: 'src/app/(platform)/carrito/checkout/',    desc: 'createOrder, getRates, decrementStock' },
-  { file: 'src/app/casa/ordenes/[id]/actions.ts',    desc: 'Skydropx shipment, status, cancel' },
-  { file: 'src/app/casa/tienda/actions.ts',          desc: 'CRUD productos + variantes + SKU auto-gen' },
-  { file: 'src/components/LandingHero.tsx',          desc: 'landing — animaciones CSS, mascot, paneles CTA' },
-  { file: 'src/app/casa/AdminAI.tsx',                desc: 'chat flotante en /casa/*' },
-  { file: 'next.config.*',                           desc: 'security headers: CSP, X-Frame-Options, nosniff' },
-]
-
-// ── Sub-components ─────────────────────────────────────────────────────────────
-
-const TYPE_COLORS: Record<string, { bg: string; text: string; label: string }> = {
+// ── Estilos compartidos ───────────────────────────────────────────────────────
+const TYPE_COLORS: Record<CommitType, { bg: string; text: string; label: string }> = {
   feature:  { bg: 'rgba(0,58,135,0.07)',   text: '#003a87', label: 'feature' },
   fix:      { bg: 'rgba(255,1,0,0.06)',    text: '#cc0000', label: 'fix' },
   security: { bg: 'rgba(204,85,0,0.07)',   text: '#993300', label: 'security' },
   doc:      { bg: 'rgba(0,0,0,0.04)',      text: '#6b6a64', label: 'doc' },
+  chore:    { bg: 'rgba(0,0,0,0.04)',      text: '#9a9994', label: 'chore' },
 }
 
-const STATUS_ICON: Record<TaskStatus, { icon: string; color: string }> = {
-  done:    { icon: '✓', color: '#1a6b35' },
-  pending: { icon: '○', color: M },
-  blocked: { icon: '✗', color: '#cc0000' },
+const STATUS_META: Record<DevTaskStatus, { icon: string; color: string; label: string }> = {
+  done:    { icon: '✓', color: '#1a6b35', label: 'hecho' },
+  pending: { icon: '○', color: M,         label: 'pendiente' },
+  blocked: { icon: '✗', color: '#cc0000', label: 'bloqueado' },
 }
 
+const NEXT_STATUS: Record<DevTaskStatus, DevTaskStatus> = {
+  pending: 'done',
+  done:    'blocked',
+  blocked: 'pending',
+}
+
+// Áreas del código. El orden manda en la vista.
+const AREAS: { prefix: string; label: string; accent: string }[] = [
+  { prefix: 'src/app/casa',       label: 'panel admin',          accent: '#003a87' },
+  { prefix: 'src/app/(platform)', label: 'sitio público',        accent: '#ff0100' },
+  { prefix: 'src/app/api',        label: 'endpoints y webhooks', accent: '#cc5500' },
+  { prefix: 'src/lib',            label: 'lógica compartida',    accent: '#1a6b35' },
+  { prefix: 'src/components',     label: 'componentes',          accent: '#00c4df' },
+  { prefix: 'src/context',        label: 'contextos',            accent: '#ffd49a' },
+]
+
+// Anotaciones a mano. Solo se pintan si el archivo existe de verdad en el
+// árbol del repo — así la lista no puede volver a mentir sobre archivos
+// que ya no están.
+const NOTES: Record<string, string> = {
+  'src/proxy.ts':                          'middleware de Clerk (Next 16 lo llama proxy): exige sesión iniciada en /casa y /cuenta. No revisa rol — el admin lo comprueba cada página',
+  'src/lib/auth.server.ts':                'requireAdmin, requireAdminOrThrow, requireAdminOrArtista, isAdmin',
+  'src/lib/checkout.server.ts':            'quoteOrder: única fuente de verdad del total. Re-lee precios y re-deriva el descuento desde el código',
+  'src/lib/skydropx.ts':                   'cliente Skydropx: cotizar, guía, rastrear, cancelar, balance',
+  'src/lib/emails.ts':                     'Resend: confirmación, envío, bienvenida, cancelación, masivos',
+  'src/lib/sku.ts':                        'buildProductSku (CAT3-SEQ4) y buildVariantSku',
+  'src/app/api/stripe/create-intent/route.ts': 'crea el PaymentIntent usando quoteOrder — nunca el monto que manda el cliente',
+  'src/app/api/stripe/webhook/route.ts':   'webhook de Stripe, verifica firma con constructEvent',
+  'src/app/api/clerk/webhook/route.ts':    'webhook de Clerk verificado con svix',
+  'src/app/api/email/inbound/route.ts':    'Resend Inbound → tabla support_messages',
+  'src/app/api/ai/route.ts':               'asistente del panel (Anthropic). Se apaga con store_settings.ai_chat_enabled',
+  'src/app/casa/AdminShell.tsx':           'header del panel y selector de secciones',
+  'src/app/casa/desarrollo/github.ts':     'lee commits y árbol del repo para esta misma página',
+  'next.config.ts':                        'security headers: CSP, X-Frame-Options, nosniff',
+}
+
+// ── Sub-componentes ───────────────────────────────────────────────────────────
 function SectionHeader({ title, count, total }: { title: string; count?: number; total?: number }) {
   return (
     <div style={{
@@ -266,44 +108,90 @@ function Card({ children, style }: { children: React.ReactNode; style?: React.CS
   )
 }
 
-// ── Changelog tab ─────────────────────────────────────────────────────────────
-function ChangelogTab() {
+function Aviso({ text }: { text: string }) {
+  return (
+    <div style={{
+      background: 'rgba(255,100,0,0.06)', border: '1px solid rgba(255,100,0,0.2)',
+      borderRadius: 8, padding: '12px 18px', fontSize: 13, color: '#993300',
+    }}>
+      {text}
+    </div>
+  )
+}
+
+// ── Changelog ─────────────────────────────────────────────────────────────────
+function ChangelogTab({ commits, error, repo }: { commits: Commit[]; error: string | null; repo: string }) {
+  const days = useMemo(() => {
+    const map = new Map<string, Commit[]>()
+    for (const c of commits) {
+      if (!c.date) continue
+      const k = dayKey(c.date)
+      const list = map.get(k)
+      if (list) list.push(c)
+      else map.set(k, [c])
+    }
+    return [...map.entries()]
+  }, [commits])
+
+  if (error) return <Aviso text={error} />
+  if (commits.length === 0) return <Aviso text="No hay commits que mostrar." />
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {CHANGELOG.map(session => (
-        <Card key={session.date}>
+      <p style={{ fontSize: 12, color: S, margin: 0 }}>
+        últimos {commits.length} commits de <code style={{ fontFamily: 'var(--font-mono)' }}>main</code> en {repo}. se refresca solo cada 5 minutos.
+      </p>
+
+      {days.map(([day, items]) => (
+        <Card key={day}>
           <div style={{
             padding: '12px 18px', borderBottom: `1px solid ${B}`,
             display: 'flex', alignItems: 'center', gap: 10,
           }}>
             <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#0a0a0a' }}>
-              {session.date}
+              {fmtDay(day)}
             </span>
             <span style={{
               fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
               padding: '2px 8px', borderRadius: 999, background: '#f0efe9', color: M,
             }}>
-              {session.tag}
+              {items.length} commit{items.length !== 1 ? 's' : ''}
             </span>
           </div>
+
           <div style={{ padding: '8px 0' }}>
-            {session.items.map((item, i) => {
-              const meta = TYPE_COLORS[item.type]
+            {items.map(c => {
+              const meta = TYPE_COLORS[c.type]
               return (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 10,
-                  padding: '7px 18px',
-                }}>
+                <div key={c.sha} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 18px' }}>
                   <span style={{
                     fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase',
                     padding: '2px 7px', borderRadius: 999, background: meta.bg, color: meta.text,
-                    flexShrink: 0, marginTop: 1,
+                    flexShrink: 0, marginTop: 2,
                   }}>
                     {meta.label}
                   </span>
-                  <span style={{ fontSize: 13, color: '#0a0a0a', lineHeight: 1.5 }}>
-                    {item.text}
-                  </span>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: '#0a0a0a', lineHeight: 1.5 }}>{c.title}</div>
+                    {c.body && (
+                      <div style={{ fontSize: 12, color: M, lineHeight: 1.55, marginTop: 4, whiteSpace: 'pre-wrap' }}>
+                        {c.body}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 11, color: S, marginTop: 5, display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <a
+                        href={c.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ fontFamily: 'var(--font-mono)', color: M, textDecoration: 'none', borderBottom: `1px dotted ${S}` }}
+                      >
+                        {c.shortSha}
+                      </a>
+                      <span>·</span>
+                      <span>{c.author}</span>
+                    </div>
+                  </div>
                 </div>
               )
             })}
@@ -314,51 +202,181 @@ function ChangelogTab() {
   )
 }
 
-// ── Tasks tab ─────────────────────────────────────────────────────────────────
-function TareasTab() {
+// ── Tareas ────────────────────────────────────────────────────────────────────
+function TareasTab({ initial }: { initial: DevTask[] }) {
+  const [tasks, setTasks] = useState<DevTask[]>(initial)
+  const [section, setSection] = useState('')
+  const [text, setText] = useState('')
+  const [note, setNote] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [pending, start] = useTransition()
+
+  const sections = useMemo(() => {
+    const map = new Map<string, DevTask[]>()
+    for (const t of tasks) {
+      const list = map.get(t.section)
+      if (list) list.push(t)
+      else map.set(t.section, [t])
+    }
+    return [...map.entries()]
+  }, [tasks])
+
+  const knownSections = useMemo(() => [...new Set(tasks.map(t => t.section))], [tasks])
+
+  function handleAdd() {
+    const cleanText = text.trim()
+    if (!cleanText || pending) return
+    const cleanSection = section.trim() || 'general'
+    const optimistic: DevTask = {
+      id: `tmp-${Date.now()}`,
+      section: cleanSection,
+      text: cleanText,
+      note: note.trim(),
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    }
+    const before = tasks
+    setTasks([optimistic, ...tasks])
+    setText(''); setNote(''); setError(null)
+    start(async () => {
+      try {
+        await addDevTask(cleanSection, cleanText, optimistic.note)
+      } catch {
+        setTasks(before)
+        setError('no se pudo guardar la tarea')
+      }
+    })
+  }
+
+  function handleCycle(task: DevTask) {
+    if (pending) return
+    const next = NEXT_STATUS[task.status]
+    const before = tasks
+    setTasks(tasks.map(t => (t.id === task.id ? { ...t, status: next } : t)))
+    setError(null)
+    start(async () => {
+      try {
+        await setDevTaskStatus(task.id, next)
+      } catch {
+        setTasks(before)
+        setError('no se pudo cambiar el estado')
+      }
+    })
+  }
+
+  function handleDelete(task: DevTask) {
+    if (pending) return
+    const before = tasks
+    setTasks(tasks.filter(t => t.id !== task.id))
+    setError(null)
+    start(async () => {
+      try {
+        await deleteDevTask(task.id)
+      } catch {
+        setTasks(before)
+        setError('no se pudo borrar la tarea')
+      }
+    })
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {TASKS.map(section => {
-        const doneCount = section.items.filter(i => i.status === 'done').length
+      {/* Alta */}
+      <Card style={{ padding: 16 }}>
+        <SectionHeader title="nueva tarea" />
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <input
+            className="adm-inp"
+            list="dev-secciones"
+            placeholder="sección"
+            value={section}
+            onChange={e => setSection(e.target.value)}
+            style={{ width: 150 }}
+          />
+          <datalist id="dev-secciones">
+            {knownSections.map(s => <option key={s} value={s} />)}
+          </datalist>
+          <input
+            className="adm-inp"
+            placeholder="qué falta hacer"
+            value={text}
+            onChange={e => setText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdd() } }}
+            style={{ flex: 1, minWidth: 220 }}
+          />
+          <input
+            className="adm-inp"
+            placeholder="nota (opcional)"
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            style={{ flex: 1, minWidth: 180 }}
+          />
+          <button className="adm-btn-primary" onClick={handleAdd} disabled={!text.trim() || pending}>
+            agregar
+          </button>
+        </div>
+        {error && <p style={{ fontSize: 12, color: '#cc0000', margin: '10px 0 0' }}>{error}</p>}
+      </Card>
+
+      {tasks.length === 0 && (
+        <p style={{ fontSize: 13, color: M, fontStyle: 'italic', margin: 0 }}>
+          no hay tareas todavía. agrega la primera arriba.
+        </p>
+      )}
+
+      {sections.map(([name, items]) => {
+        const done = items.filter(i => i.status === 'done').length
         return (
-          <div key={section.section}>
+          <div key={name}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-              <div style={{ width: 24, height: 3, background: section.accent, borderRadius: 2 }} />
-              <SectionHeader
-                title={section.section}
-                count={doneCount}
-                total={section.items.length}
-              />
+              <div style={{ width: 24, height: 3, background: '#0a0a0a', borderRadius: 2 }} />
+              <SectionHeader title={name} count={done} total={items.length} />
             </div>
+
             <Card>
-              {section.items.map((item, i) => {
-                const meta = STATUS_ICON[item.status]
+              {items.map((t, i) => {
+                const meta = STATUS_META[t.status]
                 return (
-                  <div key={i} style={{
-                    display: 'flex', alignItems: 'flex-start', gap: 12,
-                    padding: '11px 18px',
-                    borderBottom: i < section.items.length - 1 ? `1px solid ${B}` : 'none',
-                    opacity: item.status === 'done' ? 0.6 : 1,
-                  }}>
-                    <span style={{
-                      fontSize: 14, fontWeight: 700, color: meta.color,
-                      flexShrink: 0, lineHeight: 1.4, width: 16, textAlign: 'center',
-                    }}>
+                  <div
+                    key={t.id}
+                    className="adm-row"
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 10, padding: '11px 16px',
+                      borderTop: i === 0 ? 'none' : `1px solid ${B}`,
+                    }}
+                  >
+                    <button
+                      onClick={() => handleCycle(t)}
+                      title={`${meta.label} — clic para cambiar`}
+                      style={{
+                        border: 'none', background: 'none', cursor: 'pointer', padding: 0,
+                        color: meta.color, fontSize: 14, lineHeight: 1.4, flexShrink: 0, width: 16,
+                      }}
+                    >
                       {meta.icon}
-                    </span>
-                    <div style={{ flex: 1 }}>
+                    </button>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{
-                        fontSize: 13, color: '#0a0a0a', lineHeight: 1.5,
-                        textDecoration: item.status === 'done' ? 'line-through' : 'none',
+                        fontSize: 13, lineHeight: 1.5,
+                        color: t.status === 'done' ? M : '#0a0a0a',
+                        textDecoration: t.status === 'done' ? 'line-through' : 'none',
                       }}>
-                        {item.text}
+                        {t.text}
                       </div>
-                      {item.note && item.status !== 'done' && (
-                        <div style={{ fontSize: 11, color: S, marginTop: 2, lineHeight: 1.4 }}>
-                          {item.note}
-                        </div>
+                      {t.note && (
+                        <div style={{ fontSize: 12, color: S, lineHeight: 1.5, marginTop: 3 }}>{t.note}</div>
                       )}
                     </div>
+
+                    <button
+                      onClick={() => handleDelete(t)}
+                      title="borrar"
+                      className="adm-btn-icon"
+                      style={{ flexShrink: 0 }}
+                    >
+                      ×
+                    </button>
                   </div>
                 )
               })}
@@ -370,127 +388,135 @@ function TareasTab() {
   )
 }
 
-// ── Code tab ──────────────────────────────────────────────────────────────────
-function CodigoTab() {
+// ── Código ────────────────────────────────────────────────────────────────────
+function CodigoTab({ files, error, truncated }: { files: RepoFile[]; error: string | null; truncated: boolean }) {
+  const areas = useMemo(() => {
+    return AREAS.map(area => {
+      const own = files.filter(f => f.path.startsWith(area.prefix + '/'))
+      return {
+        ...area,
+        count: own.length,
+        bytes: own.reduce((s, f) => s + f.size, 0),
+        annotated: own
+          .filter(f => NOTES[f.path])
+          .map(f => ({ path: f.path, size: f.size, note: NOTES[f.path] })),
+      }
+    }).filter(a => a.count > 0)
+  }, [files])
+
+  const rootNotes = useMemo(
+    () => files.filter(f => NOTES[f.path] && !f.path.startsWith('src/app/') && !AREAS.some(a => f.path.startsWith(a.prefix + '/')))
+               .map(f => ({ path: f.path, size: f.size, note: NOTES[f.path] })),
+    [files],
+  )
+
+  if (error) return <Aviso text={error} />
+  if (files.length === 0) return <Aviso text="No se pudo leer el árbol del repo." />
+
+  const srcFiles = files.filter(f => f.path.startsWith('src/'))
+  const srcBytes = srcFiles.reduce((s, f) => s + f.size, 0)
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <p style={{ fontSize: 12, color: S, margin: 0 }}>
+        {srcFiles.length} archivos en <code style={{ fontFamily: 'var(--font-mono)' }}>src/</code> · {fmtKb(srcBytes)} ·
+        leído del repo, no escrito a mano.
+        {truncated && ' (GitHub truncó el árbol: el repo es grande)'}
+      </p>
 
-      {/* Rutas clave */}
-      <div>
-        <div style={{ marginBottom: 10 }}>
-          <SectionHeader title="archivos clave" />
-        </div>
-        <Card>
-          {CODE_STATE.map((row, i) => (
-            <div key={i} style={{
-              display: 'flex', alignItems: 'center', gap: 12,
-              padding: '9px 18px', borderBottom: i < CODE_STATE.length - 1 ? `1px solid ${B}` : 'none',
-            }}>
-              <code style={{
-                fontSize: 11, fontFamily: 'var(--font-mono)', color: '#003a87',
-                background: 'rgba(0,58,135,0.05)', padding: '2px 7px', borderRadius: 4,
-                flexShrink: 0, whiteSpace: 'nowrap',
-              }}>
-                {row.file}
-              </code>
-              <span style={{ fontSize: 12, color: M, lineHeight: 1.5 }}>{row.desc}</span>
-            </div>
-          ))}
-        </Card>
-      </div>
+      {areas.map(area => (
+        <div key={area.prefix}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <div style={{ width: 24, height: 3, background: area.accent, borderRadius: 2 }} />
+            <SectionHeader title={area.label} />
+            <span style={{ fontSize: 11, color: S, marginTop: -12 }}>
+              {area.count} archivos · {fmtKb(area.bytes)}
+            </span>
+          </div>
 
-      {/* Variables de entorno */}
-      <div>
-        <div style={{ marginBottom: 10 }}>
-          <SectionHeader title="variables de entorno requeridas" />
-        </div>
-        <Card>
-          {[
-            { key: 'NEXT_PUBLIC_SUPABASE_URL',         status: 'ok',      note: 'URL del proyecto Supabase' },
-            { key: 'NEXT_PUBLIC_SUPABASE_ANON_KEY',    status: 'ok',      note: 'clave pública de Supabase' },
-            { key: 'SUPABASE_SERVICE_ROLE_KEY',        status: 'ok',      note: 'clave privada de Supabase (solo servidor)' },
-            { key: 'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY', status: 'ok',    note: 'pk_live_ configurada en Vercel' },
-            { key: 'CLERK_SECRET_KEY',                 status: 'ok',      note: 'clave privada de Clerk' },
-            { key: 'STRIPE_SECRET_KEY',                status: 'ok',      note: 'sk_test_ o sk_live_ desde store_settings' },
-            { key: 'STRIPE_WEBHOOK_SECRET',            status: 'pending', note: 'registrar endpoint en Stripe Dashboard primero' },
-            { key: 'RESEND_API_KEY',                   status: 'ok',      note: 'para emails transaccionales' },
-            { key: 'RESEND_FROM_EMAIL',                status: 'ok',      note: 'pedidos@compadregallo.com' },
-            { key: 'ADMIN_EMAIL',                      status: 'ok',      note: 'para notificaciones de pedidos al admin' },
-            { key: 'NEXT_PUBLIC_APP_URL',              status: 'ok',      note: 'https://compadregallo.com' },
-            { key: 'ADMIN_USER_IDS',                   status: 'ok',      note: 'IDs de Clerk con rol admin (separados por coma)' },
-            { key: 'RESEND_WEBHOOK_SIGNING_SECRET',    status: 'pending', note: 'signing secret del webhook Resend Inbound (whsec_...) — pendiente de configurar' },
-          ].map((row, i, arr) => {
-            const color = row.status === 'ok' ? '#1a6b35' : row.status === 'warn' ? '#cc7700' : M
-            const bg    = row.status === 'ok' ? 'rgba(26,107,53,0.06)' : row.status === 'warn' ? 'rgba(204,119,0,0.07)' : '#f6f5f1'
-            const icon  = row.status === 'ok' ? '✓' : row.status === 'warn' ? '!' : '○'
-            return (
-              <div key={row.key} style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '9px 18px', borderBottom: i < arr.length - 1 ? `1px solid ${B}` : 'none',
-              }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color, width: 14, textAlign: 'center', flexShrink: 0 }}>
-                  {icon}
-                </span>
-                <code style={{
-                  fontSize: 11, fontFamily: 'var(--font-mono)',
-                  background: bg, padding: '2px 7px', borderRadius: 4,
-                  color, flexShrink: 0, whiteSpace: 'nowrap',
+          {area.annotated.length > 0 && (
+            <Card>
+              {area.annotated.map((f, i) => (
+                <div key={f.path} style={{
+                  padding: '10px 16px', borderTop: i === 0 ? 'none' : `1px solid ${B}`,
                 }}>
-                  {row.key}
-                </code>
-                <span style={{ fontSize: 12, color: M }}>{row.note}</span>
-              </div>
-            )
-          })}
-        </Card>
-      </div>
+                  <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#0a0a0a' }}>{f.path}</code>
+                  <div style={{ fontSize: 12, color: M, lineHeight: 1.5, marginTop: 3 }}>{f.note}</div>
+                </div>
+              ))}
+            </Card>
+          )}
+        </div>
+      ))}
 
-      {/* Stack */}
-      <div>
-        <div style={{ marginBottom: 10 }}>
-          <SectionHeader title="stack" />
+      {rootNotes.length > 0 && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <div style={{ width: 24, height: 3, background: '#6b6a64', borderRadius: 2 }} />
+            <SectionHeader title="raíz" />
+          </div>
+          <Card>
+            {rootNotes.map((f, i) => (
+              <div key={f.path} style={{ padding: '10px 16px', borderTop: i === 0 ? 'none' : `1px solid ${B}` }}>
+                <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: '#0a0a0a' }}>{f.path}</code>
+                <div style={{ fontSize: 12, color: M, lineHeight: 1.5, marginTop: 3 }}>{f.note}</div>
+              </div>
+            ))}
+          </Card>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
-          {[
-            { name: 'Next.js 16',      sub: 'App Router + Server Actions',  color: '#0a0a0a' },
-            { name: 'Supabase',        sub: 'PostgreSQL + Storage + RPCs',   color: '#1a6b35' },
-            { name: 'Clerk v7',        sub: 'auth admin + fans + roles',     color: '#6c47ff' },
-            { name: 'Stripe v22',      sub: 'PI + webhook + test/live',      color: '#635bff' },
-            { name: 'Resend',          sub: 'emails transaccionales',        color: '#0a0a0a' },
-            { name: 'Skydropx Pro',    sub: 'envíos + carta porte',          color: '#003a87' },
-            { name: 'Vercel',          sub: 'deploy desde GitHub main',      color: '#0a0a0a' },
-          ].map(tech => (
-            <div key={tech.name} style={{
-              background: '#fff', border: `1px solid ${B}`, borderRadius: 6,
-              padding: '14px 16px',
-            }}>
-              <div style={{ width: 20, height: 2.5, background: tech.color, borderRadius: 2, marginBottom: 10 }} />
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#0a0a0a', marginBottom: 2 }}>{tech.name}</div>
-              <div style={{ fontSize: 11, color: M }}>{tech.sub}</div>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   )
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
+// ── Panel ─────────────────────────────────────────────────────────────────────
 const TABS = ['changelog', 'tareas', 'código'] as const
 type Tab = typeof TABS[number]
 
-export default function DesarrolloPanel() {
+export default function DesarrolloPanel({
+  repo, commits, commitsError, files, filesTruncated, filesError, tasks,
+}: {
+  repo: string
+  commits: Commit[]
+  commitsError: string | null
+  files: RepoFile[]
+  filesTruncated: boolean
+  filesError: string | null
+  tasks: DevTask[]
+}) {
   const [tab, setTab] = useState<Tab>('tareas')
 
-  const doneTotal  = TASKS.flatMap(s => s.items).filter(i => i.status === 'done').length
-  const totalTasks = TASKS.flatMap(s => s.items).length
-  const pendingProd = TASKS.find(s => s.section === 'producción')?.items.filter(i => i.status !== 'done').length ?? 0
+  const done = tasks.filter(t => t.status === 'done').length
+  const blocked = tasks.filter(t => t.status === 'blocked').length
+  const lastCommit = commits[0]
+  const srcFiles = files.filter(f => f.path.startsWith('src/'))
+  const srcBytes = srcFiles.reduce((s, f) => s + f.size, 0)
+
+  const kpis = [
+    {
+      label: 'tareas completadas',
+      value: tasks.length === 0 ? '—' : `${done}/${tasks.length}`,
+      sub: blocked > 0 ? `${blocked} bloqueada${blocked !== 1 ? 's' : ''}` : `${tasks.length - done} pendientes`,
+      color: blocked > 0 ? '#cc0000' : done === tasks.length && tasks.length > 0 ? '#1a6b35' : '#003a87',
+    },
+    {
+      label: 'commits en main',
+      value: commits.length === 0 ? '—' : commits.length,
+      sub: lastCommit ? `último: ${fmtDay(dayKey(lastCommit.date))}` : 'sin datos de GitHub',
+      color: '#0a0a0a',
+    },
+    {
+      label: 'código',
+      value: srcFiles.length === 0 ? '—' : srcFiles.length,
+      sub: srcFiles.length === 0 ? 'sin datos de GitHub' : `archivos en src/ · ${fmtKb(srcBytes)}`,
+      color: '#6b6a64',
+    },
+  ]
 
   return (
-    <AdminShell crumb="desarrollo" crumbHref="/casa">
+    <AdminShell crumb="desarrollo">
       <main style={{ maxWidth: 960, margin: '0 auto' }} className="adm-main-pad">
 
-        {/* Header */}
         <div style={{ marginBottom: 32 }}>
           <h1 style={{
             fontFamily: 'var(--font-display)', fontSize: 30, fontWeight: 900,
@@ -499,32 +525,12 @@ export default function DesarrolloPanel() {
             panel de desarrollo
           </h1>
           <p style={{ color: M, fontSize: 13, margin: 0 }}>
-            estado del proyecto, changelog y lista de tareas pendientes.
+            changelog y estado del código leídos del repo; las tareas las llevas tú.
           </p>
         </div>
 
-        {/* KPI row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
-          {[
-            {
-              label: 'tareas completadas',
-              value: `${doneTotal}/${totalTasks}`,
-              sub: `${totalTasks - doneTotal} pendientes`,
-              color: doneTotal === totalTasks ? '#1a6b35' : '#003a87',
-            },
-            {
-              label: 'sesiones de trabajo',
-              value: CHANGELOG.length,
-              sub: `última: ${CHANGELOG[0].date}`,
-              color: '#0a0a0a',
-            },
-            {
-              label: 'para producción',
-              value: pendingProd,
-              sub: pendingProd === 0 ? 'listo para deploy' : `paso${pendingProd !== 1 ? 's' : ''} manuales faltantes`,
-              color: pendingProd > 0 ? '#cc5500' : '#1a6b35',
-            },
-          ].map(kpi => (
+          {kpis.map(kpi => (
             <div key={kpi.label} style={{
               background: '#fff', border: `1px solid ${B}`, borderRadius: 8, padding: '20px 22px',
             }}>
@@ -538,7 +544,6 @@ export default function DesarrolloPanel() {
           ))}
         </div>
 
-        {/* Tabs */}
         <div style={{ display: 'flex', gap: 2, marginBottom: 24, background: '#f0efe9', borderRadius: 6, padding: 3, width: 'fit-content' }}>
           {TABS.map(t => (
             <button
@@ -558,10 +563,9 @@ export default function DesarrolloPanel() {
           ))}
         </div>
 
-        {/* Tab content */}
-        {tab === 'changelog' && <ChangelogTab />}
-        {tab === 'tareas'    && <TareasTab />}
-        {tab === 'código'    && <CodigoTab />}
+        {tab === 'changelog' && <ChangelogTab commits={commits} error={commitsError} repo={repo} />}
+        {tab === 'tareas'    && <TareasTab initial={tasks} />}
+        {tab === 'código'    && <CodigoTab files={files} error={filesError} truncated={filesTruncated} />}
 
       </main>
     </AdminShell>

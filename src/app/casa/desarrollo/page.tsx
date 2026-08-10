@@ -1,11 +1,28 @@
-import { auth } from '@clerk/nextjs/server'
-import { redirect } from 'next/navigation'
 import { requireAdmin } from '@/lib/auth.server'
 import DesarrolloPanel from './DesarrolloPanel'
+import { fetchCommits, fetchTree, REPO_SLUG } from './github'
+import { listDevTasks } from './actions'
+
+export const dynamic = 'force-dynamic'
 
 export default async function DesarrolloPage() {
-  const { userId } = await auth()
-  if (!userId) redirect('/casa/login')
   await requireAdmin()
-  return <DesarrolloPanel />
+
+  const [commitsRes, treeRes, tasks] = await Promise.all([
+    fetchCommits(60),
+    fetchTree(),
+    listDevTasks(),
+  ])
+
+  return (
+    <DesarrolloPanel
+      repo={REPO_SLUG}
+      commits={commitsRes.commits}
+      commitsError={commitsRes.error}
+      files={treeRes.files}
+      filesTruncated={treeRes.truncated}
+      filesError={treeRes.error}
+      tasks={tasks}
+    />
+  )
 }
