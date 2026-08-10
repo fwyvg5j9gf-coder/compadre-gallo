@@ -1,6 +1,7 @@
 'use server'
 
 import { supabaseAdmin } from '@/lib/supabase.server'
+import { quoteOrder } from '@/lib/checkout.server'
 import { getShippingRates } from '@/lib/skydropx'
 import type { ShippingRate } from '@/lib/skydropx'
 import type { CartItem } from '@/context/CartContext'
@@ -107,51 +108,58 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
     return { error: 'el pago no está confirmado, intenta de nuevo o contacta soporte' }
   }
 
-  // ── 2. Fetch real prices from DB (ignore client-submitted prices) ────────────
-  const productIds = [...new Set(payload.items.map(i => i.productId))]
-  const { data: products } = await supabaseAdmin
-    .from('products')
-    .select('id, price_mxn')
-    .in('id', productIds)
+  // ── 1.5. Idempotency — one PaymentIntent, one order ─────────────────────────
+  const { data: existing } = await supabaseAdmin
+    .from('orders')
+    .select('id, folio_number')
+    .eq('stripe_payment_id', payload.stripePaymentId)
+    .maybeSingle()
 
-  const priceMap = new Map((products ?? []).map(p => [p.id, p.price_mxn]))
+  if (existing) {
+    return { orderId: existing.id as string, folioNumber: existing.folio_number as number }
+  }
+
+  // ── 2. Recompute the amount from the DB, then check it against the charge ───
+  // Same function the PaymentIntent was built from, so the two cannot drift.
+  const quoted = await quoteOrder({
+    items: payload.items.map(i => ({ productId: i.productId, qty: i.qty })),
+    shippingMxn: payload.shippingMxn,
+    discountCode: payload.discountCode,
+  })
+
+  if ('error' in quoted) return { error: quoted.error }
+
+  const { subtotal, shippingMxn, discountMxn, total, finalAmount, discountCodeId, prices } = quoted.quote
+
+  if (pi.amount !== finalAmount) {
+    console.error(
+      `[createOrder] amount mismatch for ${payload.stripePaymentId}: charged ${pi.amount}, expected ${finalAmount}`,
+    )
+    return { error: 'el monto cobrado no coincide con el del pedido. no registramos la orden — contacta soporte con tu ID de pago: ' + payload.stripePaymentId }
+  }
 
   const itemsWithRealPrices = payload.items.map(item => ({
     ...item,
-    price_mxn: priceMap.get(item.productId) ?? item.price_mxn,
+    price_mxn: prices.get(item.productId) ?? item.price_mxn,
   }))
 
   // ── 3. Validate stock availability ──────────────────────────────────────────
+  // Inventory lives on product_variants; the products table has no stock column.
   for (const item of payload.items) {
-    if (item.variantId) {
-      const { data: variant } = await supabaseAdmin
-        .from('product_variants')
-        .select('stock')
-        .eq('id', item.variantId)
-        .single()
-      if (!variant || variant.stock < item.qty) {
-        return { error: `sin stock suficiente para: ${item.name}. actualiza tu carrito e intenta de nuevo` }
-      }
-    } else {
-      // Producto sin variantes — verificar stock directo del producto
-      const { data: prod } = await supabaseAdmin
-        .from('products')
-        .select('stock')
-        .eq('id', item.productId)
-        .single()
-      if (!prod || prod.stock < item.qty) {
-        return { error: `sin stock suficiente para: ${item.name}. actualiza tu carrito e intenta de nuevo` }
-      }
+    if (!item.variantId) continue
+    const { data: variant } = await supabaseAdmin
+      .from('product_variants')
+      .select('stock')
+      .eq('id', item.variantId)
+      .single()
+    if (!variant || variant.stock < item.qty) {
+      return { error: `sin stock suficiente para: ${item.name}. actualiza tu carrito e intenta de nuevo` }
     }
   }
 
-  const subtotal = itemsWithRealPrices.reduce((s, i) => s + i.price_mxn * i.qty, 0)
-  const discountMxn = payload.discountMxn ?? 0
-  const total = Math.max(0, subtotal + payload.shippingMxn - discountMxn)
-
   const { userId } = await auth()
 
-  // ── 4. Create order as 'pending' — webhook will flip it to 'paid' ───────────
+  // ── 4. Create the order — the PI is verified, so 'paid' is safe ─────────────
   const { data: order, error } = await supabaseAdmin
     .from('orders')
     .insert({
@@ -167,13 +175,13 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
       },
       shipping_carrier: payload.shippingCarrier,
       shipping_rate_id: payload.shippingRateId,
-      shipping_mxn: payload.shippingMxn,
+      shipping_mxn: shippingMxn,
       subtotal_mxn: subtotal,
-      discount_code: payload.discountCode ?? null,
+      discount_code: discountCodeId ? (payload.discountCode ?? null) : null,
       discount_mxn: discountMxn,
       total_mxn: total,
       notes: payload.notes.trim() || null,
-      status: 'paid',        // PI verified above — safe to mark paid
+      status: 'paid',
       stripe_payment_id: payload.stripePaymentId,
       user_id: userId ?? null,
     })
@@ -197,19 +205,12 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
 
   // ── 6. Atomic stock decrement ────────────────────────────────────────────────
   for (const item of payload.items) {
-    if (item.variantId) {
-      const { error: stockErr } = await supabaseAdmin.rpc('decrement_stock', {
-        p_variant_id: item.variantId,
-        p_qty: item.qty,
-      })
-      if (stockErr) console.error('[createOrder] variant stock decrement failed:', stockErr.message)
-    } else {
-      const { error: stockErr } = await supabaseAdmin.rpc('decrement_product_stock', {
-        p_product_id: item.productId,
-        p_qty: item.qty,
-      })
-      if (stockErr) console.error('[createOrder] product stock decrement failed:', stockErr.message)
-    }
+    if (!item.variantId) continue
+    const { error: stockErr } = await supabaseAdmin.rpc('decrement_stock', {
+      p_variant_id: item.variantId,
+      p_qty: item.qty,
+    })
+    if (stockErr) console.error('[createOrder] variant stock decrement failed:', stockErr.message)
   }
 
   // ── 6.5. Log sale movements (fire-and-forget) ───────────────────────────────
@@ -231,8 +232,8 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
   })
 
   // ── 7. Increment discount code usage ────────────────────────────────────────
-  if (payload.discountCodeId) {
-    await supabaseAdmin.rpc('increment_discount_uses', { p_code_id: payload.discountCodeId })
+  if (discountCodeId) {
+    await supabaseAdmin.rpc('increment_discount_uses', { p_code_id: discountCodeId })
   }
 
   // ── 8. Save address to user profile if requested ────────────────────────────
@@ -259,7 +260,7 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
     customer_email: payload.email,
     total_mxn: total,
     subtotal_mxn: subtotal,
-    shipping_mxn: payload.shippingMxn,
+    shipping_mxn: shippingMxn,
     status: 'paid',
     shipping_address: { street: payload.street, colonia: payload.colonia, zip: payload.zip, state: payload.state, city: payload.city },
     tracking_number: null,
