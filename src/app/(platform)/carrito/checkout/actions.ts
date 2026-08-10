@@ -131,11 +131,21 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
 
   const { subtotal, shippingMxn, discountMxn, total, finalAmount, discountCodeId, prices } = quoted.quote
 
-  if (pi.amount !== finalAmount) {
+  // Undercharge is the attack: the client talked the PaymentIntent down below
+  // what the cart is actually worth. Refuse it.
+  if (pi.amount < finalAmount) {
     console.error(
-      `[createOrder] amount mismatch for ${payload.stripePaymentId}: charged ${pi.amount}, expected ${finalAmount}`,
+      `[createOrder] undercharge for ${payload.stripePaymentId}: charged ${pi.amount}, expected ${finalAmount}`,
     )
     return { error: 'el monto cobrado no coincide con el del pedido. no registramos la orden — contacta soporte con tu ID de pago: ' + payload.stripePaymentId }
+  }
+
+  // Overcharge means the customer already paid; refusing here would leave them
+  // charged with nothing to show. Record it and shout in the logs instead.
+  if (pi.amount > finalAmount) {
+    console.warn(
+      `[createOrder] overcharge for ${payload.stripePaymentId}: charged ${pi.amount}, expected ${finalAmount} — registrando la orden de todos modos`,
+    )
   }
 
   const itemsWithRealPrices = payload.items.map(item => ({
