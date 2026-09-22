@@ -1,5 +1,7 @@
 // Server-only auth helpers — never import from 'use client'
 
+import 'server-only'
+
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase.server'

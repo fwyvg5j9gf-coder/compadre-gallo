@@ -1,6 +1,7 @@
 import Stripe from 'stripe'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase.server'
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
 
 async function getStripeClient() {
   const [{ data: s }, { data: secrets }] = await Promise.all([
@@ -15,6 +16,19 @@ async function getStripeClient() {
 
 export async function POST(req: NextRequest) {
   try {
+    // Cada llamada crea un PaymentIntent real en Stripe: sin límite, un
+    // script puede llenar el dashboard de intents basura.
+    const { allowed, retryAfterSeconds } = checkRateLimit(`ticket-session:${getClientIp(req)}`, {
+      limit: 20,
+      windowMs: 60_000,
+    })
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'demasiados intentos, espera un momento' },
+        { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
+      )
+    }
+
     const { showId, qty, slug, email } = await req.json() as { showId: string; qty: number; slug: string; email?: string }
 
     if (!showId || !qty || qty < 1 || qty > 10 || !slug) {

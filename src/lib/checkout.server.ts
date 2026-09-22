@@ -8,6 +8,8 @@
 // Rule of thumb for anything added here: the client may tell us *what* it wants
 // to buy and *which* discount code it is claiming. It never tells us a price.
 
+import 'server-only'
+
 import { supabaseAdmin } from '@/lib/supabase.server'
 import { validateDiscountCode } from '@/app/casa/descuentos/actions'
 

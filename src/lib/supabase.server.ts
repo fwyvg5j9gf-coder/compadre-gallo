@@ -1,4 +1,6 @@
 // Solo para Server Components y Server Actions — nunca importar desde 'use client'
+import 'server-only'
+
 import { createClient } from '@supabase/supabase-js'
 
 export const supabaseAdmin = createClient(

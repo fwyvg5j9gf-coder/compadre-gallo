@@ -42,3 +42,10 @@ next-env.d.ts
 
 # auth temp files
 supabase-auth.txt
+
+# herramientas externas y andamios que no son parte de la app
+# (sus fixtures de prueba metían 25 errores falsos a `tsc`)
+/impeccable/
+/.impeccable/
+/claude.app/
+/design-system/
