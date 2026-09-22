@@ -98,7 +98,10 @@ function MessagePane({ msg, onClose }: { msg: Message; onClose: () => void }) {
             <iframe
               srcDoc={msg.body_html}
               style={{ width: '100%', minHeight: 200, border: 'none' }}
-              sandbox="allow-same-origin"
+              // sandbox vacío = ni scripts ni acceso al origen. Con
+              // allow-same-origin + un futuro allow-scripts, el remitente
+              // del correo tendría control de la sesión de admin.
+              sandbox=""
               title="email body"
             />
           ) : msg.body_text ? (

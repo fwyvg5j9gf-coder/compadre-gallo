@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { supabaseAdmin } from '@/lib/supabase.server'
+import { sanitizeEmailHtml } from '@/lib/sanitizeHtml'
 import { isAdmin } from '@/lib/auth.server'
 import AdminShell from '../AdminShell'
 import SoporteClient from './SoporteClient'
@@ -17,7 +18,12 @@ export default async function SoportePage() {
     .select('id, from_email, from_name, to_email, subject, body_text, body_html, status, created_at')
     .order('created_at', { ascending: false })
 
-  const msgs = (messages ?? []) as Parameters<typeof SoporteClient>[0]['messages']
+  // También al leer: los correos que entraron antes de que existiera
+  // sanitizeHtml.ts se guardaron con el HTML crudo.
+  const msgs = (messages ?? []).map(m => ({
+    ...m,
+    body_html: sanitizeEmailHtml(m.body_html),
+  })) as Parameters<typeof SoporteClient>[0]['messages']
   const unreadCount = msgs.filter(m => m.status === 'unread').length
 
   return (

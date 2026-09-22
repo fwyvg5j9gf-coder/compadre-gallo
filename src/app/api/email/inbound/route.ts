@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Webhook } from 'svix'
 import { supabaseAdmin } from '@/lib/supabase.server'
+import { sanitizeEmailHtml } from '@/lib/sanitizeHtml'
 
 export async function POST(req: NextRequest) {
   const body = await req.text()
@@ -74,7 +75,8 @@ export async function POST(req: NextRequest) {
     from_name:   fromName,
     to_email:    email.to?.[0] ?? null,
     subject:     email.subject,
-    body_html:   email.html,
+    // Limpio desde que entra: nadie guarda HTML crudo de un desconocido.
+    body_html:   sanitizeEmailHtml(email.html),
     body_text:   email.text,
     status:      'unread',
   })
