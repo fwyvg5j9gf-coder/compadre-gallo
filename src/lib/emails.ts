@@ -114,6 +114,11 @@ export async function sendOrderConfirmation(order: OrderWithItems, isTest = fals
       <div style="background:#f6f5f1;border-radius:6px;padding:16px;margin-bottom:24px">
         <p style="margin:0;font-size:13px;color:#6b6a64">folio</p>
         <p style="margin:4px 0 0;font-size:20px;font-weight:900;color:#0a0a0a;letter-spacing:-0.02em">${folio(order.folio_number)}</p>
+        <p style="margin:12px 0 0;font-size:13px;color:#6b6a64">
+          consulta el estado de tu pedido cuando quieras en
+          <a href="${APP_URL}/rastrear?folio=${order.folio_number}" style="color:#003a87">${APP_URL.replace(/^https?:\/\//, '')}/rastrear</a>
+          — con este folio y tu correo.
+        </p>
       </div>
 
       <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
