@@ -28,6 +28,11 @@ alter table store_settings enable row level security;
 drop policy if exists "service role only" on support_messages;
 drop policy if exists "service role only" on store_settings;
 
+-- store_settings ya tenía RLS encendido, pero con esta política permisiva
+-- `using (true)` para todos los roles. Las permisivas se suman con OR, así
+-- que sin quitarla el `using (false)` de abajo no cerraría nada.
+drop policy if exists "public read store_settings" on store_settings;
+
 -- `using (false)` no le niega nada al service role: esa llave salta RLS.
 -- Lo que hace es dejar sin acceso a anon y a los usuarios autenticados, que
 -- es justo lo que se busca.
