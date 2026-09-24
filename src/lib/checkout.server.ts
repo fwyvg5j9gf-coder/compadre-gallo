@@ -93,3 +93,24 @@ export async function quoteOrder(opts: {
     quote: { subtotal, shippingMxn, discountMxn, total, finalAmount, discountCodeId, prices },
   }
 }
+
+export type StockItem = { productId: string; size: string; qty: number; name?: string }
+
+/**
+ * Returns the first item that doesn't have enough stock, or null if all do.
+ * Runs before the PaymentIntent is created so nobody gets charged for a piece
+ * that is already gone. createOrder() checks again after payment, because the
+ * last piece can still sell in between.
+ */
+export async function findShortStock(items: StockItem[]): Promise<StockItem | null> {
+  for (const item of items) {
+    const { data } = await supabaseAdmin
+      .from('product_variants')
+      .select('stock')
+      .eq('product_id', item.productId)
+      .eq('size', item.size)
+      .maybeSingle()
+    if (!data || data.stock < item.qty) return item
+  }
+  return null
+}

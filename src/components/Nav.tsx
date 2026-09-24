@@ -12,12 +12,13 @@ const FALLBACK_LINKS: NavLink[] = [
   { href: '/cuenta',   label: 'cuenta'   },
 ];
 
-// Rutas que existen pero no queremos anunciar mientras el sitio se enfoca en
-// piezas físicas. Nada se borra: las páginas siguen vivas y accesibles por URL,
-// y el flujo de boletos sigue completo. Para mostrarla de nuevo, borra la
-// entrada de esta lista. Se filtra aquí (y no en FALLBACK_LINKS) para que
-// aplique también cuando los links vienen de la base.
-const HIDDEN_HREFS: string[] = ['/preventa'];
+// Rutas que existen pero no queremos anunciar mientras el sitio funciona solo
+// como tienda (al estilo gangstafairy: logo + carrito, sin cuentas). Nada se
+// borra: las páginas siguen vivas y accesibles por URL, y el flujo de boletos
+// sigue completo. Para mostrar una de nuevo, borra su entrada de esta lista.
+// Se filtra aquí (y no en FALLBACK_LINKS) para que aplique también cuando los
+// links vienen de la base.
+const HIDDEN_HREFS: string[] = ['/preventa', '/artistas', '/tienda', '/cuenta'];
 
 const IconCart = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="22" height="22" fill="none">
@@ -35,7 +36,7 @@ export default function Nav({ links }: { links?: NavLink[] }) {
 
   return (
     <nav className="nav">
-      <Link href="/" className="nav-logo" aria-label="gallo — volver al inicio">
+      <Link href="/tienda" className="nav-logo" aria-label="gallo — volver a la tienda">
         <span className="l1">g</span>
         <span className="l2">a</span>
         <span className="l3">l</span>

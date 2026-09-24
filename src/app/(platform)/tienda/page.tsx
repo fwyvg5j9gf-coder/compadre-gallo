@@ -1,34 +1,30 @@
-import { draftMode } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase.server'
-import type { Block } from '@/lib/blocks'
-import BlockRenderer from '@/components/BlockRenderer'
-import TiendaClient from './TiendaClient'
+import type { Product } from '@/lib/supabase'
+import { LAMP_CATEGORY, PLACEHOLDER_LAMPS, productToLamp, totalStock } from '@/lib/lamparas'
+import StoreLanding from '@/components/landing/StoreLanding'
 
 export const dynamic = 'force-dynamic'
 
+// La tienda: lámparas como protagonistas y, abajo, todo lo demás que esté
+// publicado. Funciona sin cuentas, como gangstafairy.
 export default async function TiendaPage() {
-  const { isEnabled: isDraft } = await draftMode()
+  const { data } = await supabaseAdmin
+    .from('products')
+    .select('*, product_variants(*)')
+    .eq('is_published', true)
+    .order('sort_order', { ascending: true })
 
-  const [blocksRes, productsRes, categoriesRes] = await Promise.all([
-    supabaseAdmin.from('page_blocks').select('*').eq('page_key', 'tienda').eq('visible', true).order('sort_order'),
-    supabaseAdmin.from('products').select('*, product_variants(*)').eq('is_published', true).order('sort_order', { ascending: true }),
-    supabaseAdmin.from('store_categories').select('name').order('sort_order', { ascending: true }),
-  ])
+  const products = (data ?? []) as Product[]
+  const lamps = products.filter(p => p.category === LAMP_CATEGORY).map(productToLamp)
+  const others = products.filter(p => p.category !== LAMP_CATEGORY && p.image_url)
 
-  const blocks = (blocksRes.data ?? []).map((b: Block) => ({
-    ...b,
-    content: isDraft && b.draft_content ? b.draft_content : b.content,
-  })) as Block[]
-
-  const tagline = blocks.find(b => b.type === 'product-grid')?.content.tagline
+  const isPlaceholder = lamps.length === 0
 
   return (
-    <>
-      {blocks.map(b =>
-        b.type === 'product-grid'
-          ? <TiendaClient key={b.id} products={productsRes.data ?? []} categories={(categoriesRes.data ?? []).map(c => c.name)} tagline={tagline} />
-          : <BlockRenderer key={b.id} block={b} />
-      )}
-    </>
+    <StoreLanding
+      lamps={isPlaceholder ? PLACEHOLDER_LAMPS : lamps}
+      isPlaceholder={isPlaceholder}
+      others={others.map(p => ({ id: p.id, name: p.name, price_mxn: p.price_mxn, image_url: p.image_url!, stock: totalStock(p) }))}
+    />
   )
 }

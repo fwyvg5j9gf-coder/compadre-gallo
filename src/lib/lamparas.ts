@@ -23,11 +23,30 @@ export type Lamp = {
   price_mxn: number    // centavos, igual que products.price_mxn
   looks: LampLook[]
   href: string | null  // null = aún no se puede comprar
-  soldOut: boolean
+  stock: number | null // piezas en existencia; null = no aplica (placeholders)
+}
+
+// Igual que gangstafairy: con 5 piezas o menos se avisa cuántas quedan.
+export const STOCK_BAJO = 5
+
+export type StockBadge = { kind: 'agotado' } | { kind: 'quedan'; n: number } | null
+
+export function stockBadge(stock: number | null): StockBadge {
+  if (stock === null) return null
+  if (stock <= 0) return { kind: 'agotado' }
+  if (stock <= STOCK_BAJO) return { kind: 'quedan', n: stock }
+  return null
+}
+
+// null si el producto no tiene variantes: sin inventario no se puede afirmar
+// que esté agotado.
+export function totalStock(p: Product): number | null {
+  const variants = p.product_variants ?? []
+  if (variants.length === 0) return null
+  return variants.reduce((n, v) => n + Math.max(0, v.stock), 0)
 }
 
 export function productToLamp(p: Product): Lamp {
-  const stock = (p.product_variants ?? []).reduce((n, v) => n + v.stock, 0)
   return {
     id: p.id,
     name: p.name,
@@ -35,7 +54,7 @@ export function productToLamp(p: Product): Lamp {
     price_mxn: p.price_mxn,
     looks: p.image_url ? [{ label: p.name, swatch: '#2a2a28', src: p.image_url }] : [],
     href: `/tienda/${p.id}`,
-    soldOut: (p.product_variants?.length ?? 0) > 0 && stock === 0,
+    stock: totalStock(p),
   }
 }
 
@@ -53,7 +72,7 @@ export const PLACEHOLDER_LAMPS: Lamp[] = [
       { label: 'negro',    swatch: '#3a3632', src: ph('firulais-negro') },
     ],
     href: null,
-    soldOut: false,
+    stock: null,
   },
   {
     id: 'ph-michi',
@@ -66,7 +85,7 @@ export const PLACEHOLDER_LAMPS: Lamp[] = [
       { label: 'negro',   swatch: '#2f2d2b', src: ph('michi-negro') },
     ],
     href: null,
-    soldOut: false,
+    stock: null,
   },
   {
     id: 'ph-salchicha',
@@ -78,7 +97,7 @@ export const PLACEHOLDER_LAMPS: Lamp[] = [
       { label: 'caramelo', swatch: '#d08a4c', src: ph('salchicha-caramelo') },
     ],
     href: null,
-    soldOut: false,
+    stock: null,
   },
   {
     id: 'ph-bolita',
@@ -90,6 +109,6 @@ export const PLACEHOLDER_LAMPS: Lamp[] = [
       { label: 'blanco',  swatch: '#f1ede4', src: ph('bolita-blanco') },
     ],
     href: null,
-    soldOut: false,
+    stock: null,
   },
 ]

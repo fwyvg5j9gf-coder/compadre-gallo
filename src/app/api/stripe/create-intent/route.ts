@@ -2,7 +2,7 @@ import Stripe from 'stripe'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import { checkRateLimit, getClientIp } from '@/lib/rateLimit'
-import { quoteOrder } from '@/lib/checkout.server'
+import { findShortStock, quoteOrder } from '@/lib/checkout.server'
 
 async function getStripeClient() {
   const [{ data: s }, { data: secrets }] = await Promise.all([
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json() as {
-      items?: { productId: string; qty: number }[]
+      items?: { productId: string; qty: number; size?: string; name?: string }[]
       shippingMxn?: number
       discountCode?: string
     }
@@ -48,6 +48,16 @@ export async function POST(req: NextRequest) {
 
     if ('error' in quoted) {
       return NextResponse.json({ error: quoted.error }, { status: 400 })
+    }
+
+    // Sin piezas no se cobra: se revisa el stock antes de crear el cobro.
+    const withSize = (body.items ?? []).filter(i => typeof i.size === 'string')
+    const short = await findShortStock(withSize.map(i => ({ productId: i.productId, size: i.size!, qty: i.qty, name: i.name })))
+    if (short) {
+      return NextResponse.json(
+        { error: `ya no hay suficientes piezas de ${short.name ?? 'un producto'}. ajusta tu carrito e intenta de nuevo` },
+        { status: 409 },
+      )
     }
 
     const stripe = await getStripeClient()

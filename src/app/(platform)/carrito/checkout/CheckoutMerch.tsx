@@ -3,7 +3,7 @@
 import { useState, useTransition, useMemo, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { loadStripe } from '@stripe/stripe-js'
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { Elements, PaymentElement, useStripe, useElements, ExpressCheckoutElement } from '@stripe/react-stripe-js'
 import { useCart } from '@/context/CartContext'
 import ZipSelector, { type ZipInfo } from '@/components/ZipSelector'
 import type { PackagingType } from '@/lib/supabase'
@@ -57,7 +57,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 // ── Confirmación ──────────────────────────────────────────────────────────────
-function Confirmation({ orderId, folioNumber, isGuest }: { orderId: string; folioNumber: number; isGuest: boolean }) {
+function Confirmation({ folioNumber }: { folioNumber: number }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -81,19 +81,14 @@ function Confirmation({ orderId, folioNumber, isGuest }: { orderId: string; foli
           {folio(folioNumber)}
         </p>
       </div>
+      {/* La tienda funciona sin cuentas: el pedido se sigue con folio + correo. */}
       <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', justifyContent: 'center' }}>
-        {isGuest ? (
-          <Link href="/cuenta/registro" className="btn btn-primary btn-lg">crear cuenta</Link>
-        ) : (
-          <Link href="/cuenta" className="btn btn-primary btn-lg">ver mis pedidos</Link>
-        )}
+        <Link href={`/rastrear?folio=${folio(folioNumber)}`} className="btn btn-primary btn-lg">rastrear mi pedido</Link>
         <Link href="/tienda" className="btn btn-ghost btn-lg">seguir comprando</Link>
       </div>
-      {isGuest && (
-        <p style={{ fontSize: 13, color: 'var(--fg-muted)', maxWidth: '38ch', margin: 0 }}>
-          con una cuenta puedes ver tu historial, guardar tu dirección y seguir artistas.
-        </p>
-      )}
+      <p style={{ fontSize: 13, color: 'var(--fg-muted)', maxWidth: '38ch', margin: 0 }}>
+        guarda tu folio. con él y tu correo ves en qué va tu pedido cuando quieras.
+      </p>
     </div>
   )
 }
@@ -112,9 +107,11 @@ function PaymentForm({
   const elements = useElements()
   const [isPaying, setIsPaying] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hasWallets, setHasWallets] = useState(false)
 
-  async function handlePay(e: React.FormEvent) {
-    e.preventDefault()
+  // Tarjeta y billeteras (Apple Pay / Google Pay) confirman el mismo
+  // PaymentIntent, ya creado con el total que calculó el servidor.
+  async function confirm() {
     if (!stripe || !elements) return
     setIsPaying(true)
     setError(null)
@@ -139,6 +136,11 @@ function PaymentForm({
     }
   }
 
+  function handlePay(e: React.FormEvent) {
+    e.preventDefault()
+    confirm()
+  }
+
   return (
     <form onSubmit={handlePay} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
       <button
@@ -149,8 +151,23 @@ function PaymentForm({
         ← volver a datos de envío
       </button>
 
+      {/* Pago en un toque, como gangstafairy. Solo aparece si el dispositivo
+          tiene Apple Pay o Google Pay y el dominio está registrado en Stripe. */}
+      <div style={{ display: hasWallets ? 'block' : 'none' }}>
+        <ExpressCheckoutElement
+          options={{ buttonHeight: 48, buttonTheme: { applePay: 'black', googlePay: 'black' } }}
+          onReady={({ availablePaymentMethods }) => setHasWallets(!!availablePaymentMethods && Object.values(availablePaymentMethods).some(Boolean))}
+          onConfirm={() => { confirm() }}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 'var(--space-5)' }}>
+          <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          <span className="eyebrow">O CON TARJETA</span>
+          <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        </div>
+      </div>
+
       <Section title="datos de pago">
-        <PaymentElement options={{ layout: 'tabs' }} />
+        <PaymentElement options={{ layout: 'tabs', wallets: { applePay: 'never', googlePay: 'never' } }} />
       </Section>
 
       {error && (
@@ -167,6 +184,10 @@ function PaymentForm({
       >
         {isPaying ? 'procesando…' : `pagar ${fmt(orderTotal)}`}
       </button>
+      <p style={{ fontSize: 12, color: 'var(--fg-subtle)', margin: 0 }}>
+        al pagar aceptas los <Link href="/politicas/terminos" style={{ textDecoration: 'underline' }}>términos</Link> y
+        la <Link href="/politicas/cambios-y-devoluciones" style={{ textDecoration: 'underline' }}>política de cambios</Link>.
+      </p>
     </form>
   )
 }
@@ -324,7 +345,7 @@ export default function CheckoutMerch({
           headers: { 'Content-Type': 'application/json' },
           // Send item IDs so server calculates real prices
           body: JSON.stringify({
-            items: items.map(i => ({ productId: i.productId, qty: i.qty })),
+            items: items.map(i => ({ productId: i.productId, qty: i.qty, size: i.size, name: i.name })),
             shippingMxn: data.shippingMxn,
             discountCode: data.discount?.code,
           }),
@@ -380,7 +401,7 @@ export default function CheckoutMerch({
   }, [savedData, items, clearCart])
 
   if (step === 'done' && orderResult) {
-    return <Confirmation orderId={orderResult.orderId} folioNumber={orderResult.folioNumber} isGuest={!userEmail} />
+    return <Confirmation folioNumber={orderResult.folioNumber} />
   }
 
   if (items.length === 0) {

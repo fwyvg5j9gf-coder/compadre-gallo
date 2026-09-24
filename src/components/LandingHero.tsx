@@ -240,23 +240,21 @@ export default function LandingHero({
             </div>
           )}
 
-          {/* Logo vintage — multiply elimina el fondo blanco del PNG sobre #f6f5f1.
-              El blend va en el contenedor externo para no romper el compositing
-              layer que crea la animación gl-float. rotate(180deg) corrige la
-              orientación del archivo original. */}
+          {/* Logo vintage — gallo-sello.png ya viene derecho y con fondo
+              transparente (generado desde gallo-mascot-reference.png, que está
+              al revés y con fondo blanco). No hace falta rotarlo ni usar blend. */}
           <div className="gl-mascot" style={{
             width: 'clamp(120px,18vw,220px)',
             height: 'clamp(190px,29vw,350px)',
             maxHeight: '50%',
             position: 'relative', flexShrink: 0,
-            mixBlendMode: 'multiply',
           }}>
             <div className="gl-float" style={{ width: '100%', height: '100%', position: 'relative' }}>
               <Image
-                src="/assets/gallo-mascot-reference.png"
+                src="/assets/gallo-sello.png"
                 alt="el gallo"
                 fill
-                style={{ objectFit: 'contain', transform: 'rotate(180deg)' }}
+                style={{ objectFit: 'contain' }}
                 priority
               />
             </div>

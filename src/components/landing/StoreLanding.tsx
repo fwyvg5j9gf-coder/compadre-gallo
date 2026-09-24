@@ -3,9 +3,17 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { fmt } from '@/lib/utils'
-import type { Lamp } from '@/lib/lamparas'
+import { stockBadge, type Lamp } from '@/lib/lamparas'
 
-type Other = { id: string; name: string; price_mxn: number; image_url: string }
+type Other = { id: string; name: string; price_mxn: number; image_url: string; stock: number | null }
+
+// Etiqueta de inventario, como en gangstafairy: AGOTADO o cuántas quedan.
+function StockTag({ stock, overlay }: { stock: number | null; overlay?: boolean }) {
+  const b = stockBadge(stock)
+  if (!b) return null
+  const cls = `lt-stock${b.kind === 'agotado' ? ' is-out' : ' is-low'}${overlay ? ' is-overlay' : ''}`
+  return <span className={cls}>{b.kind === 'agotado' ? 'AGOTADO' : `QUEDAN ${b.n}`}</span>
+}
 
 // ── Hero ──────────────────────────────────────────────────────────────────────
 // El apagador prende la lámpara: el cuarto se oscurece y aparece la luz.
@@ -44,6 +52,7 @@ function LampPanel({ lamp, index }: { lamp: Lamp; index: number }) {
   const [lookIdx, setLookIdx] = useState(0)
   const [on, setOn] = useState(false)
   const look = lamp.looks[lookIdx]
+  const soldOut = stockBadge(lamp.stock)?.kind === 'agotado'
 
   return (
     <article className="lt-product" data-flip={index % 2 === 1} data-on={on}>
@@ -68,7 +77,10 @@ function LampPanel({ lamp, index }: { lamp: Lamp; index: number }) {
       </button>
 
       <div className="lt-product-info">
-        <span className="lt-index">{String(index + 1).padStart(2, '0')}</span>
+        <div className="lt-product-top">
+          <span className="lt-index">{String(index + 1).padStart(2, '0')}</span>
+          <StockTag stock={lamp.stock} />
+        </div>
         <h2 className="lt-product-name">{lamp.name}</h2>
         {lamp.blurb && <p className="lt-blurb">{lamp.blurb}</p>}
 
@@ -94,8 +106,8 @@ function LampPanel({ lamp, index }: { lamp: Lamp; index: number }) {
 
         <div className="lt-buy">
           <span className="lt-price">{fmt(lamp.price_mxn)}</span>
-          {lamp.soldOut ? (
-            <span className="lt-tag">AGOTADO</span>
+          {soldOut ? (
+            <button type="button" className="btn btn-lg btn-accent" disabled>se acabó</button>
           ) : lamp.href ? (
             <Link href={lamp.href} className="btn btn-lg btn-accent">la quiero</Link>
           ) : (
@@ -143,13 +155,13 @@ export default function StoreLanding({
         <section className="lt-others">
           <div className="lt-others-head">
             <h2 className="lt-others-title">también hay cosas que no prenden.</h2>
-            <Link href="/tienda" className="lt-others-link">ver toda la tienda →</Link>
           </div>
           <div className="lt-others-row">
             {others.map(o => (
               <Link key={o.id} href={`/tienda/${o.id}`} className="lt-other">
                 <span className="lt-other-img">
                   <img src={o.image_url} alt={o.name} loading="lazy" />
+                  <StockTag stock={o.stock} overlay />
                 </span>
                 <span className="lt-other-meta">
                   <span>{o.name}</span>

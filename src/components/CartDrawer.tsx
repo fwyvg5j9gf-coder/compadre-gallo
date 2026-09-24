@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useCart } from '@/context/CartContext'
+import { useCartIncrement } from './useCartIncrement'
 
 const fmt = (cents: number) =>
   (cents / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
@@ -36,7 +37,8 @@ const IconBag = () => (
 )
 
 export default function CartDrawer() {
-  const { items, open, totalMxn, totalItems, closeCart, removeItem, setQty } = useCart()
+  const { items, open, totalMxn, totalItems, closeCart, removeItem } = useCart()
+  const { increment, decrement, isMaxed, isPending } = useCartIncrement()
 
   return (
     <>
@@ -140,7 +142,7 @@ export default function CartDrawer() {
                   overflow: 'hidden', width: 'fit-content',
                 }}>
                   <button type="button"
-                    onClick={() => setQty(item.productId, item.size, item.qty - 1)}
+                    onClick={() => decrement(item)}
                     disabled={item.qty <= 1}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -154,7 +156,9 @@ export default function CartDrawer() {
                     {item.qty}
                   </span>
                   <button type="button"
-                    onClick={() => setQty(item.productId, item.size, item.qty + 1)}
+                    onClick={() => increment(item)}
+                    disabled={isPending(item)}
+                    aria-label="agregar una"
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       width: 28, height: 28, background: 'none', border: 'none',
@@ -163,6 +167,11 @@ export default function CartDrawer() {
                     <IconPlus />
                   </button>
                 </div>
+                {isMaxed(item) && (
+                  <span style={{ fontSize: 12, color: 'var(--gallo-red)', fontWeight: 600 }}>
+                    ya tienes todas las que hay
+                  </span>
+                )}
               </div>
 
               {/* Precio + eliminar */}
@@ -205,6 +214,10 @@ export default function CartDrawer() {
               className="btn btn-primary btn-lg"
               style={{ textAlign: 'center', textDecoration: 'none', display: 'block' }}>
               ir al checkout →
+            </Link>
+            <Link href="/carrito" onClick={closeCart}
+              style={{ fontSize: 13, fontWeight: 600, textAlign: 'center', color: 'var(--fg-muted)' }}>
+              ver carrito completo
             </Link>
           </div>
         )}

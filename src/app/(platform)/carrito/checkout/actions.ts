@@ -163,7 +163,16 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
       .eq('id', item.variantId)
       .single()
     if (!variant || variant.stock < item.qty) {
-      return { error: `sin stock suficiente para: ${item.name}. actualiza tu carrito e intenta de nuevo` }
+      // El cobro ya pasó, pero la pieza se vendió mientras pagaba (el stock se
+      // revisa también antes de cobrar; esto cubre la carrera). Sin pieza no
+      // hay pedido, así que se reembolsa completo en vez de dejarlo cobrado.
+      try {
+        await stripe.refunds.create({ payment_intent: payload.stripePaymentId })
+      } catch (refundErr) {
+        console.error(`[createOrder] reembolso falló para ${payload.stripePaymentId}:`, refundErr)
+        return { error: `se agotó ${item.name} mientras pagabas y no pudimos reembolsarte en automático. escríbenos a hola@compadregallo.com con tu ID de pago: ${payload.stripePaymentId}` }
+      }
+      return { error: `se agotó ${item.name} mientras pagabas. ya te reembolsamos el cargo completo; puede tardar unos días en verse en tu estado de cuenta.` }
     }
   }
 
