@@ -11,6 +11,8 @@ const TEST_TIPOS = [
   { value: 'pedido_cancelado',    label: 'pedido cancelado' },
   { value: 'pedido_reembolsado',  label: 'pedido reembolsado' },
   { value: 'pago_fallido',        label: 'pago fallido' },
+  { value: 'descuento_bienvenida', label: 'tu 10% (suscripción)' },
+  { value: 'confirmacion_boleto', label: 'confirmación de boletos' },
 ]
 
 const TIPO_LABEL: Record<string, string> = {
@@ -21,6 +23,8 @@ const TIPO_LABEL: Record<string, string> = {
   pedido_cancelado:    'cancelado',
   pedido_reembolsado:  'reembolso',
   pago_fallido:        'pago fallido',
+  descuento_bienvenida: '10% bienvenida',
+  confirmacion_boleto: 'boletos',
   masivo:              'masivo',
 }
 
@@ -160,8 +164,9 @@ export default function CorreosClient({ logs: initialLogs }: { logs: Log[] }) {
               <label style={label}>audiencia</label>
               <select value={audience} onChange={e => { setAudience(e.target.value); setRecipientCount(null) }}
                 style={{ ...input, cursor: 'pointer' }}>
+                <option value="suscriptores">suscriptores (dejaron su correo en la tienda)</option>
                 <option value="compradores">compradores (con pedidos pagados)</option>
-                <option value="todos">todos (compradores + fans registrados)</option>
+                <option value="todos">todos (suscriptores + compradores + fans)</option>
               </select>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>

@@ -7,6 +7,7 @@ import { totalStock } from '@/lib/supabase'
 import { createProduct, updateProduct, togglePublished, deleteProduct, bulkPublish, bulkDelete } from './actions'
 import ImageUpload from './ImageUpload'
 import AdminShell from '../AdminShell'
+import { SPEC_FIELDS } from '@/lib/specs'
 
 // ─── Selector de tallas ───────────────────────────────────────────────────────
 
@@ -163,6 +164,27 @@ function ProductForm({
           style={{ ...styles.input, resize: 'vertical' }} />
       </label>
 
+      {/* Ficha técnica: lo que se ve en la página de producto. Los campos
+          vacíos no se muestran. */}
+      <fieldset style={{ border: '1px solid #ecebe5', borderRadius: 8, padding: '12px 16px 16px', margin: 0 }}>
+        <legend style={{ fontSize: 12, fontWeight: 700, padding: '0 6px' }}>ficha técnica</legend>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+          {SPEC_FIELDS.map(f => (
+            <label key={f.key} style={styles.label}>
+              {f.label}
+              <input name={`spec_${f.key}`} defaultValue={initial?.specs?.[f.key] ?? ''}
+                style={styles.input} placeholder={f.placeholder} maxLength={120} />
+            </label>
+          ))}
+          <label style={styles.label}>
+            horas de impresión
+            <input name="spec_horas_impresion" type="number" min="0"
+              defaultValue={initial?.specs?.horas_impresion ?? ''} style={styles.input} placeholder="ej. 14" />
+            <span style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>se muestra como detalle en la página</span>
+          </label>
+        </div>
+      </fieldset>
+
       <ImageUpload currentUrl={imageUrl || null} onUploaded={setImageUrl} />
       <input type="hidden" name="image_url" value={imageUrl} />
 
@@ -203,7 +225,7 @@ function ProductRow({ product, onEdit, onRefresh, selected, onSelect }: {
 
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: '36px 48px 1fr 100px auto 90px 140px',
+      display: 'grid', gridTemplateColumns: '36px 48px 1fr 100px auto 112px 140px',
       alignItems: 'center', gap: 12, padding: '12px 16px',
       borderBottom: '1px solid #ecebe5',
       background: selected ? 'rgba(0,58,135,0.03)' : '#fff',
@@ -263,14 +285,34 @@ function ProductRow({ product, onEdit, onRefresh, selected, onSelect }: {
         )}
       </div>
 
-      <button onClick={() => startTransition(async () => { await togglePublished(product.id, product.is_published); onRefresh() })}
-        disabled={isPending} style={{
-          fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
-          padding: '4px 8px', borderRadius: 999, border: 'none', cursor: 'pointer',
-          background: product.is_published ? '#003a87' : '#ecebe5',
-          color: product.is_published ? '#fff' : '#6b6a64',
+      {/* Mostrar u ocultar en /tienda. Ocultar no borra nada: el producto
+          sigue aquí y se vuelve a mostrar con un clic. */}
+      <button
+        type="button"
+        aria-pressed={product.is_published}
+        title={product.is_published ? 'se ve en la tienda — clic para ocultarlo' : 'oculto — clic para mostrarlo en la tienda'}
+        onClick={() => startTransition(async () => { await togglePublished(product.id, product.is_published); onRefresh() })}
+        disabled={isPending}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          fontSize: 12, fontWeight: 700, padding: '5px 10px', borderRadius: 999, cursor: 'pointer',
+          border: product.is_published ? '1px solid #1a6b35' : '1px solid #d4d3cd',
+          background: product.is_published ? 'rgba(26,107,53,0.08)' : '#fff',
+          color: product.is_published ? '#1a6b35' : '#9a9994',
+          whiteSpace: 'nowrap',
         }}>
-        {product.is_published ? 'PUBLICADO' : 'BORRADOR'}
+        {product.is_published ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+            <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
+          </svg>
+        )}
+        {isPending ? '…' : product.is_published ? 'visible' : 'oculto'}
       </button>
 
       <div style={{ display: 'flex', gap: 4 }}>
@@ -317,20 +359,23 @@ export default function TiendaAdmin({ initial, categories, sizes, packaging }: {
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [filtro, setFiltro] = useState<'todos' | 'visibles' | 'ocultos'>('todos')
 
   const refresh = () => router.refresh()
   const categoryNames = categories.map(c => c.name)
   const sizeNames = sizes.map(s => s.name)
   const published = initial.filter(p => p.is_published).length
+  const lista = filtro === 'todos' ? initial
+    : initial.filter(p => p.is_published === (filtro === 'visibles'))
 
-  const allSelected = initial.length > 0 && selected.size === initial.length
+  const allSelected = lista.length > 0 && lista.every(p => selected.has(p.id))
   const someSelected = selected.size > 0 && !allSelected
 
   function toggleSelectAll() {
     if (allSelected || someSelected) {
       setSelected(new Set())
     } else {
-      setSelected(new Set(initial.map(p => p.id)))
+      setSelected(new Set(lista.map(p => p.id)))
     }
   }
 
@@ -398,7 +443,7 @@ export default function TiendaAdmin({ initial, categories, sizes, packaging }: {
             </h1>
             <p style={{ color: '#6b6a64', fontSize: 14 }}>
               {initial.length === 0 ? 'no hay productos todavía'
-                : `${initial.length} producto${initial.length !== 1 ? 's' : ''} · ${published} publicado${published !== 1 ? 's' : ''}`}
+                : `${initial.length} producto${initial.length !== 1 ? 's' : ''} · ${published} visible${published !== 1 ? 's' : ''} en la tienda · ${initial.length - published} oculto${initial.length - published !== 1 ? 's' : ''}`}
             </p>
           </div>
           <button onClick={() => { setShowForm(true); setEditing(null) }} style={styles.btnPrimary}>
@@ -442,14 +487,14 @@ export default function TiendaAdmin({ initial, categories, sizes, packaging }: {
               disabled={isBulkPending}
               style={{ fontSize: 12, padding: '5px 12px', borderRadius: 4, border: '1px solid rgba(0,58,135,0.25)', background: '#fff', cursor: 'pointer', color: '#003a87', fontWeight: 600 }}
             >
-              publicar
+              mostrar en la tienda
             </button>
             <button
               onClick={() => handleBulkPublish(false)}
               disabled={isBulkPending}
               style={{ fontSize: 12, padding: '5px 12px', borderRadius: 4, border: '1px solid #d4d3cd', background: '#fff', cursor: 'pointer', color: '#6b6a64', fontWeight: 600 }}
             >
-              quitar publicación
+              ocultar
             </button>
             {confirmBulkDelete ? (
               <>
@@ -478,6 +523,27 @@ export default function TiendaAdmin({ initial, categories, sizes, packaging }: {
           </div>
         )}
 
+        {initial.length > 0 && (
+          <div role="tablist" aria-label="filtrar productos" style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+            {([
+              ['todos', initial.length],
+              ['visibles', published],
+              ['ocultos', initial.length - published],
+            ] as const).map(([key, n]) => (
+              <button key={key} type="button" role="tab" aria-selected={filtro === key}
+                onClick={() => { setFiltro(key); setSelected(new Set()) }}
+                style={{
+                  fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 999, cursor: 'pointer',
+                  border: filtro === key ? '1px solid #0a0a0a' : '1px solid #e8e7e1',
+                  background: filtro === key ? '#0a0a0a' : '#fff',
+                  color: filtro === key ? '#fff' : '#6b6a64',
+                }}>
+                {key} <span style={{ opacity: 0.6, fontWeight: 600 }}>{n}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {initial.length === 0 && !showForm ? (
           <div style={{ background: '#fff', border: '1px solid #ecebe5', borderRadius: 8, padding: '64px 32px', textAlign: 'center', color: '#6b6a64', fontSize: 14 }}>
             todavía no hay productos. dale a &ldquo;+ agregar producto&rdquo; para empezar.
@@ -485,7 +551,7 @@ export default function TiendaAdmin({ initial, categories, sizes, packaging }: {
         ) : initial.length > 0 ? (
           <div style={{ background: '#fff', border: '1px solid #ecebe5', borderRadius: 8, overflow: 'hidden' }}>
             <div style={{
-              display: 'grid', gridTemplateColumns: '36px 48px 1fr 100px auto 90px 140px',
+              display: 'grid', gridTemplateColumns: '36px 48px 1fr 100px auto 112px 140px',
               gap: 12, padding: '8px 16px', background: '#f6f5f1', borderBottom: '1px solid #ecebe5',
               fontSize: 11, fontWeight: 700, color: '#6b6a64', letterSpacing: '0.04em', textTransform: 'uppercase',
               alignItems: 'center',
@@ -497,9 +563,14 @@ export default function TiendaAdmin({ initial, categories, sizes, packaging }: {
                 onChange={toggleSelectAll}
                 style={{ width: 16, height: 16, accentColor: '#003a87', cursor: 'pointer' }}
               />
-              <div /><div>nombre</div><div>precio</div><div>stock</div><div>estado</div><div>acciones</div>
+              <div /><div>nombre</div><div>precio</div><div>stock</div><div>en la tienda</div><div>acciones</div>
             </div>
-            {initial.map(p => (
+            {lista.length === 0 && (
+              <div style={{ padding: '32px 16px', textAlign: 'center', color: '#9a9994', fontSize: 13 }}>
+                {filtro === 'ocultos' ? 'no hay productos ocultos.' : 'no hay productos visibles.'}
+              </div>
+            )}
+            {lista.map(p => (
               <ProductRow key={p.id} product={p}
                 onEdit={prod => { setEditing(prod); setShowForm(false) }}
                 onRefresh={refresh}

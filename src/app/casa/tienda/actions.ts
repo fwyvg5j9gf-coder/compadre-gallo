@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase.server'
 import { requireAdminOrThrow, requireAdminUserId } from '@/lib/auth.server'
 import { logAction } from '@/lib/audit.server'
 import { buildProductSku, buildVariantSku } from '@/lib/sku'
+import { specsFromForm } from '@/lib/specs'
 
 export async function getUploadUrl(filename: string, contentType: string) {
   await requireAdmin()
@@ -74,6 +75,7 @@ export async function createProduct(formData: FormData) {
     category,
     packaging_type_id: packagingId,
     image_url: (formData.get('image_url') as string)?.trim() || null,
+    specs: specsFromForm(formData),
     is_published: false,
     sku: productSku,
   }).select('id').single()
@@ -111,6 +113,7 @@ export async function updateProduct(id: string, formData: FormData) {
     category,
     packaging_type_id: packagingId,
     image_url: (formData.get('image_url') as string)?.trim() || null,
+    specs: specsFromForm(formData),
     sku: skuInput,
     updated_at: new Date().toISOString(),
   }).eq('id', id)

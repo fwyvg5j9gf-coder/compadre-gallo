@@ -4,11 +4,12 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { fmt } from '@/lib/utils'
 import { stockBadge, type Lamp } from '@/lib/lamparas'
+import NewsletterSignup from './NewsletterSignup'
 
 type Other = { id: string; name: string; price_mxn: number; image_url: string; stock: number | null }
 
 // Etiqueta de inventario, como en gangstafairy: AGOTADO o cuántas quedan.
-function StockTag({ stock, overlay }: { stock: number | null; overlay?: boolean }) {
+export function StockTag({ stock, overlay }: { stock: number | null; overlay?: boolean }) {
   const b = stockBadge(stock)
   if (!b) return null
   const cls = `lt-stock${b.kind === 'agotado' ? ' is-out' : ' is-low'}${overlay ? ' is-overlay' : ''}`
@@ -81,8 +82,9 @@ function LampPanel({ lamp, index }: { lamp: Lamp; index: number }) {
           <span className="lt-index">{String(index + 1).padStart(2, '0')}</span>
           <StockTag stock={lamp.stock} />
         </div>
-        <h2 className="lt-product-name">{lamp.name}</h2>
+        <h2 className="lt-product-name"><Link href={lamp.href}>{lamp.name}</Link></h2>
         {lamp.blurb && <p className="lt-blurb">{lamp.blurb}</p>}
+        <Link href={lamp.href} className="lt-more">ver detalles →</Link>
 
         {lamp.looks.length > 1 && (
           <div className="lt-looks">
@@ -108,7 +110,7 @@ function LampPanel({ lamp, index }: { lamp: Lamp; index: number }) {
           <span className="lt-price">{fmt(lamp.price_mxn)}</span>
           {soldOut ? (
             <button type="button" className="btn btn-lg btn-accent" disabled>se acabó</button>
-          ) : lamp.href ? (
+          ) : lamp.buyable ? (
             <Link href={lamp.href} className="btn btn-lg btn-accent">la quiero</Link>
           ) : (
             <button type="button" className="btn btn-lg btn-accent" disabled>ya casi</button>
@@ -124,13 +126,21 @@ export default function StoreLanding({
   lamps,
   isPlaceholder,
   others,
+  freeThresholdMxn = 0,
 }: {
   lamps: Lamp[]
   isPlaceholder: boolean
   others: Other[]
+  freeThresholdMxn?: number
 }) {
   return (
     <div className="lt">
+      <p className="lt-strip">
+        {freeThresholdMxn > 0 && <><span>envío gratis desde {fmt(freeThresholdMxn)}</span><span aria-hidden="true">·</span></>}
+        <span>compras sin cuenta</span>
+        <span aria-hidden="true">·</span>
+        <span>5 días para devolver</span>
+      </p>
       {lamps[0] && <Hero lamp={lamps[0]} />}
 
       <section className="lt-manifesto">
@@ -150,6 +160,8 @@ export default function StoreLanding({
       <section className="lt-products" aria-label="lámparas">
         {lamps.map((l, i) => <LampPanel key={l.id} lamp={l} index={i} />)}
       </section>
+
+      <NewsletterSignup />
 
       {others.length > 0 && (
         <section className="lt-others">

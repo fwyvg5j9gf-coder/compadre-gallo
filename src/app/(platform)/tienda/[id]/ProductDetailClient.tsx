@@ -2,245 +2,208 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import type { Product, ProductVariant } from '@/lib/supabase'
 import { useCart } from '@/context/CartContext'
+import { fmt } from '@/lib/utils'
+import type { LampLook } from '@/lib/lamparas'
+import { StockTag } from '@/components/landing/StoreLanding'
 
-const fmt = (cents: number) =>
-  (cents / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
+export type DetailProduct = {
+  id: string
+  name: string
+  category: string | null
+  blurb: string
+  price_mxn: number
+  looks: LampLook[]
+  variants: { id: string; size: string; stock: number }[]
+  specs: [string, string][]
+  printHours: number | null
+  buyable: boolean
+  isPlaceholder: boolean
+  packagingTypeId: string | null
+}
 
-const IconPlus = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-  </svg>
-)
-const IconMinus = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-    <line x1="5" y1="12" x2="19" y2="12"/>
-  </svg>
-)
+// Página de producto con la receta de la tienda: la pieza enorme y que se
+// prende, el nombre gigante, y abajo la ficha técnica completa (aprendido de
+// Crème Atelier: en lámparas la ficha es lo que da confianza).
+export default function ProductDetailClient({
+  product,
+  freeThresholdMxn,
+}: {
+  product: DetailProduct
+  freeThresholdMxn: number
+}) {
+  const { items, addItem, openCart } = useCart()
+  const { variants } = product
 
-export default function ProductDetailClient({ product }: { product: Product }) {
-  const { addItem, openCart } = useCart()
-
-  const variants: ProductVariant[] = product.product_variants ?? []
-  const isUnica = variants.length === 0 ||
-    (variants.length === 1 && variants[0].size === 'única')
-
-  const [selectedSize, setSelectedSize] = useState<string | null>(
-    isUnica ? 'única' : null,
-  )
+  const isUnica = variants.length === 0 || (variants.length === 1 && variants[0].size === 'única')
+  const [size, setSize] = useState<string | null>(isUnica ? 'única' : null)
+  const [lookIdx, setLookIdx] = useState(0)
+  const [on, setOn] = useState(false)
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
 
-  const selectedVariant = isUnica
-    ? variants[0] ?? null
-    : variants.find(v => v.size === selectedSize) ?? null
+  const look = product.looks[lookIdx]
+  const variant = isUnica ? variants[0] ?? null : variants.find(v => v.size === size) ?? null
+  const totalStock = variants.length ? variants.reduce((n, v) => n + Math.max(0, v.stock), 0) : null
 
-  const availableStock = selectedVariant?.stock ?? (isUnica ? 0 : null)
-  const soldOut = isUnica
-    ? (variants[0]?.stock ?? 0) === 0
-    : selectedVariant ? selectedVariant.stock === 0 : false
+  // Lo que ya está en el carrito cuenta: no se puede agregar más de lo que hay.
+  const inCart = items.find(i => i.productId === product.id && i.size === size)?.qty ?? 0
+  const remaining = variant ? Math.max(0, variant.stock - inCart) : null
 
-  const canAdd = !soldOut && selectedSize !== null && qty > 0
+  const soldOut = product.buyable && (isUnica ? (variants[0]?.stock ?? 0) === 0 : totalStock === 0)
+  const canAdd = product.buyable && !soldOut && size !== null && remaining !== null && remaining > 0
 
   function handleAdd() {
-    if (!canAdd) return
+    if (!canAdd || !size) return
     addItem({
       productId: product.id,
-      variantId: selectedVariant?.id ?? null,
-      size: selectedSize!,
+      variantId: variant?.id ?? null,
+      size,
       name: product.name,
       price_mxn: product.price_mxn,
-      qty,
-      imageUrl: product.image_url,
-      packagingTypeId: product.packaging_type_id,
+      qty: Math.min(qty, remaining ?? qty),
+      imageUrl: look?.src ?? null,
+      packagingTypeId: product.packagingTypeId,
     })
+    setQty(1)
     setAdded(true)
     openCart()
     setTimeout(() => setAdded(false), 2000)
   }
 
+  const cta = !product.buyable ? 'ya casi'
+    : soldOut ? 'se acabó'
+    : size === null ? 'elige una talla'
+    : remaining === 0 ? 'ya tienes todas en tu carrito'
+    : added ? 'agregada a tu carrito'
+    : 'la quiero'
+
+  const freeShipping = freeThresholdMxn > 0 && product.price_mxn >= freeThresholdMxn
+
   return (
-    <div style={{ maxWidth: 1080, margin: '0 auto', padding: 'var(--space-7) var(--outer-px) var(--space-9)' }}>
-      {/* Breadcrumb */}
-      <div style={{ marginBottom: 'var(--space-6)', display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: 'var(--fg-muted)' }}>
-        <Link href="/tienda" style={{ color: 'var(--fg-muted)', textDecoration: 'none' }}>tienda</Link>
-        <span>/</span>
-        <span style={{ color: 'var(--fg)' }}>{product.name}</span>
-      </div>
+    <div className="pd">
+      <Link href="/tienda" className="pd-back">← tienda</Link>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-8)', alignItems: 'start' }}>
+      <div className="pd-main" data-on={on}>
+        <button
+          type="button"
+          className="lt-product-stage pd-stage"
+          aria-pressed={on}
+          aria-label={on ? `apagar ${product.name}` : `prender ${product.name}`}
+          onMouseEnter={() => setOn(true)}
+          onMouseLeave={() => setOn(false)}
+          onClick={() => setOn(v => !v)}
+        >
+          <span className="lt-glow" aria-hidden="true" />
+          {look && <img className="lt-product-img" src={look.src} alt={`${product.name} ${look.label}`} />}
+        </button>
 
-        {/* Imagen */}
-        <div style={{
-          aspectRatio: '4/5', borderRadius: 'var(--r-md)',
-          background: '#0a0a0a', overflow: 'hidden',
-          border: '1px solid var(--border)', position: 'relative',
-        }}>
-          {product.image_url ? (
-            <img
-              src={product.image_url}
-              alt={product.name}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          ) : (
-            <>
-              <div style={{
-                position: 'absolute', left: 0, top: 0, bottom: 0,
-                width: 12, background: 'var(--gallo-red)',
-              }} />
-              <div style={{
-                position: 'absolute', bottom: 24, left: 28,
-                fontFamily: 'var(--font-display)', fontWeight: 800,
-                fontSize: 'clamp(20px, 3vw, 32px)',
-                letterSpacing: 'var(--track-snug)', lineHeight: 1.1,
-                textTransform: 'lowercase', color: '#fff',
-              }}>
-                {product.name}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Info */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)', position: 'sticky', top: 80 }}>
-
-          {product.category && (
-            <div className="eyebrow">{product.category}</div>
-          )}
-
-          <div>
-            <h1 style={{ marginBottom: 'var(--space-3)' }}>{product.name}</h1>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em' }}>
-              {fmt(product.price_mxn)}
-            </div>
+        <div className="pd-info">
+          <div className="lt-product-top">
+            {product.category && <span className="eyebrow">{product.category.toUpperCase()}</span>}
+            <StockTag stock={product.buyable ? (variant?.stock ?? totalStock) : null} />
           </div>
+          <h1 className="pd-name">{product.name}</h1>
+          <p className="pd-price">{fmt(product.price_mxn)}</p>
+          {product.blurb && <p className="pd-blurb">{product.blurb}</p>}
 
-          {product.description && (
-            <p style={{ fontSize: 15, color: 'var(--fg-muted)', lineHeight: 1.65, margin: 0 }}>
-              {product.description}
-            </p>
+          {product.looks.length > 1 && (
+            <div className="lt-looks">
+              <div className="lt-swatches" role="radiogroup" aria-label="color">
+                {product.looks.map((l, i) => (
+                  <button
+                    key={l.label}
+                    type="button"
+                    role="radio"
+                    aria-checked={i === lookIdx}
+                    aria-label={l.label}
+                    className="lt-swatch"
+                    style={{ background: l.swatch }}
+                    onClick={() => setLookIdx(i)}
+                  />
+                ))}
+              </div>
+              <span className="lt-look-name">{look?.label}</span>
+            </div>
           )}
 
-          {/* Selector de tallas */}
           {!isUnica && (
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fg-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
-                talla
-                {selectedSize && (
-                  <span style={{ fontWeight: 400, textTransform: 'none', marginLeft: 8, color: 'var(--fg)' }}>
-                    — {selectedSize}
-                  </span>
-                )}
+            <div className="pd-field">
+              <span className="eyebrow">TALLA</span>
+              <div className="pd-sizes">
+                {variants.map(v => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    className="pd-size"
+                    aria-pressed={size === v.size}
+                    disabled={v.stock === 0}
+                    onClick={() => { setSize(v.size); setQty(1) }}
+                  >
+                    {v.size}
+                  </button>
+                ))}
               </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {variants.map(v => {
-                  const out = v.stock === 0
-                  const active = selectedSize === v.size
-                  return (
-                    <button
-                      key={v.id}
-                      type="button"
-                      disabled={out}
-                      onClick={() => { setSelectedSize(v.size); setQty(1) }}
-                      style={{
-                        padding: '9px 18px', borderRadius: 4,
-                        fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 13,
-                        cursor: out ? 'not-allowed' : 'pointer',
-                        border: active ? '2px solid var(--fg)' : '1px solid var(--border)',
-                        background: active ? 'var(--fg)' : 'transparent',
-                        color: active ? '#fff' : out ? 'var(--fg-subtle)' : 'var(--fg)',
-                        opacity: out ? 0.35 : 1,
-                        transition: 'all 120ms',
-                        position: 'relative',
-                      }}
-                    >
-                      {v.size}
-                    </button>
-                  )
-                })}
-              </div>
-              {selectedVariant && selectedVariant.stock <= 5 && selectedVariant.stock > 0 && (
-                <p style={{ fontSize: 12, color: 'var(--gallo-red)', fontWeight: 600, marginTop: 8 }}>
-                  {selectedVariant.stock === 1 ? 'última disponible' : `solo ${selectedVariant.stock} disponibles`}
-                </p>
-              )}
             </div>
           )}
 
-          {/* Cantidad */}
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fg-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>
-              cantidad
+          {product.buyable && !soldOut && (
+            <div className="pd-field">
+              <span className="eyebrow">CANTIDAD</span>
+              <div className="cart-qty">
+                <button type="button" onClick={() => setQty(q => Math.max(1, q - 1))} disabled={qty <= 1} aria-label="quitar una">−</button>
+                <span aria-live="polite">{qty}</span>
+                <button
+                  type="button"
+                  onClick={() => setQty(q => q + 1)}
+                  disabled={remaining !== null && qty >= remaining}
+                  aria-label="agregar una"
+                >+</button>
+              </div>
             </div>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center',
-              border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden',
-            }}>
-              <button type="button"
-                onClick={() => setQty(q => Math.max(1, q - 1))}
-                disabled={qty <= 1}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: 40, height: 40, background: 'none', border: 'none',
-                  cursor: 'pointer', color: 'var(--fg-muted)',
-                  opacity: qty <= 1 ? 0.25 : 1,
-                }}>
-                <IconMinus />
-              </button>
-              <span style={{ fontWeight: 700, fontSize: 16, minWidth: 40, textAlign: 'center' }}>{qty}</span>
-              <button type="button"
-                onClick={() => setQty(q => Math.min(availableStock ?? 99, q + 1))}
-                disabled={availableStock !== null && qty >= availableStock}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: 40, height: 40, background: 'none', border: 'none',
-                  cursor: 'pointer', color: 'var(--fg-muted)',
-                  opacity: (availableStock !== null && qty >= availableStock) ? 0.25 : 1,
-                }}>
-                <IconPlus />
-              </button>
-            </div>
-          </div>
+          )}
 
-          {/* CTA */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <button
-              type="button"
-              onClick={handleAdd}
-              disabled={!canAdd || added}
-              className={`btn btn-lg ${added ? 'btn-yellow' : 'btn-primary'}`}
-            >
-              {soldOut
-                ? 'agotado'
-                : !selectedSize && !isUnica
-                  ? 'elige una talla'
-                  : added
-                    ? 'agregado al carrito ✓'
-                    : 'agregar al carrito'}
-            </button>
+          <button type="button" className="btn btn-lg btn-accent pd-cta" onClick={handleAdd} disabled={!canAdd || added}>
+            {cta}
+          </button>
 
-            {!isUnica && !selectedSize && (
-              <p style={{ fontSize: 12, color: 'var(--fg-muted)', margin: 0, textAlign: 'center' }}>
-                selecciona una talla para continuar
+          <div className="pd-ship">
+            {freeThresholdMxn > 0 && (
+              <p className="pd-ship-free">
+                {freeShipping ? 'esta lleva envío gratis.' : `envío gratis desde ${fmt(freeThresholdMxn)}.`}
               </p>
             )}
+            <p>el costo y el tiempo de entrega exactos salen con tu código postal al pagar. no necesitas cuenta.</p>
           </div>
 
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-4)' }}>
-            <p style={{ fontSize: 12, color: 'var(--fg-subtle)', margin: 0, lineHeight: 1.6 }}>
-              envío calculado al finalizar la compra. tiraje limitado, sin restock.
-            </p>
-          </div>
+          {product.isPlaceholder && (
+            <p className="lt-note">este dibujo es de relleno, y su ficha también. la lámpara de verdad viene en camino.</p>
+          )}
         </div>
       </div>
 
-      {/* Mobile: stack layout override */}
-      <style>{`
-        @media (max-width: 720px) {
-          .product-detail-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
+      {product.printHours && (
+        <section className="pd-hours">
+          <p className="pd-hours-num">{product.printHours} h</p>
+          <p className="pd-hours-text">
+            cada una tarda {product.printHours} horas en nacer,<br />capa por capa.
+          </p>
+        </section>
+      )}
+
+      {product.specs.length > 0 && (
+        <section className="pd-specs">
+          <h2 className="pd-specs-title">ficha técnica</h2>
+          <dl>
+            {product.specs.map(([k, v]) => (
+              <div key={k} className="pd-spec">
+                <dt>{k}</dt>
+                <dd>{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
     </div>
   )
 }

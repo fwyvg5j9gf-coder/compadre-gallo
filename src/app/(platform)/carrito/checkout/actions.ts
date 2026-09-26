@@ -280,6 +280,7 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
     total_mxn: total,
     subtotal_mxn: subtotal,
     shipping_mxn: shippingMxn,
+    discount_mxn: discountMxn,
     status: 'paid',
     shipping_address: { street: payload.street, colonia: payload.colonia, zip: payload.zip, state: payload.state, city: payload.city },
     tracking_number: null,

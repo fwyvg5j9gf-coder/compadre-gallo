@@ -1,5 +1,7 @@
 // Tipos y utilidades — seguros para importar desde Client Components
 
+import type { Specs } from './specs'
+
 export type ProductVariant = {
   id: string
   product_id: string
@@ -34,6 +36,7 @@ export type Product = {
   sku?: string | null
   barcode?: string | null
   image_url: string | null
+  specs?: Specs | null
   is_published: boolean
   sort_order: number
   packaging_type_id: string | null

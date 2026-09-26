@@ -3,6 +3,7 @@
 import {
   sendOrderConfirmation, sendAdminNewOrder, sendShipmentNotification,
   sendWelcomeEmail, sendOrderCancelled, sendPaymentFailed, sendMassEmail,
+  sendDiscountWelcome, sendTicketConfirmation,
 } from '@/lib/emails'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import { requireAdminOrThrow } from '@/lib/auth.server'
@@ -48,6 +49,20 @@ export async function sendTestEmail(tipo: string, toEmail: string): Promise<{ ok
       case 'pago_fallido':
         await sendPaymentFailed({ customer_email: toEmail, customer_name: 'Cliente Prueba', folio_number: 0 }, true)
         break
+      case 'descuento_bienvenida':
+        await sendDiscountWelcome({
+          email: toEmail, code: 'HOLAPRUEBA', percent: 10,
+          expiresAt: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+          unsubscribeUrl: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://compadregallo.com'}/correos/baja`,
+        }, true)
+        break
+      case 'confirmacion_boleto':
+        await sendTicketConfirmation({
+          customerName: 'Cliente Prueba', customerEmail: toEmail, folioCode: 'PRUEBA-0000',
+          quantity: 2, unitPriceMxn: 35000, totalMxn: 70000, artistId: '00000000-0000-0000-0000-000000000000',
+          venue: 'foro de prueba', city: 'Puebla', date: new Date().toISOString().slice(0, 10),
+        }, true)
+        break
     }
     return { ok: true }
   } catch (e) {
@@ -55,42 +70,43 @@ export async function sendTestEmail(tipo: string, toEmail: string): Promise<{ ok
   }
 }
 
-export async function getMassEmailRecipients(audience: string): Promise<{ email: string; name: string | null }[]> {
+type Recipient = { email: string; name: string | null; unsubscribeUrl?: string }
+
+export async function getMassEmailRecipients(audience: string): Promise<Recipient[]> {
   await requireAdminOrThrow()
-  if (audience === 'compradores') {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://compadregallo.com'
+
+  const [subsRes, unsubRes] = await Promise.all([
+    supabaseAdmin.from('newsletter_subscribers').select('email, unsubscribe_token').is('unsubscribed_at', null),
+    supabaseAdmin.from('newsletter_subscribers').select('email').not('unsubscribed_at', 'is', null),
+  ])
+  // Quien pidió no recibir correos no los recibe, aunque también haya comprado.
+  const optedOut = new Set((unsubRes.data ?? []).map(r => r.email.toLowerCase()))
+  const tokenOf = new Map((subsRes.data ?? []).map(r => [r.email.toLowerCase(), r.unsubscribe_token as string]))
+
+  const seen = new Set<string>()
+  const result: Recipient[] = []
+  const push = (email: string | null, name: string | null) => {
+    const e = email?.trim().toLowerCase()
+    if (!e || seen.has(e) || optedOut.has(e)) return
+    seen.add(e)
+    const token = tokenOf.get(e)
+    result.push({ email: e, name, unsubscribeUrl: token ? `${appUrl}/correos/baja?t=${token}` : undefined })
+  }
+
+  if (audience === 'suscriptores' || audience === 'todos') {
+    for (const s of subsRes.data ?? []) push(s.email, null)
+  }
+  if (audience === 'compradores' || audience === 'todos') {
     const { data } = await supabaseAdmin
       .from('orders')
       .select('customer_email, customer_name')
       .in('status', ['paid', 'shipped', 'delivered'])
-    if (!data) return []
-    const seen = new Set<string>()
-    return data.reduce<{ email: string; name: string | null }[]>((acc, o) => {
-      if (!seen.has(o.customer_email)) {
-        seen.add(o.customer_email)
-        acc.push({ email: o.customer_email, name: o.customer_name })
-      }
-      return acc
-    }, [])
+    for (const o of data ?? []) push(o.customer_email, o.customer_name)
   }
-
-  // 'todos' — orders + registered users
-  const [ordersRes, usersRes] = await Promise.all([
-    supabaseAdmin.from('orders').select('customer_email, customer_name').in('status', ['paid', 'shipped', 'delivered']),
-    supabaseAdmin.from('users').select('email, name').eq('role', 'fan'),
-  ])
-  const seen = new Set<string>()
-  const result: { email: string; name: string | null }[] = []
-  for (const o of ordersRes.data ?? []) {
-    if (!seen.has(o.customer_email)) {
-      seen.add(o.customer_email)
-      result.push({ email: o.customer_email, name: o.customer_name })
-    }
-  }
-  for (const u of usersRes.data ?? []) {
-    if (!seen.has(u.email)) {
-      seen.add(u.email)
-      result.push({ email: u.email, name: u.name })
-    }
+  if (audience === 'todos') {
+    const { data } = await supabaseAdmin.from('users').select('email, name').eq('role', 'fan')
+    for (const u of data ?? []) push(u.email, u.name)
   }
   return result
 }

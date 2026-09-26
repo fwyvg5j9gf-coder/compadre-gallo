@@ -45,6 +45,8 @@ export default function PrivacidadPage() {
         <li>mandarte la confirmación y la guía de rastreo.</li>
         <li>responder tus dudas de soporte.</li>
         <li>cumplir obligaciones fiscales y legales.</li>
+        <li>si te suscribes en la tienda: mandarte tu código de descuento y avisarte de piezas
+          nuevas. cada correo trae una liga para salirte de la lista cuando quieras.</li>
       </ul>
       <p>no usamos tus datos para publicidad de terceros.</p>
 
