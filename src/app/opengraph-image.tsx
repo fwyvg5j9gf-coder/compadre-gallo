@@ -6,9 +6,14 @@ export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
 export default async function Image() {
-  const fontData = await fetch(
-    'https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2ywxg089UriI5-g7M8btVsD8CmdrLu0-K6z9mXg.woff2'
-  ).then(r => r.arrayBuffer())
+  // Satori (lo que dibuja esta imagen) no lee woff2: con el .woff2 de antes
+  // tronaba con "Unsupported OpenType signature wOF2" y las previews en redes
+  // salían sin imagen. Google Fonts manda TTF si no se le pide como
+  // navegador; `text=gallo` recorta la fuente a esas letras.
+  const css = await fetch('https://fonts.googleapis.com/css2?family=DM+Sans:wght@900&text=gallo').then(r => r.text())
+  const ttf = css.match(/src: url\((https:[^)]+)\) format\('(?:truetype|opentype)'\)/)?.[1]
+  if (!ttf) throw new Error('Google Fonts no devolvió DM Sans en TTF')
+  const fontData = await fetch(ttf).then(r => r.arrayBuffer())
 
   return new ImageResponse(
     (

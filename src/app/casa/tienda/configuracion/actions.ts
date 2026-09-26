@@ -228,6 +228,13 @@ export async function testShippingQuote(destZip: string, destState: string, dest
 
 export async function saveStripeConfig(formData: FormData) {
   await requireAdmin()
+  // Las llaves secretas solo se reemplazan si se escribió una nueva: el panel
+  // ya no las recibe completas, así que un campo vacío significa "no tocar".
+  const secrets: Record<string, string> = {}
+  for (const [field, column] of [['sk_test', 'stripe_sk_test'], ['sk_live', 'stripe_sk_live'], ['webhook_secret', 'stripe_webhook_secret']] as const) {
+    const v = ((formData.get(field) as string) ?? '').trim()
+    if (v) secrets[column] = v
+  }
   const [{ error }, { error: secretsError }] = await Promise.all([
     supabaseAdmin.from('store_settings').update({
       stripe_test_mode:     formData.get('test_mode') === 'true',
@@ -237,11 +244,9 @@ export async function saveStripeConfig(formData: FormData) {
       stripe_markup_pct:    parseFloat((formData.get('markup_pct') as string) || '0'),
       updated_at: new Date().toISOString(),
     }).eq('id', 1),
-    supabaseAdmin.from('store_secrets').update({
-      stripe_sk_test:       (formData.get('sk_test') as string ?? '').trim(),
-      stripe_sk_live:       (formData.get('sk_live') as string ?? '').trim(),
-      stripe_webhook_secret:(formData.get('webhook_secret') as string ?? '').trim(),
-    }).eq('id', 1),
+    Object.keys(secrets).length
+      ? supabaseAdmin.from('store_secrets').update(secrets).eq('id', 1)
+      : Promise.resolve({ error: null }),
   ])
   if (error) throw new Error(error.message)
   if (secretsError) throw new Error(secretsError.message)

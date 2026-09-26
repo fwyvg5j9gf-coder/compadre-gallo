@@ -1,6 +1,9 @@
+import type { Metadata } from 'next'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import CheckoutMerch from './CheckoutMerch'
+
+export const metadata: Metadata = { title: 'pagar — compadregallo', robots: { index: false } }
 
 export default async function CheckoutPage() {
   const { userId } = await auth()

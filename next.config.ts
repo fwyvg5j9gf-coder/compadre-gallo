@@ -20,7 +20,10 @@ const nextConfig: NextConfig = {
       `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.clerk.com https://*.clerk.accounts.dev ${CLERK_CUSTOM}`,
       `font-src 'self' https://fonts.gstatic.com https://*.clerk.com ${CLERK_CUSTOM}`,
       `img-src 'self' data: blob: https://*.supabase.co https://img.clerk.com https://*.clerk.com ${CLERK_CUSTOM}`,
-      `connect-src 'self' https://*.supabase.co https://api.stripe.com https://api-pro.skydropx.com https://nominatim.openstreetmap.org https://*.clerk.com https://*.clerk.accounts.dev https://clerk-telemetry.com ${CLERK_CUSTOM} ${APP_URL}`,
+      `connect-src 'self' https://*.supabase.co https://api.stripe.com https://nominatim.openstreetmap.org https://*.clerk.com https://*.clerk.accounts.dev https://clerk-telemetry.com ${CLERK_CUSTOM} ${APP_URL}`,
+      // Clerk crea un worker desde blob: para refrescar la sesión; sin esto
+      // cada página llenaba la consola de errores de CSP (auditoría 26 sep 2026).
+      `worker-src 'self' blob:`,
       `frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://*.clerk.com https://*.clerk.accounts.dev https://challenges.cloudflare.com ${CLERK_CUSTOM}`,
     ].join('; ')
 

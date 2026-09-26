@@ -636,7 +636,7 @@ function StripeSection({ settings }: { settings: StoreSettings }) {
             <label className="adm-lbl">
               secret key (sk_test_...)
               {hint(settings.stripe_sk_test) && <span style={{ fontSize: 10, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>activa: {hint(settings.stripe_sk_test)}</span>}
-              <input name="sk_test" type="password" defaultValue={settings.stripe_sk_test} placeholder="sk_test_..." className="adm-inp" autoComplete="off" />
+              <input name="sk_test" type="password" defaultValue="" placeholder={settings.stripe_sk_test ? 'guardada · pega una nueva para reemplazarla' : 'sk_test_...'} className="adm-inp" autoComplete="off" />
             </label>
           </div>
         </div>
@@ -656,8 +656,8 @@ function StripeSection({ settings }: { settings: StoreSettings }) {
               secret key (sk_live_...)
               {hint(settings.stripe_sk_live) && <span style={{ fontSize: 10, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>activa: {hint(settings.stripe_sk_live)}</span>}
               <div style={{ position: 'relative' }}>
-                <input name="sk_live" type={showSk ? 'text' : 'password'} defaultValue={settings.stripe_sk_live}
-                  placeholder="sk_live_..." className="adm-inp" style={{ paddingRight: 44 }} autoComplete="off" />
+                <input name="sk_live" type={showSk ? 'text' : 'password'} defaultValue=""
+                  placeholder={settings.stripe_sk_live ? 'guardada · pega una nueva para reemplazarla' : 'sk_live_...'} className="adm-inp" style={{ paddingRight: 44 }} autoComplete="off" />
                 <button type="button" onClick={() => setShowSk(v => !v)} style={{
                   position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
                   background: 'none', border: 'none', cursor: 'pointer', color: M, display: 'flex', alignItems: 'center', padding: 0,
@@ -674,7 +674,7 @@ function StripeSection({ settings }: { settings: StoreSettings }) {
           <label className="adm-lbl" style={{ gridColumn: '1/3' }}>
             webhook secret (whsec_...)
             {hint(settings.stripe_webhook_secret) && <span style={{ fontSize: 10, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>activa: {hint(settings.stripe_webhook_secret)}</span>}
-            <input name="webhook_secret" type="password" defaultValue={settings.stripe_webhook_secret} placeholder="whsec_..." className="adm-inp" autoComplete="off" />
+            <input name="webhook_secret" type="password" defaultValue="" placeholder={settings.stripe_webhook_secret ? 'guardado · pega uno nuevo para reemplazarlo' : 'whsec_...'} className="adm-inp" autoComplete="off" />
           </label>
           <label className="adm-lbl">
             descriptor (22 chars)

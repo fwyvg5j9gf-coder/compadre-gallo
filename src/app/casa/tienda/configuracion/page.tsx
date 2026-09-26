@@ -33,8 +33,17 @@ export default async function ConfiguracionPage() {
   ])
 
   // Las llaves de Envia no viajan al navegador: solo sus últimos 4 caracteres.
-  const { envia_api_key_test, envia_api_key_live, ...stripeSecrets } = (secretsRes.data ?? {}) as Record<string, string | null>
+  const { envia_api_key_test, envia_api_key_live, ...stripeRaw } = (secretsRes.data ?? {}) as Record<string, string | null>
   const last4 = (k: string | null | undefined) => (k && k.length > 8 ? k.slice(-4) : null)
+  // Igual con Stripe: la llave secreta (sk_live incluida) y el secreto del
+  // webhook ya no viajan al navegador. Se manda una máscara con los últimos
+  // caracteres, solo para mostrar cuál está guardada.
+  const mask = (k: string | null | undefined) => (k && k.length > 8 ? `••••••••${k.slice(-6)}` : '')
+  const stripeSecrets = {
+    stripe_sk_test: mask(stripeRaw.stripe_sk_test),
+    stripe_sk_live: mask(stripeRaw.stripe_sk_live),
+    stripe_webhook_secret: mask(stripeRaw.stripe_webhook_secret),
+  }
 
   const settings = {
     ...(settingsRes.data ?? DEFAULT_SETTINGS),

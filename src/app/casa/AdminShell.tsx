@@ -48,6 +48,7 @@ const SECTIONS: { group: string; items: { label: string; href: string }[] }[] = 
   {
     group: 'sistema',
     items: [
+      { label: 'salud',      href: '/casa/salud' },
       { label: 'bitácora',   href: '/casa/bitacora' },
       { label: 'desarrollo', href: '/casa/desarrollo' },
     ],
