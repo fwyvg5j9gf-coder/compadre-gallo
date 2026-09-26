@@ -5,7 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase.server'
 import AdminShell from '../../AdminShell'
 import OrderActions from './OrderActions'
 import { checkShipmentReadiness } from './actions'
-import type { ReadinessItem, SkydropxEvent } from './actions'
+import type { ReadinessItem, ShipmentEvent } from './actions'
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'pendiente', paid: 'pagado', shipped: 'enviado',
@@ -142,9 +142,11 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const addr = order.shipping_address as Record<string, string> | null
   const sc = STATUS_COLOR[order.status] ?? { bg: '#f0efe9', text: '#6b6a64' }
   const isTest = (order as Record<string, unknown>).is_test as boolean
-  const skydropxShipmentId = (order as Record<string, unknown>).skydropx_shipment_id as string | null ?? null
-  const skydropxCostMxn = (order as Record<string, unknown>).skydropx_cost_mxn as number | null ?? null
-  const skydropxEvents = ((order as Record<string, unknown>).skydropx_events as SkydropxEvent[] | null) ?? []
+  const o = order as Record<string, unknown>
+  const shippingProvider = (o.shipping_provider as string | null) ?? null
+  const shippingService = (o.shipping_service as string | null) ?? null
+  const shipmentCostMxn = (o.shipment_cost_mxn as number | null) ?? null
+  const shipmentEvents = (o.shipment_events as ShipmentEvent[] | null) ?? []
 
   const readiness = !order.tracking_number
     ? await checkShipmentReadiness(order.id).catch(() => null)
@@ -239,7 +241,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             {/* Dirección de envío */}
             {addr && (
               <InfoCard title="dirección de envío">
-                <Row label="calle"    value={addr.street} />
+                <Row label="calle"    value={[addr.street, addr.number].filter(Boolean).join(' ')} />
                 <Row label="colonia"  value={addr.colonia} />
                 <Row label="C.P."     value={addr.zip} />
                 <Row label="ciudad"   value={addr.city} />
@@ -247,29 +249,30 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               </InfoCard>
             )}
 
-            {/* Detalles del envío Skydropx */}
-            {(order.tracking_number || skydropxEvents.length > 0) && (
+            {/* Detalles del envío */}
+            {(order.tracking_number || shipmentEvents.length > 0) && (
               <InfoCard title="envío">
                 {order.tracking_number && (
                   <>
-                    {order.shipping_carrier && <Row label="paquetería" value={order.shipping_carrier} />}
+                    {order.shipping_carrier && <Row label="paquetería" value={[order.shipping_carrier, shippingService].filter(Boolean).join(' · ')} />}
                     <Row label="guía" value={
                       <span style={{ fontFamily: 'monospace', fontSize: 13, background: 'rgba(0,58,135,0.06)', padding: '2px 8px', borderRadius: 4, color: '#003a87' }}>
                         {order.tracking_number}
                       </span>
                     } />
-                    {skydropxCostMxn != null && (
-                      <Row label="costo Skydropx" value={
+                    {shipmentCostMxn != null && (
+                      <Row label="costo real" value={
                         <span style={{ fontFamily: 'monospace' }}>
-                          {(skydropxCostMxn / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
+                          {fmt(shipmentCostMxn)}
+                          {order.shipping_mxn > 0 && (
+                            <span style={{ color: S, marginLeft: 8 }}>
+                              (cliente pagó {fmt(order.shipping_mxn)})
+                            </span>
+                          )}
                         </span>
                       } />
                     )}
-                    {skydropxShipmentId && (
-                      <Row label="shipment ID" value={
-                        <span style={{ fontFamily: 'monospace', fontSize: 12, color: S }}>{skydropxShipmentId}</span>
-                      } />
-                    )}
+                    {shippingProvider && <Row label="proveedor" value={shippingProvider} />}
                     {(order as Record<string, unknown>).label_url && (
                       <div style={{ marginTop: 10 }}>
                         <a
@@ -284,13 +287,13 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                   </>
                 )}
 
-                {skydropxEvents.length > 0 && (
+                {shipmentEvents.length > 0 && (
                   <div style={{ marginTop: order.tracking_number ? 16 : 0, paddingTop: order.tracking_number ? 16 : 0, borderTop: order.tracking_number ? `1px solid ${B}` : 'none' }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: S, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 10 }}>
                       historial
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {[...skydropxEvents].reverse().map((ev, i) => (
+                      {[...shipmentEvents].reverse().map((ev, i) => (
                         <div key={i} style={{ display: 'flex', gap: 12, fontSize: 13, alignItems: 'flex-start' }}>
                           <span style={{
                             flexShrink: 0, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999, marginTop: 1,
@@ -304,12 +307,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                             {ev.tracking && (
                               <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#003a87', marginRight: 8 }}>{ev.tracking}</span>
                             )}
-                            {ev.carrier && <span style={{ color: M, marginRight: 8 }}>{ev.carrier}</span>}
+                            {ev.carrier && <span style={{ color: M, marginRight: 8 }}>{[ev.carrier.toUpperCase(), ev.service].filter(Boolean).join(' · ')}</span>}
                             {ev.cost_mxn != null && (
-                              <span style={{ fontFamily: 'monospace', fontWeight: 700, marginRight: 8 }}>
-                                {ev.cost_mxn.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
-                              </span>
+                              <span style={{ fontFamily: 'monospace', fontWeight: 700, marginRight: 8 }}>{fmt(ev.cost_mxn)}</span>
                             )}
+                            {ev.mode === 'test' && <span style={{ fontSize: 10, fontWeight: 800, color: '#b45309', marginRight: 8 }}>PRUEBA</span>}
+                            {ev.note && <div style={{ fontSize: 12, color: M, marginTop: 2 }}>{ev.note}</div>}
                             <div style={{ fontSize: 11, color: S, marginTop: 2 }}>
                               {new Date(ev.at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </div>
@@ -352,14 +355,14 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               shippingMxn={order.shipping_mxn ?? 0}
               shippingCarrier={order.shipping_carrier ?? null}
               labelUrl={(order as Record<string, unknown>).label_url as string ?? null}
-              skydropxShipmentId={skydropxShipmentId}
+              shippingProvider={shippingProvider}
               initialCustomerName={order.customer_name ?? null}
               initialCustomerEmail={order.customer_email}
               initialCustomerPhone={order.customer_phone ?? null}
               initialNotes={order.notes ?? null}
               initialAddress={addr}
               shipmentReadiness={readiness}
-              skydropxEvents={skydropxEvents}
+              shipmentEvents={shipmentEvents}
             />
           </div>
 

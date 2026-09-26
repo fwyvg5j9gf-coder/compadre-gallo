@@ -54,7 +54,7 @@ export default function PrivacidadPage() {
       <p>solo con los proveedores que necesitamos para operar la tienda:</p>
       <ul>
         <li>Stripe: procesamiento de pagos.</li>
-        <li>Skydropx y la paquetería que elijas en el checkout: envío y rastreo.</li>
+        <li>Envia.com y la paquetería que elijas en el checkout: envío y rastreo.</li>
         <li>Resend: envío de correos de tu pedido.</li>
         <li>Supabase y Vercel: almacenamiento de datos y operación del sitio.</li>
       </ul>

@@ -2,9 +2,9 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { updateOrderStatus, updateTrackingNumber, createSkydropxShipment, getSkydropxRatesForOrder, deleteOrder, updateOrderDetails, fetchSkydropxShipmentStatus, cancelSkydropxShipment, fetchSkydropxBalance } from './actions'
-import type { ShippingRate, ShipmentStatus } from '@/lib/skydropx'
-import type { ReadinessItem, SkydropxEvent } from './actions'
+import { updateOrderStatus, updateTrackingNumber, createShipment, getRatesForOrder, deleteOrder, updateOrderDetails, fetchShipmentStatus, cancelShipment, fetchShippingBalance } from './actions'
+import type { ShippingRate } from '@/lib/envia'
+import type { ReadinessItem, ShipmentEvent, ShipmentStatusResult } from './actions'
 
 const STATUS_OPTIONS = [
   { value: 'pending',   label: 'pendiente' },
@@ -42,13 +42,17 @@ function getCarrierTrackingUrl(carrier: string, tracking: string): string {
   return ''
 }
 
-const WORKFLOW_LABEL: Record<string, string> = {
-  success: 'guía generada',
-  in_progress: 'procesando',
-  error: 'error',
-  cancelled: 'cancelada',
-  delivered: 'entregada',
+const TRACK_LABEL: Record<string, string> = {
+  created: 'guía creada',
+  pickup: 'recolectada',
+  shipped: 'en tránsito',
   in_transit: 'en tránsito',
+  out_for_delivery: 'en reparto',
+  delivered: 'entregada',
+  exception: 'incidencia',
+  returned: 'devuelta',
+  canceled: 'cancelada',
+  cancelled: 'cancelada',
 }
 
 export default function OrderActions({
@@ -59,8 +63,8 @@ export default function OrderActions({
   shippingMxn,
   shippingCarrier,
   labelUrl: initialLabelUrl,
-  skydropxShipmentId,
-  skydropxEvents,
+  shippingProvider,
+  shipmentEvents,
   initialCustomerName,
   initialCustomerEmail,
   initialCustomerPhone,
@@ -75,14 +79,14 @@ export default function OrderActions({
   shippingMxn: number
   shippingCarrier: string | null
   labelUrl: string | null
-  skydropxShipmentId: string | null
+  shippingProvider: string | null
   initialCustomerName: string | null
   initialCustomerEmail: string
   initialCustomerPhone: string | null
   initialNotes: string | null
   initialAddress: Record<string, string> | null
   shipmentReadiness: { ready: boolean; items: ReadinessItem[] } | null
-  skydropxEvents: SkydropxEvent[]
+  shipmentEvents: ShipmentEvent[]
 }) {
   const router = useRouter()
   const [status, setStatus] = useState(currentStatus)
@@ -105,8 +109,7 @@ export default function OrderActions({
   const [editMsg, setEditMsg] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [protection, setProtection] = useState(false)
-  const [shipmentStatus, setShipmentStatus] = useState<ShipmentStatus | null>(null)
+  const [shipmentStatus, setShipmentStatus] = useState<ShipmentStatusResult['data'] | null>(null)
   const [pendingTrack, startTrack] = useTransition()
   const [trackError, setTrackError] = useState<string | null>(null)
   const [pendingCancel, startCancel] = useTransition()
@@ -114,38 +117,30 @@ export default function OrderActions({
   const [cancelShipmentError, setCancelShipmentError] = useState<string | null>(null)
   const [cancelShipmentMsg, setCancelShipmentMsg] = useState<string | null>(null)
   const [cancelReason, setCancelReason] = useState('')
-  const [skyBalance, setSkyBalance] = useState<number | null>(null)
-  const [skyBalanceCurrency, setSkyBalanceCurrency] = useState('MXN')
+  const [balance, setBalance] = useState<{ balance: number | null; at: string | null; mode: string } | null>(null)
 
   const hasTracking = !!tracking
-  const hasRateId = !!shippingRateId
+  const isEnvia = shippingProvider === 'envia'
+  const lastCreated = [...shipmentEvents].reverse().find(e => e.type === 'created')
 
   useEffect(() => {
     if (hasTracking) return
-    fetchSkydropxBalance().then(({ balance, currency }) => {
-      if (balance != null) {
-        setSkyBalance(balance)
-        if (currency) setSkyBalanceCurrency(currency)
-      }
-    })
+    fetchShippingBalance().then(setBalance).catch(() => {})
   }, [hasTracking])
 
   function handleTrackShipment() {
     setTrackError(null)
     startTrack(async () => {
-      const { data, error } = await fetchSkydropxShipmentStatus(orderId)
+      const { data, error } = await fetchShipmentStatus(orderId)
       if (error) { setTrackError(error); return }
-      if (data) {
-        setShipmentStatus(data)
-        if (data.labelUrl && !labelUrl) setLabelUrl(data.labelUrl)
-      }
+      if (data) setShipmentStatus(data)
     })
   }
 
   function handleCancelShipment() {
     setCancelShipmentError(null)
     startCancel(async () => {
-      const { error, skydropxError } = await cancelSkydropxShipment(orderId, cancelReason)
+      const { error, warning, balanceReturned } = await cancelShipment(orderId, cancelReason)
       if (error) { setCancelShipmentError(error); return }
       setTracking('')
       setStatus('paid')
@@ -154,9 +149,9 @@ export default function OrderActions({
       setConfirmCancelShipment(false)
       setCancelReason('')
       setCancelShipmentMsg(
-        skydropxError
-          ? `cancelada localmente, pero Skydropx respondió: "${skydropxError}". Cancélala manualmente desde el panel.`
-          : 'guía cancelada correctamente en Skydropx y en el sistema.'
+        warning
+          ? `⚠ cancelada aquí, pero Envia respondió: "${warning}". revísala en tu cuenta de Envia.`
+          : `guía cancelada en Envia${balanceReturned ? ' y el saldo regresó a tu cuenta' : ''}.`
       )
     })
   }
@@ -202,28 +197,24 @@ export default function OrderActions({
     setShipmentError(null)
     setGuideStep('fetching')
     startRates(async () => {
-      const { rates, error } = await getSkydropxRatesForOrder(orderId)
+      const { rates, error } = await getRatesForOrder(orderId)
       if (error) {
         setShipmentError(error)
         setGuideStep('idle')
         return
       }
       setRates(rates)
-      // Pre-select the rate matching what the customer paid for (by carrier name)
-      const match = shippingCarrier
-        ? rates.find(r => r.carrier.toLowerCase().includes(shippingCarrier.toLowerCase()) ||
-                          shippingCarrier.toLowerCase().includes(r.carrier.toLowerCase()))
-        : null
-      setSelectedRate(match ?? rates[0])
+      // Preselecciona exactamente lo que eligió el cliente (mismo carrier:servicio)
+      setSelectedRate(rates.find(r => r.rate_id === shippingRateId) ?? rates[0])
       setGuideStep('selecting')
     })
   }
 
-  function handleCreateShipment(rateId?: string, quotationId?: string) {
+  function handleCreateShipment(rateId?: string) {
     setShipmentError(null)
     setGuideStep('creating')
     startShipment(async () => {
-      const { data, error } = await createSkydropxShipment(orderId, rateId, quotationId, protection)
+      const { data, error } = await createShipment(orderId, rateId)
       if (error) {
         setShipmentError(error)
         setGuideStep('idle')
@@ -326,38 +317,52 @@ export default function OrderActions({
             rastreo del envío
           </div>
 
-          {shipmentStatus && (
-            <div style={{ marginBottom: 14, padding: '10px 14px', background: '#f6f5f1', borderRadius: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 12, color: M }}>estado</span>
-                <span style={{
-                  fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                  background: shipmentStatus.workflowStatus === 'success' ? 'rgba(26,107,53,0.1)' : shipmentStatus.workflowStatus === 'error' ? 'rgba(255,1,0,0.08)' : 'rgba(0,58,135,0.08)',
-                  color: shipmentStatus.workflowStatus === 'success' ? '#1a6b35' : shipmentStatus.workflowStatus === 'error' ? '#cc0000' : '#003a87',
-                  textTransform: 'uppercase', letterSpacing: '0.04em',
-                }}>
-                  {WORKFLOW_LABEL[shipmentStatus.workflowStatus] ?? shipmentStatus.workflowStatus}
+          {lastCreated && (
+            <div style={{ marginBottom: 14, padding: '10px 14px', background: '#f6f5f1', borderRadius: 4, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: M }}>guía</span>
+                <span style={{ fontWeight: 600 }}>
+                  {[lastCreated.carrier?.toUpperCase(), lastCreated.service].filter(Boolean).join(' · ')}
+                  {lastCreated.mode === 'test' && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, color: '#b45309' }}>PRUEBA</span>}
                 </span>
               </div>
-              {shipmentStatus.carrier && (
+              {lastCreated.cost_mxn != null && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 12, color: M }}>paquetería</span>
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>{shipmentStatus.carrier}</span>
-                </div>
-              )}
-              {shipmentStatus.cost != null && (
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 12, color: M }}>costo Skydropx</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'monospace' }}>
-                    {shipmentStatus.cost.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
-                  </span>
+                  <span style={{ color: M }}>costo real (Envia)</span>
+                  <span style={{ fontWeight: 700, fontFamily: 'monospace' }}>{fmt(lastCreated.cost_mxn)}</span>
                 </div>
               )}
             </div>
           )}
 
+          {shipmentStatus && (
+            <div style={{ marginBottom: 14, padding: '10px 14px', border: `1px solid ${B}`, borderRadius: 4, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: M }}>estado</span>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+                  background: /deliver/i.test(shipmentStatus.status) ? 'rgba(26,107,53,0.1)' : /exception|return|cancel/i.test(shipmentStatus.status) ? 'rgba(255,1,0,0.08)' : 'rgba(0,58,135,0.08)',
+                  color: /deliver/i.test(shipmentStatus.status) ? '#1a6b35' : /exception|return|cancel/i.test(shipmentStatus.status) ? '#cc0000' : '#003a87',
+                  textTransform: 'uppercase', letterSpacing: '0.04em',
+                }}>
+                  {TRACK_LABEL[shipmentStatus.status.toLowerCase()] ?? (shipmentStatus.status || 'sin datos')}
+                </span>
+              </div>
+              {shipmentStatus.events.length > 0 && (
+                <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+                  {[...shipmentStatus.events].reverse().map((ev, i) => (
+                    <li key={i} style={{ fontSize: 12, display: 'grid', gridTemplateColumns: '92px 1fr', gap: 8 }}>
+                      <span style={{ color: M, fontFamily: 'monospace', fontSize: 11 }}>{ev.date.slice(0, 16).replace('T', ' ')}</span>
+                      <span>{ev.description || ev.status}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 8 }}>
-            {skydropxShipmentId && (
+            {isEnvia && (
               <button
                 onClick={handleTrackShipment}
                 disabled={pendingTrack}
@@ -371,13 +376,13 @@ export default function OrderActions({
               <a
                 href={getCarrierTrackingUrl(shippingCarrier, tracking)}
                 target="_blank" rel="noopener noreferrer"
-                style={{ height: 36, padding: '0 14px', display: 'flex', alignItems: 'center', fontSize: 13, border: `1px solid ${B}`, borderRadius: 4, background: '#fff', color: '#003a87', fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap', flex: skydropxShipmentId ? undefined : 1 }}
+                style={{ height: 36, padding: '0 14px', display: 'flex', alignItems: 'center', fontSize: 13, border: `1px solid ${B}`, borderRadius: 4, background: '#fff', color: '#003a87', fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap', flex: isEnvia ? undefined : 1 }}
               >
                 rastrear en {shippingCarrier} ↗
               </a>
             )}
-            {!skydropxShipmentId && !shippingCarrier && (
-              <p style={{ fontSize: 12, color: M, margin: 0, fontStyle: 'italic' }}>guía registrada manualmente — sin API de Skydropx</p>
+            {!isEnvia && !shippingCarrier && (
+              <p style={{ fontSize: 12, color: M, margin: 0, fontStyle: 'italic' }}>guía registrada a mano — sin rastreo automático</p>
             )}
           </div>
           {trackError && (
@@ -388,23 +393,26 @@ export default function OrderActions({
         </div>
       )}
 
-      {/* Crear guía Skydropx */}
+      {/* Comprar guía con Envia */}
       {!hasTracking && (
         <div style={{ background: '#fff', border: `1px solid ${B}`, borderRadius: 8, padding: '20px 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              skydropx
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.06em', textTransform: 'uppercase', display: 'flex', gap: 8, alignItems: 'center' }}>
+              guía con envia
+              {balance?.mode === 'test' && (
+                <span style={{ fontSize: 10, fontWeight: 800, color: '#b45309', background: 'rgba(255,152,0,0.12)', padding: '1px 6px', borderRadius: 999 }}>MODO PRUEBA</span>
+              )}
             </div>
-            {skyBalance != null && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ fontSize: 10, fontWeight: 600, color: M, letterSpacing: '0.04em', textTransform: 'uppercase' }}>saldo</span>
+            {balance?.balance != null && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }} title={balance.at ? `reportado por Envia el ${balance.at.slice(0, 10)}` : undefined}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: M, letterSpacing: '0.04em', textTransform: 'uppercase' }}>último saldo</span>
                 <span style={{
                   fontFamily: 'monospace', fontSize: 13, fontWeight: 700,
-                  color: skyBalance < 200 ? '#cc4400' : '#1a6b35',
-                  background: skyBalance < 200 ? 'rgba(204,68,0,0.07)' : 'rgba(26,107,53,0.07)',
+                  color: balance.balance < 200 ? '#cc4400' : '#1a6b35',
+                  background: balance.balance < 200 ? 'rgba(204,68,0,0.07)' : 'rgba(26,107,53,0.07)',
                   padding: '2px 8px', borderRadius: 4,
                 }}>
-                  {skyBalance.toLocaleString('es-MX', { style: 'currency', currency: skyBalanceCurrency })}
+                  {balance.balance.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
                 </span>
               </div>
             )}
@@ -432,24 +440,6 @@ export default function OrderActions({
             </div>
           )}
 
-          {/* SOS Protección toggle */}
-          <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, padding: '10px 14px', background: '#f6f5f1', borderRadius: 4, cursor: 'pointer' }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#0a0a0a' }}>SOS protección</div>
-              <div style={{ fontSize: 11, color: M, marginTop: 1 }}>seguro de envío · costo adicional</div>
-            </div>
-            <button type="button" onClick={() => setProtection(v => !v)} style={{
-              width: 40, height: 22, borderRadius: 999, border: 'none', cursor: 'pointer', flexShrink: 0,
-              background: protection ? '#ff0100' : '#d4d3cd', position: 'relative', transition: 'background 180ms',
-            }}>
-              <span style={{
-                position: 'absolute', top: 3, left: protection ? 20 : 3,
-                width: 16, height: 16, borderRadius: '50%', background: '#fff',
-                transition: 'left 180ms', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-              }} />
-            </button>
-          </label>
-
           {/* Info de envío del cliente */}
           <div style={{ marginBottom: 16, padding: '10px 14px', background: '#f6f5f1', borderRadius: 4, fontSize: 13 }}>
             <span style={{ color: M }}>cliente pagó: </span>
@@ -469,21 +459,17 @@ export default function OrderActions({
             </button>
           )}
           {guideStep === 'fetching' && (
-            <p style={{ fontSize: 13, color: M, fontStyle: 'italic' }}>cotizando con Skydropx…</p>
+            <p style={{ fontSize: 13, color: M, fontStyle: 'italic' }}>cotizando con Envia…</p>
           )}
           {guideStep === 'selecting' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {shippingCarrier && (
-                <div style={{ fontSize: 12, color: M, padding: '7px 12px', background: '#f6f5f1', borderRadius: 4 }}>
-                  cliente eligió: <strong style={{ color: '#0a0a0a' }}>{shippingCarrier}</strong> — está pre-seleccionado abajo
-                </div>
-              )}
+              <div style={{ fontSize: 12, color: M, padding: '7px 12px', background: '#f6f5f1', borderRadius: 4 }}>
+                precios reales de Envia, sin el recargo que paga el cliente.
+                {shippingCarrier && <> cliente eligió <strong style={{ color: '#0a0a0a' }}>{shippingCarrier}</strong>.</>}
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {rates.map(r => {
-                  const isClientChoice = !!shippingCarrier && (
-                    r.carrier.toLowerCase().includes(shippingCarrier.toLowerCase()) ||
-                    shippingCarrier.toLowerCase().includes(r.carrier.toLowerCase())
-                  )
+                  const isClientChoice = r.rate_id === shippingRateId
                   const isSelected = selectedRate?.rate_id === r.rate_id
                   return (
                     <label key={r.rate_id} style={{
@@ -495,8 +481,8 @@ export default function OrderActions({
                       <input type="radio" name="sky_rate" checked={isSelected}
                         onChange={() => setSelectedRate(r)} style={{ accentColor: '#ff0100' }} />
                       <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 700, fontSize: 13 }}>{r.carrier}</span>
-                        {r.service_level && <span style={{ fontSize: 12, color: M }}>{r.service_level}</span>}
+                        <span style={{ fontWeight: 700, fontSize: 13 }}>{r.carrier_name}</span>
+                        {r.service_name && <span style={{ fontSize: 12, color: M }}>{r.service_name}</span>}
                         {r.days && <span style={{ fontSize: 12, color: M }}>{r.days} días</span>}
                         {isClientChoice && (
                           <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', padding: '1px 7px', borderRadius: 999, background: 'rgba(0,58,135,0.08)', color: '#003a87' }}>
@@ -511,21 +497,18 @@ export default function OrderActions({
                   )
                 })}
               </div>
-              {selectedRate && shippingCarrier && !(
-                selectedRate.carrier.toLowerCase().includes(shippingCarrier.toLowerCase()) ||
-                shippingCarrier.toLowerCase().includes(selectedRate.carrier.toLowerCase())
-              ) && (
+              {selectedRate && shippingRateId?.includes(':') && selectedRate.rate_id !== shippingRateId && (
                 <div style={{ fontSize: 12, color: '#cc5500', padding: '7px 12px', background: 'rgba(255,100,0,0.06)', borderRadius: 4, border: '1px solid rgba(255,100,0,0.2)' }}>
-                  ⚠ seleccionaste {selectedRate.carrier}, pero el cliente pagó por {shippingCarrier}
+                  ⚠ elegiste {selectedRate.carrier_name} {selectedRate.service_name}, pero el cliente pagó por otra opción
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
-                  onClick={() => selectedRate && handleCreateShipment(selectedRate.rate_id, selectedRate.quotation_id)}
+                  onClick={() => selectedRate && handleCreateShipment(selectedRate.rate_id)}
                   disabled={!selectedRate || pendingShipment}
                   className="adm-btn-primary" style={{ flex: 1, height: 36, fontSize: 13 }}
                 >
-                  {pendingShipment ? 'creando…' : `crear guía · ${selectedRate ? fmt(Math.round(selectedRate.total_mxn * 100)) : ''}`}
+                  {pendingShipment ? 'comprando…' : `comprar guía · ${selectedRate ? fmt(Math.round(selectedRate.total_mxn * 100)) : ''}`}
                 </button>
                 <button onClick={() => setGuideStep('idle')} disabled={pendingShipment} style={{ height: 36, padding: '0 14px', fontSize: 13, border: `1px solid ${B}`, borderRadius: 4, background: '#fff', cursor: 'pointer', color: M }}>
                   cancelar
@@ -577,9 +560,13 @@ export default function OrderActions({
             </div>
             <div style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.04em', marginTop: 4 }}>DIRECCIÓN</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <label style={{ ...lbl, gridColumn: '1 / -1' }}>
-                calle y número
+              <label style={lbl}>
+                calle
                 <input name="addr_street" defaultValue={initialAddress?.street ?? ''} style={inp} />
+              </label>
+              <label style={lbl}>
+                número
+                <input name="addr_number" defaultValue={initialAddress?.number ?? ''} placeholder="123 int. 4" style={inp} />
               </label>
               <label style={lbl}>
                 colonia
@@ -632,13 +619,13 @@ export default function OrderActions({
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '12px', background: 'rgba(255,1,0,0.04)', borderRadius: 4, border: '1px solid rgba(255,1,0,0.15)' }}>
                 <p style={{ fontSize: 13, color: '#cc0000', margin: 0, fontWeight: 600 }}>
-                  ¿cancelar la guía en Skydropx?
+                  ¿cancelar la guía en Envia?
                 </p>
                 <p style={{ fontSize: 12, color: M, margin: 0 }}>
-                  Se enviará la cancelación a Skydropx y se actualizará el estado a <strong>pagado</strong>.
+                  solo se puede si la paquetería todavía no la escanea. el saldo regresa a tu cuenta de Envia y el pedido vuelve a <strong>pagado</strong>.
                 </p>
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, fontWeight: 600, color: M }}>
-                  razón (requerida por Skydropx)
+                  razón (queda en la bitácora)
                   <input
                     value={cancelReason}
                     onChange={e => setCancelReason(e.target.value)}
@@ -671,11 +658,11 @@ export default function OrderActions({
           {cancelShipmentMsg && (
             <div style={{
               padding: '10px 12px', borderRadius: 4, fontSize: 12, fontWeight: 500,
-              background: cancelShipmentMsg.includes('Skydropx respondió') ? 'rgba(255,152,0,0.1)' : 'rgba(26,107,53,0.08)',
-              border: `1px solid ${cancelShipmentMsg.includes('Skydropx respondió') ? 'rgba(255,152,0,0.3)' : 'rgba(26,107,53,0.2)'}`,
-              color: cancelShipmentMsg.includes('Skydropx respondió') ? '#b45309' : '#1a6b35',
+              background: cancelShipmentMsg.startsWith('⚠') ? 'rgba(255,152,0,0.1)' : 'rgba(26,107,53,0.08)',
+              border: `1px solid ${cancelShipmentMsg.startsWith('⚠') ? 'rgba(255,152,0,0.3)' : 'rgba(26,107,53,0.2)'}`,
+              color: cancelShipmentMsg.startsWith('⚠') ? '#b45309' : '#1a6b35',
             }}>
-              {cancelShipmentMsg.includes('Skydropx respondió') ? '⚠ ' : '✓ '}{cancelShipmentMsg}
+              {cancelShipmentMsg.startsWith('⚠') ? '' : '✓ '}{cancelShipmentMsg}
             </div>
           )}
 

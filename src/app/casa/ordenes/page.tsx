@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/auth.server'
 import Link from 'next/link'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import AdminShell from '../AdminShell'
-import SkydropxBalanceBadge from './SkydropxBalanceBadge'
+import ShippingBalanceBadge from './ShippingBalanceBadge'
 import OrdenesClient from './OrdenesClient'
 
 export const dynamic = 'force-dynamic'
@@ -25,7 +25,7 @@ export default async function OrdenesPage() {
       crumbHref="/casa"
       right={
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <SkydropxBalanceBadge />
+          <ShippingBalanceBadge />
           <a href="/api/export-orders" style={{
             fontSize: 12, fontWeight: 700, color: '#f0efe9',
             background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.12)',

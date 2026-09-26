@@ -200,15 +200,15 @@ function ProductForm({
   )
 }
 
-// ─── Skydropx readiness ───────────────────────────────────────────────────────
+// ─── Listo para enviar ────────────────────────────────────────────────────────
+// Envia solo necesita medidas y peso: el embalaje da la caja y el producto su
+// peso (sin peso, se usa el del embalaje, que suele quedarse corto).
 
-function skydropxStatus(product: Product): { ok: boolean; warn: boolean; msg: string } {
+function shippingStatus(product: Product): { ok: boolean; warn: boolean; msg: string } {
   const pkg = product.packaging_types
   if (!product.packaging_type_id || !pkg) return { ok: false, warn: false, msg: 'sin embalaje' }
-  if (!pkg.skydropx_package_type) return { ok: false, warn: true, msg: 'falta código SAT embalaje' }
-  if (!pkg.consignment_note || pkg.consignment_note === 'Merch') return { ok: false, warn: true, msg: 'falta código SAT clase' }
   if (!product.weight_grams) return { ok: false, warn: true, msg: 'falta peso del producto' }
-  return { ok: true, warn: false, msg: 'listo para skydropx' }
+  return { ok: true, warn: false, msg: 'listo para envío' }
 }
 
 // ─── Fila de producto ─────────────────────────────────────────────────────────
@@ -248,7 +248,7 @@ function ProductRow({ product, onEdit, onRefresh, selected, onSelect }: {
           {product.sku && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#9a9994' }}>{product.sku}</span>}
           {product.weight_grams && <span>· {product.weight_grams}g</span>}
           {(() => {
-            const s = skydropxStatus(product)
+            const s = shippingStatus(product)
             return (
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 999,
@@ -256,7 +256,7 @@ function ProductRow({ product, onEdit, onRefresh, selected, onSelect }: {
                 color: s.ok ? '#1a6b35' : s.warn ? '#8a5e00' : '#aaa',
                 letterSpacing: '0.03em',
               }}>
-                {s.ok ? '✓ sky' : s.msg}
+                {s.ok ? '✓ envío' : s.msg}
               </span>
             )
           })()}

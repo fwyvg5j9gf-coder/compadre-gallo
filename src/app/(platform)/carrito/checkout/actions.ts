@@ -2,66 +2,22 @@
 
 import { supabaseAdmin } from '@/lib/supabase.server'
 import { quoteOrder } from '@/lib/checkout.server'
-import { getShippingRates } from '@/lib/skydropx'
-import type { ShippingRate } from '@/lib/skydropx'
+import { getCheckoutShippingOptions, type ShippingOption, type ShippingQuote } from '@/lib/shipping.server'
 import type { CartItem } from '@/context/CartContext'
 
-export async function getRatesForCheckout(
-  destZip: string,
-  destState: string,
-  destCity: string,
-  destColonia: string,
-  packagingTypeId: string,
-): Promise<ShippingRate[]> {
-  const [{ data: settings }, { data: secrets }] = await Promise.all([
-    supabaseAdmin.from('store_settings').select('skydropx_enabled, origin_zip, origin_state, origin_city, origin_colonia, skydropx_markup_pct, skydropx_allowed_carriers').single(),
-    supabaseAdmin.from('store_secrets').select('skydropx_client_id, skydropx_client_secret').single(),
-  ])
-
-  if (!settings?.skydropx_enabled || !secrets?.skydropx_client_id) return []
-
-  const { data: pkg } = await supabaseAdmin
-    .from('packaging_types')
-    .select('weight_grams, length_cm, width_cm, height_cm')
-    .eq('id', packagingTypeId)
-    .single()
-
-  if (!pkg) return []
-
-  try {
-    let rates = await getShippingRates({
-      clientId: secrets!.skydropx_client_id,
-      clientSecret: secrets!.skydropx_client_secret,
-      originZip: settings.origin_zip,
-      originState: settings.origin_state,
-      originCity: settings.origin_city,
-      originColonia: settings.origin_colonia,
-      destZip,
-      destState,
-      destCity,
-      destColonia,
-      parcel: {
-        weight_kg: Math.max(0.01, pkg.weight_grams / 1000),
-        length_cm: Number(pkg.length_cm),
-        width_cm: Number(pkg.width_cm),
-        height_cm: Number(pkg.height_cm),
-      },
-    })
-
-    const allowed = settings.skydropx_allowed_carriers as string[] | null
-    if (allowed && allowed.length > 0) {
-      rates = rates.filter(r => allowed.some(c => r.carrier.toLowerCase().includes(c.toLowerCase())))
-    }
-
-    const markup = Number(settings.skydropx_markup_pct ?? 0)
-    if (markup > 0) {
-      rates = rates.map(r => ({ ...r, total_mxn: r.total_mxn * (1 + markup / 100) }))
-    }
-
-    return rates
-  } catch {
-    return []
-  }
+// Opciones de envío para el checkout. El navegador manda solo a dónde va y
+// qué lleva; el servidor arma el paquete, cotiza con Envia y regresa opciones
+// firmadas. El cobro después solo acepta una de estas firmas.
+export async function getShippingOptions(
+  dest: { zip: string; state: string; city: string; colonia: string },
+  items: { productId: string; qty: number }[],
+): Promise<{ options: ShippingOption[]; free: boolean }> {
+  const clean = (v: unknown) => String(v ?? '').slice(0, 120)
+  const { options, free } = await getCheckoutShippingOptions(
+    { zip: clean(dest.zip), state: clean(dest.state), city: clean(dest.city), colonia: clean(dest.colonia) },
+    (items ?? []).slice(0, 50).map(i => ({ productId: String(i.productId), qty: Number(i.qty) || 1 })),
+  )
+  return { options, free }
 }
 
 export type CheckoutPayload = {
@@ -69,14 +25,13 @@ export type CheckoutPayload = {
   email: string
   phone: string
   street: string
+  number: string
   zip: string
   state: string
   city: string
   colonia: string
   notes: string
-  shippingRateId: string | null
-  shippingCarrier: string | null
-  shippingMxn: number
+  shippingQuote: ShippingQuote
   stripePaymentId: string
   items: CartItem[]
   saveAddressForUser?: boolean
@@ -123,13 +78,13 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
   // Same function the PaymentIntent was built from, so the two cannot drift.
   const quoted = await quoteOrder({
     items: payload.items.map(i => ({ productId: i.productId, qty: i.qty })),
-    shippingMxn: payload.shippingMxn,
+    shipping: { quote: payload.shippingQuote, zip: payload.zip, allowExpired: true },
     discountCode: payload.discountCode,
   })
 
   if ('error' in quoted) return { error: quoted.error }
 
-  const { subtotal, shippingMxn, discountMxn, total, finalAmount, discountCodeId, prices } = quoted.quote
+  const { subtotal, shippingMxn, discountMxn, total, finalAmount, discountCodeId, prices, shippingId } = quoted.quote
 
   // Undercharge is the attack: the client talked the PaymentIntent down below
   // what the cart is actually worth. Refuse it.
@@ -187,13 +142,18 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
       customer_phone: payload.phone.trim() || null,
       shipping_address: {
         street: payload.street,
+        number: payload.number,
         colonia: payload.colonia,
         zip: payload.zip,
         state: payload.state,
         city: payload.city,
       },
-      shipping_carrier: payload.shippingCarrier,
-      shipping_rate_id: payload.shippingRateId,
+      // La paquetería sale de la opción firmada ("dhl:express"), no de un
+      // texto del navegador. La tarifa fija no tiene paquetería todavía.
+      shipping_carrier: shippingId.includes(':') ? shippingId.split(':')[0].toUpperCase() : null,
+      shipping_service: shippingId.includes(':') ? shippingId.split(':').slice(1).join(':') : null,
+      shipping_rate_id: shippingId,
+      shipping_provider: shippingId.includes(':') ? 'envia' : null,
       shipping_mxn: shippingMxn,
       subtotal_mxn: subtotal,
       discount_code: discountCodeId ? (payload.discountCode ?? null) : null,
@@ -262,6 +222,7 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
         name: payload.name,
         phone: payload.phone,
         street: payload.street,
+        number: payload.number,
         colonia: payload.colonia,
         zip: payload.zip,
         city: payload.city,
@@ -282,7 +243,7 @@ export async function createOrder(payload: CheckoutPayload): Promise<OrderResult
     shipping_mxn: shippingMxn,
     discount_mxn: discountMxn,
     status: 'paid',
-    shipping_address: { street: payload.street, colonia: payload.colonia, zip: payload.zip, state: payload.state, city: payload.city },
+    shipping_address: { street: `${payload.street} ${payload.number}`.trim(), colonia: payload.colonia, zip: payload.zip, state: payload.state, city: payload.city },
     tracking_number: null,
     order_items: itemsWithRealPrices.map(i => ({
       product_name: i.name,

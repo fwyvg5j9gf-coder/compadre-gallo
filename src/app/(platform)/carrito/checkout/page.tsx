@@ -1,7 +1,6 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import CheckoutMerch from './CheckoutMerch'
-import type { PackagingType } from '@/lib/supabase'
 
 export default async function CheckoutPage() {
   const { userId } = await auth()
@@ -18,16 +17,12 @@ export default async function CheckoutPage() {
     userEmail = clerkUser?.emailAddresses[0]?.emailAddress ?? null
   }
 
-  const [{ data: settings }, { data: packaging }] = await Promise.all([
-    supabaseAdmin
-      .from('store_settings')
-      .select('skydropx_enabled, shipping_local_mxn, shipping_national_mxn, shipping_free_threshold_mxn, stripe_test_mode, stripe_pk_test, stripe_pk_live')
-      .single(),
-    supabaseAdmin
-      .from('packaging_types')
-      .select('*')
-      .order('sort_order', { ascending: true }),
-  ])
+  // El envío se cotiza y se firma en el servidor (shipping.server.ts): aquí
+  // ya no hace falta mandar tarifas ni embalajes al navegador.
+  const { data: settings } = await supabaseAdmin
+    .from('store_settings')
+    .select('stripe_test_mode, stripe_pk_test, stripe_pk_live')
+    .single()
 
   // Publishable key: prefer DB value, fall back to env var
   const useTest = settings?.stripe_test_mode ?? true
@@ -38,11 +33,6 @@ export default async function CheckoutPage() {
 
   return (
     <CheckoutMerch
-      packaging={(packaging ?? []) as PackagingType[]}
-      skydropxEnabled={settings?.skydropx_enabled ?? false}
-      shippingLocalMxn={settings?.shipping_local_mxn ?? 8900}
-      shippingNationalMxn={settings?.shipping_national_mxn ?? 14900}
-      freeThresholdMxn={settings?.shipping_free_threshold_mxn ?? 0}
       savedAddress={savedAddress}
       userEmail={userEmail}
       stripePublishableKey={stripePublishableKey}

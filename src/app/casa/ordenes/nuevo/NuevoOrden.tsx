@@ -133,7 +133,7 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
     { _key: '0', productId: '', productName: '', variantId: null, size: null, quantity: 1, unitPriceMxn: 0 },
   ])
 
-  // Cotización Skydropx
+  // Cotización con Envia (precio con el recargo que paga el cliente)
   const [rateStep, setRateStep] = useState<'idle' | 'fetching' | 'selecting'>('idle')
   const [rates, setRates] = useState<ShippingRate[]>([])
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null)
@@ -399,11 +399,12 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
               </div>
             )}
 
-            {/* Cotización Skydropx */}
+            {/* Cotización con Envia */}
             <div style={{ borderTop: showAddress ? `1px solid ${B}` : 'none', paddingTop: showAddress ? 16 : 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 {/* Hidden input to submit shipping value */}
                 <input type="hidden" name="shipping_mxn" value={(shippingMxn / 100).toFixed(2)} />
+                <input type="hidden" name="shipping_rate_id" value={selectedRate?.rate_id ?? ''} />
 
                 {/* Costo actual */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -412,7 +413,7 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
                     {fmtPesos(shippingMxn / 100)}
                     {selectedRate && (
                       <span style={{ fontSize: 12, fontWeight: 600, color: S, marginLeft: 8 }}>
-                        {selectedRate.carrier} · {selectedRate.service_level}
+                        {selectedRate.carrier_name} · {selectedRate.service_name}
                         {selectedRate.days ? ` · ${selectedRate.days}d` : ''}
                       </span>
                     )}
@@ -488,8 +489,8 @@ export default function NuevoOrden({ products }: { products: ProductOption[] }) 
                         }}
                       >
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <span style={{ fontWeight: 700, fontSize: 13, color: '#0a0a0a' }}>{rate.carrier}</span>
-                          <span style={{ fontSize: 11, color: S }}>{rate.service_level}{rate.days ? ` · ${rate.days} días hábiles` : ''}</span>
+                          <span style={{ fontWeight: 700, fontSize: 13, color: '#0a0a0a' }}>{rate.carrier_name}</span>
+                          <span style={{ fontSize: 11, color: S }}>{rate.service_name}{rate.days ? ` · ${rate.days} días hábiles` : ''}</span>
                         </div>
                         <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, color: isSelected ? '#003a87' : '#0a0a0a' }}>
                           {fmtPesos(rate.total_mxn)}

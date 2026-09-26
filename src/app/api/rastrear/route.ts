@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 
   const { data: order } = await supabaseAdmin
     .from('orders')
-    .select('folio_number, status, created_at, customer_email, customer_name, subtotal_mxn, shipping_mxn, discount_mxn, total_mxn, shipping_carrier, tracking_number, shipping_address, order_items(product_name, quantity, unit_price_mxn)')
+    .select('folio_number, status, created_at, customer_email, customer_name, subtotal_mxn, shipping_mxn, discount_mxn, total_mxn, shipping_carrier, shipping_provider, tracking_number, shipping_address, order_items(product_name, quantity, unit_price_mxn)')
     .eq('folio_number', folioNumber)
     .maybeSingle()
 
@@ -59,6 +59,11 @@ export async function GET(req: NextRequest) {
 
   const addr = (order.shipping_address ?? {}) as Record<string, string>
 
+  // Movimientos del paquete en vivo, si la guía se compró con Envia. Si Envia
+  // no responde, la página se muestra igual, solo sin movimientos.
+  const { trackOrder } = await import('@/lib/shipping.server')
+  const track = await trackOrder(order).catch(() => null)
+
   return NextResponse.json({
     folio: `GALLO-${String(order.folio_number).padStart(5, '0')}`,
     status: order.status,
@@ -74,6 +79,7 @@ export async function GET(req: NextRequest) {
     totalMxn: order.total_mxn,
     carrier: order.shipping_carrier,
     guia: order.tracking_number,
+    movimientos: (track?.events ?? []).slice(-12).reverse().map(e => ({ fecha: e.date, texto: e.description || e.status })),
     items: (order.order_items ?? []).map(i => ({
       nombre: i.product_name,
       qty: i.quantity,

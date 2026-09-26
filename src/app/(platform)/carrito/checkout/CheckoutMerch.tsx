@@ -6,9 +6,8 @@ import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements, ExpressCheckoutElement } from '@stripe/react-stripe-js'
 import { useCart } from '@/context/CartContext'
 import ZipSelector, { type ZipInfo } from '@/components/ZipSelector'
-import type { PackagingType } from '@/lib/supabase'
-import type { ShippingRate } from '@/lib/skydropx'
-import { getRatesForCheckout, createOrder } from './actions'
+import type { ShippingOption } from '@/lib/shipping.server'
+import { getShippingOptions, createOrder } from './actions'
 import { validateDiscountCode } from '@/app/casa/descuentos/actions'
 
 // stripePromise se inicializa por instancia según el key pasado desde el servidor
@@ -37,11 +36,9 @@ type AppliedDiscount = {
 
 type SavedData = {
   name: string; email: string; phone: string
-  street: string; notes: string
+  street: string; number: string; notes: string
   zipInfo: ZipInfo
-  shippingRateId: string | null
-  shippingCarrier: string | null
-  shippingMxn: number
+  shipping: ShippingOption
   saveAddress: boolean
   discount: AppliedDiscount | null
 }
@@ -194,20 +191,10 @@ function PaymentForm({
 
 // ── Main ───────────────────────────────────────────────────────────────────────
 export default function CheckoutMerch({
-  packaging,
-  skydropxEnabled,
-  shippingLocalMxn,
-  shippingNationalMxn,
-  freeThresholdMxn,
   savedAddress,
   userEmail,
   stripePublishableKey,
 }: {
-  packaging: PackagingType[]
-  skydropxEnabled: boolean
-  shippingLocalMxn: number
-  shippingNationalMxn: number
-  freeThresholdMxn: number
   savedAddress?: Record<string, string> | null
   userEmail?: string | null
   stripePublishableKey: string
@@ -226,13 +213,14 @@ export default function CheckoutMerch({
   const [formEmail, setFormEmail] = useState(userEmail ?? '')
   const [formPhone, setFormPhone] = useState('')
   const [formStreet, setFormStreet] = useState('')
+  const [formNumber, setFormNumber] = useState('')
   const [formNotes, setFormNotes] = useState('')
   const [saveAddr, setSaveAddr] = useState(false)
   const [zipKey, setZipKey] = useState(0)
 
   const [zipInfo, setZipInfo] = useState<ZipInfo | null>(null)
-  const [rates, setRates] = useState<ShippingRate[]>([])
-  const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null)
+  const [options, setOptions] = useState<ShippingOption[]>([])
+  const [selectedRate, setSelectedRate] = useState<ShippingOption | null>(null)
   const [loadingRates, startRatesTransition] = useTransition()
   const [isGoingToPayment, startGoToPayment] = useTransition()
   const [isCreatingOrder, startCreateOrder] = useTransition()
@@ -244,31 +232,30 @@ export default function CheckoutMerch({
   const [discountError, setDiscountError] = useState<string | null>(null)
   const [isApplyingDiscount, startApplyDiscount] = useTransition()
 
-  const packagingTypeId = useMemo(() => {
-    const fromCart = items.find(i => i.packagingTypeId)?.packagingTypeId
-    return fromCart ?? packaging[0]?.id ?? null
-  }, [items, packaging])
+  // Lo que se cotiza: productos y cantidades. El servidor arma el paquete.
+  const cartKey = items.map(i => `${i.productId}:${i.qty}`).join(',')
+  const cartForQuote = useMemo(
+    () => items.map(i => ({ productId: i.productId, qty: i.qty })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cartKey],
+  )
 
   useEffect(() => {
-    if (!zipInfo || !skydropxEnabled || !packagingTypeId) {
-      startRatesTransition(async () => { setRates([]); setSelectedRate(null) })
+    if (!zipInfo || cartForQuote.length === 0) {
+      startRatesTransition(async () => { setOptions([]); setSelectedRate(null) })
       return
     }
     startRatesTransition(async () => {
-      const r = await getRatesForCheckout(
-        zipInfo.zip, zipInfo.estado, zipInfo.municipio, zipInfo.colonia, packagingTypeId,
+      const { options: opts } = await getShippingOptions(
+        { zip: zipInfo.zip, state: zipInfo.estado, city: zipInfo.municipio, colonia: zipInfo.colonia },
+        cartForQuote,
       )
-      setRates(r)
-      setSelectedRate(r[0] ?? null)
+      setOptions(opts)
+      setSelectedRate(opts[0] ?? null)
     })
-  }, [zipInfo, packagingTypeId, skydropxEnabled])
+  }, [zipInfo, cartForQuote])
 
-  const shippingMxn = useMemo(() => {
-    if (selectedRate) return Math.round(selectedRate.total_mxn * 100)
-    if (!zipInfo) return 0
-    if (freeThresholdMxn > 0 && totalMxn >= freeThresholdMxn) return 0
-    return shippingNationalMxn
-  }, [selectedRate, zipInfo, totalMxn, freeThresholdMxn, shippingNationalMxn])
+  const shippingMxn = selectedRate?.price_mxn ?? 0
 
   const orderTotal = Math.max(0, totalMxn + shippingMxn - (discountApplied?.discountMxn ?? 0))
 
@@ -298,6 +285,7 @@ export default function CheckoutMerch({
     setFormName(savedAddress.name ?? '')
     setFormPhone(savedAddress.phone ?? '')
     setFormStreet(savedAddress.street ?? '')
+    setFormNumber(savedAddress.number ?? '')
     if (savedAddress.zip && savedAddress.state) {
       const info: ZipInfo = {
         zip: savedAddress.zip,
@@ -319,19 +307,21 @@ export default function CheckoutMerch({
     const email = formEmail.trim()
     const phone = formPhone.trim()
     const street = formStreet.trim()
+    const number = formNumber.trim()
 
     // Client-side validation
     if (name.length < 2) { setSubmitError('ingresa tu nombre completo'); return }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setSubmitError('correo electrónico inválido'); return }
-    if (!street) { setSubmitError('ingresa tu dirección'); return }
+    if (phone.replace(/\D/g, '').length < 10) { setSubmitError('pon un teléfono de 10 dígitos: la paquetería lo pide para entregar'); return }
+    if (!street) { setSubmitError('ingresa tu calle'); return }
+    if (!number) { setSubmitError('ingresa el número de tu casa o edificio (o S/N)'); return }
+    if (!selectedRate) { setSubmitError('espera a que carguen las opciones de envío'); return }
 
     const data: SavedData = {
-      name, email, phone, street,
+      name, email, phone, street, number,
       notes: formNotes.trim(),
       zipInfo,
-      shippingRateId: selectedRate?.rate_id ?? null,
-      shippingCarrier: selectedRate?.carrier ?? null,
-      shippingMxn,
+      shipping: selectedRate,
       saveAddress: saveAddr,
       discount: discountApplied,
     }
@@ -346,7 +336,8 @@ export default function CheckoutMerch({
           // Send item IDs so server calculates real prices
           body: JSON.stringify({
             items: items.map(i => ({ productId: i.productId, qty: i.qty, size: i.size, name: i.name })),
-            shippingMxn: data.shippingMxn,
+            shippingQuote: { id: data.shipping.id, price_mxn: data.shipping.price_mxn, token: data.shipping.token },
+            zip: data.zipInfo.zip,
             discountCode: data.discount?.code,
           }),
         })
@@ -374,14 +365,13 @@ export default function CheckoutMerch({
         email: savedData.email,
         phone: savedData.phone,
         street: savedData.street,
+        number: savedData.number,
         zip: savedData.zipInfo.zip,
         state: savedData.zipInfo.estado,
         city: savedData.zipInfo.municipio,
         colonia: savedData.zipInfo.colonia,
         notes: savedData.notes,
-        shippingRateId: savedData.shippingRateId,
-        shippingCarrier: savedData.shippingCarrier,
-        shippingMxn: savedData.shippingMxn,
+        shippingQuote: { id: savedData.shipping.id, price_mxn: savedData.shipping.price_mxn, token: savedData.shipping.token },
         stripePaymentId: piId,
         items,
         saveAddressForUser: savedData.saveAddress,
@@ -533,7 +523,8 @@ export default function CheckoutMerch({
                 </div>
                 <div className="field">
                   <label htmlFor="phone">teléfono</label>
-                  <input id="phone" name="phone" type="tel" placeholder="55 1234 5678"
+                  <input id="phone" name="phone" type="tel" required placeholder="55 1234 5678"
+                    autoComplete="tel"
                     value={formPhone} onChange={e => setFormPhone(e.target.value)} />
                 </div>
                 <div className="field" style={{ gridColumn: '1/-1' }}>
@@ -545,10 +536,19 @@ export default function CheckoutMerch({
             </Section>
 
             <Section title="dirección de envío">
-              <div className="field">
-                <label htmlFor="street">calle y número</label>
-                <input id="street" name="street" type="text" required placeholder="av. insurgentes 123 int. 4b"
-                  value={formStreet} onChange={e => setFormStreet(e.target.value)} />
+              {/* Calle y número van separados: la paquetería pide el número aparte. */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: 'var(--space-4)' }}>
+                <div className="field">
+                  <label htmlFor="street">calle</label>
+                  <input id="street" name="street" type="text" required placeholder="av. insurgentes sur"
+                    autoComplete="address-line1"
+                    value={formStreet} onChange={e => setFormStreet(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label htmlFor="number">número</label>
+                  <input id="number" name="number" type="text" required placeholder="123 int. 4b"
+                    value={formNumber} onChange={e => setFormNumber(e.target.value)} />
+                </div>
               </div>
               <ZipSelector
                 key={zipKey}
@@ -570,37 +570,33 @@ export default function CheckoutMerch({
               <Section title="envío">
                 {loadingRates ? (
                   <p style={{ fontSize: 13, color: 'var(--fg-muted)', fontStyle: 'italic' }}>cotizando opciones de envío…</p>
-                ) : rates.length > 0 ? (
+                ) : options.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {rates.map(r => (
-                      <label key={r.rate_id} style={{
+                    {options.map(r => (
+                      <label key={r.id} style={{
                         display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 4, cursor: 'pointer',
-                        border: `1px solid ${selectedRate?.rate_id === r.rate_id ? 'var(--fg)' : 'var(--border)'}`,
-                        background: selectedRate?.rate_id === r.rate_id ? 'var(--bg-soft)' : '#fff',
+                        border: `1px solid ${selectedRate?.id === r.id ? 'var(--fg)' : 'var(--border)'}`,
+                        background: selectedRate?.id === r.id ? 'var(--bg-soft)' : '#fff',
                         transition: 'border-color 120ms, background 120ms',
                       }}>
-                        <input type="radio" name="shipping_rate" value={r.rate_id}
-                          checked={selectedRate?.rate_id === r.rate_id}
+                        <input type="radio" name="shipping_rate" value={r.id}
+                          checked={selectedRate?.id === r.id}
                           onChange={() => setSelectedRate(r)}
                           style={{ accentColor: 'var(--gallo-red)' }} />
                         <div style={{ flex: 1 }}>
-                          <span style={{ fontWeight: 700, fontSize: 14 }}>{r.carrier}</span>
-                          {r.service_level && <span style={{ fontSize: 13, color: 'var(--fg-muted)', marginLeft: 8 }}>{r.service_level}</span>}
-                          {r.days && <span style={{ fontSize: 12, color: 'var(--fg-subtle)', marginLeft: 8 }}>{r.days} días</span>}
+                          <span style={{ fontWeight: 700, fontSize: 14 }}>{r.carrier_name}</span>
+                          {r.service_name && <span style={{ fontSize: 13, color: 'var(--fg-muted)', marginLeft: 8 }}>{r.service_name}</span>}
+                          {r.days && <span style={{ fontSize: 12, color: 'var(--fg-subtle)', marginLeft: 8 }}>{r.days} {r.days === 1 ? 'día' : 'días'}</span>}
+                          {r.free && <span style={{ display: 'block', fontSize: 12, color: 'var(--fg-muted)', marginTop: 2 }}>tu pedido pasa del mínimo para envío gratis.</span>}
                         </div>
                         <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', fontSize: 15 }}>
-                          {fmt(Math.round(r.total_mxn * 100))}
+                          {r.price_mxn === 0 ? 'gratis' : fmt(r.price_mxn)}
                         </span>
                       </label>
                     ))}
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', border: '1px solid var(--border)', borderRadius: 4 }}>
-                    <span style={{ fontSize: 14, color: 'var(--fg-muted)' }}>envío estándar</span>
-                    <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', fontSize: 15 }}>
-                      {shippingMxn === 0 ? 'gratis' : fmt(shippingMxn)}
-                    </span>
-                  </div>
+                  <p style={{ fontSize: 13, color: 'var(--fg-muted)' }}>no pudimos cotizar el envío. revisa tu código postal.</p>
                 )}
               </Section>
             )}

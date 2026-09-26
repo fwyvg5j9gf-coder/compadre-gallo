@@ -17,7 +17,7 @@ const CARDS = [
   { title: 'artistas',      desc: 'catálogo, bios y shows',                href: '/casa/artistas',              accent: '#ffd49a' },
   { title: 'soporte',       desc: 'bandeja de entrada — hola@compadregallo.com', href: '/casa/soporte',            accent: '#00c4df' },
   { title: 'correos',       desc: 'historial y envíos masivos',            href: '/casa/correos',               accent: '#ffd49a' },
-  { title: 'configuración', desc: 'stripe, skydropx y tarifas',            href: '/casa/tienda/configuracion',  accent: '#6b6a64' },
+  { title: 'configuración', desc: 'stripe, envíos (envia) y tarifas',            href: '/casa/tienda/configuracion',  accent: '#6b6a64' },
   { title: 'editor',        desc: 'contenido y apariencia del sitio',      href: '/casa/editor',                accent: '#ffe200' },
   { title: 'media',         desc: 'imágenes y archivos',                   href: '/casa/media',                 accent: '#9a9994' },
   { title: 'bitácora',     desc: 'historial de acciones admin',            href: '/casa/bitacora',              accent: '#6b6a64' },

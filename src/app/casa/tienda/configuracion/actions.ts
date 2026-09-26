@@ -2,8 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
-import { getShippingRates, getConsignmentNotePackagings, getConsignmentNoteClasses, getBalance } from '@/lib/skydropx'
-import type { ShippingRate, SatCode } from '@/lib/skydropx'
+import { testQuote, type ShippingRate } from '@/lib/shipping.server'
 import { requireAdminOrThrow as requireAdmin } from '@/lib/auth.server'
 
 // ── Categorías ────────────────────────────────────────────────────────────────
@@ -93,6 +92,15 @@ export async function reorderSize(id: string, direction: 'up' | 'down') {
 
 // ── Embalajes ─────────────────────────────────────────────────────────────────
 
+// Los códigos SAT de Carta Porte eran de Skydropx; Envia no los pide. Ya no
+// se capturan, pero si un formulario los trae se guardan, y si no, no se borran.
+function satFields(formData: FormData) {
+  const out: Record<string, string> = {}
+  if (formData.has('skydropx_package_type')) out.skydropx_package_type = (formData.get('skydropx_package_type') as string ?? '').trim()
+  if (formData.has('consignment_note')) out.consignment_note = (formData.get('consignment_note') as string ?? '').trim()
+  return out
+}
+
 export async function addPackaging(formData: FormData) {
   await requireAdmin()
   const { data: max } = await supabaseAdmin.from('packaging_types').select('sort_order').order('sort_order', { ascending: false }).limit(1).single()
@@ -102,7 +110,7 @@ export async function addPackaging(formData: FormData) {
     length_cm: parseFloat(formData.get('length_cm') as string),
     width_cm: parseFloat(formData.get('width_cm') as string),
     height_cm: parseFloat(formData.get('height_cm') as string),
-    skydropx_package_type: (formData.get('skydropx_package_type') as string ?? '').trim(),
+    ...satFields(formData),
     consignment_note: (formData.get('consignment_note') as string ?? 'Merch').trim() || 'Merch',
     sort_order: (max?.sort_order ?? -1) + 1,
   })
@@ -119,7 +127,7 @@ export async function updatePackaging(id: string, formData: FormData) {
     length_cm: parseFloat(formData.get('length_cm') as string),
     width_cm: parseFloat(formData.get('width_cm') as string),
     height_cm: parseFloat(formData.get('height_cm') as string),
-    skydropx_package_type: (formData.get('skydropx_package_type') as string ?? '').trim(),
+    ...satFields(formData),
     consignment_note: (formData.get('consignment_note') as string ?? 'Merch').trim() || 'Merch',
   }).eq('id', id)
   if (error) throw new Error(error.message)
@@ -150,38 +158,51 @@ export async function reorderPackaging(id: string, direction: 'up' | 'down') {
   revalidatePath('/casa/tienda')
 }
 
-// ── SkyDropX ──────────────────────────────────────────────────────────────────
+// ── Envia ─────────────────────────────────────────────────────────────────────
 
-export async function saveSkydropxConfig(formData: FormData) {
+const CARRIERS_VALIDOS = ['dhl', 'fedex', 'estafeta', 'ups', 'redpack', 'paquetexpress', '99minutos']
+
+export async function saveEnviaConfig(formData: FormData) {
   await requireAdmin()
-  const [{ error: secretsErr }, { error }] = await Promise.all([
-    supabaseAdmin.from('store_secrets').update({
-      skydropx_client_id:     (formData.get('client_id') as string).replace(/\s+/g, ''),
-      skydropx_client_secret: (formData.get('client_secret') as string).replace(/\s+/g, ''),
-    }).eq('id', 1),
-    supabaseAdmin.from('store_settings').update({
-      origin_name:    (formData.get('origin_name') as string ?? '').trim(),
-      origin_street:  (formData.get('origin_street') as string ?? '').trim(),
-      origin_phone:   (formData.get('origin_phone') as string ?? '').trim(),
-      origin_email:   (formData.get('origin_email') as string ?? '').trim(),
-      origin_zip:     (formData.get('origin_zip') as string).trim(),
-      origin_state:   (formData.get('origin_state') as string).trim(),
-      origin_city:    (formData.get('origin_city') as string).trim(),
-      origin_colonia: (formData.get('origin_colonia') as string ?? '').trim(),
-      updated_at: new Date().toISOString(),
-    }).eq('id', 1),
-  ])
-  if (secretsErr) throw new Error(secretsErr.message)
+
+  // Llaves: un campo vacío conserva la guardada (el panel nunca recibe la
+  // llave completa, solo sus últimos 4 caracteres).
+  const secrets: Record<string, string> = {}
+  const test = ((formData.get('envia_api_key_test') as string) ?? '').replace(/\s+/g, '')
+  const live = ((formData.get('envia_api_key_live') as string) ?? '').replace(/\s+/g, '')
+  if (test) secrets.envia_api_key_test = test
+  if (live) secrets.envia_api_key_live = live
+  if (Object.keys(secrets).length) {
+    const { error } = await supabaseAdmin.from('store_secrets').update(secrets).eq('id', 1)
+    if (error) throw new Error(error.message)
+  }
+
+  const carriers = formData.getAll('envia_carriers').map(c => String(c).toLowerCase()).filter(c => CARRIERS_VALIDOS.includes(c))
+  const markup = parseFloat((formData.get('envia_markup_pct') as string) || '0')
+
+  const { error } = await supabaseAdmin.from('store_settings').update({
+    envia_test_mode: formData.get('envia_mode') !== 'live',
+    envia_carriers: carriers.length ? carriers : ['dhl'],
+    envia_markup_pct: Number.isFinite(markup) ? Math.min(100, Math.max(0, markup)) : 0,
+    origin_name:    (formData.get('origin_name') as string ?? '').trim(),
+    origin_street:  (formData.get('origin_street') as string ?? '').trim(),
+    origin_number:  (formData.get('origin_number') as string ?? '').trim(),
+    origin_phone:   (formData.get('origin_phone') as string ?? '').trim(),
+    origin_email:   (formData.get('origin_email') as string ?? '').trim(),
+    origin_zip:     (formData.get('origin_zip') as string ?? '').trim(),
+    origin_state:   (formData.get('origin_state') as string ?? '').trim(),
+    origin_city:    (formData.get('origin_city') as string ?? '').trim(),
+    origin_colonia: (formData.get('origin_colonia') as string ?? '').trim(),
+    updated_at: new Date().toISOString(),
+  }).eq('id', 1)
   if (error) throw new Error(error.message)
   revalidatePath('/casa/tienda/configuracion')
 }
 
-export async function toggleSkydropx(enabled: boolean) {
+export async function toggleEnvia(enabled: boolean) {
   await requireAdmin()
-  const { error } = await supabaseAdmin.from('store_settings')
-    .update({ skydropx_enabled: enabled, updated_at: new Date().toISOString() })
-    .eq('id', 1)
-  if (error) throw new Error(error.message)
+  await supabaseAdmin.from('store_settings')
+    .update({ envia_enabled: enabled, updated_at: new Date().toISOString() }).eq('id', 1)
   revalidatePath('/casa/tienda/configuracion')
 }
 
@@ -196,40 +217,14 @@ export async function toggleAiChat(enabled: boolean) {
 
 export async function testShippingQuote(destZip: string, destState: string, destCity: string, destColonia: string, packagingId: string): Promise<ShippingRate[]> {
   await requireAdmin()
-
-  const [{ data: settings }, { data: secrets }, { data: pkg }] = await Promise.all([
-    supabaseAdmin.from('store_settings').select('skydropx_enabled, origin_zip, origin_state, origin_city, origin_colonia').eq('id', 1).single(),
-    supabaseAdmin.from('store_secrets').select('skydropx_client_id, skydropx_client_secret').eq('id', 1).single(),
-    supabaseAdmin.from('packaging_types').select('*').eq('id', packagingId).single(),
-  ])
-
-  if (!settings?.skydropx_enabled) throw new Error('activa SkyDropX primero')
-  if (!secrets?.skydropx_client_id) throw new Error('falta la clave de cliente de SkyDropX')
-  if (!secrets?.skydropx_client_secret) throw new Error('falta la clave secreta de SkyDropX')
-  if (!settings.origin_zip) throw new Error('falta el CP de origen')
-  if (!pkg) throw new Error('embalaje no encontrado')
-
-  return getShippingRates({
-    clientId: secrets.skydropx_client_id,
-    clientSecret: secrets.skydropx_client_secret,
-    originZip: settings.origin_zip,
-    originState: settings.origin_state,
-    originCity: settings.origin_city,
-    originColonia: settings.origin_colonia ?? '',
-    destZip: destZip.trim(),
-    destState: destState.trim(),
-    destCity: destCity.trim(),
-    destColonia: destColonia.trim(),
-    parcel: {
-      weight_kg: pkg.weight_grams / 1000,
-      length_cm: Number(pkg.length_cm),
-      width_cm: Number(pkg.width_cm),
-      height_cm: Number(pkg.height_cm),
-    },
-  })
+  const { data: pkg } = await supabaseAdmin
+    .from('packaging_types').select('weight_grams, length_cm, width_cm, height_cm').eq('id', packagingId).single()
+  if (!pkg) throw new Error('elige un embalaje')
+  return testQuote(
+    { zip: destZip, state: destState, city: destCity, colonia: destColonia },
+    { weight_kg: Math.max(0.1, pkg.weight_grams / 1000), length_cm: Number(pkg.length_cm), width_cm: Number(pkg.width_cm), height_cm: Number(pkg.height_cm) },
+  )
 }
-
-// ── Stripe ────────────────────────────────────────────────────────────────────
 
 export async function saveStripeConfig(formData: FormData) {
   await requireAdmin()
@@ -252,56 +247,6 @@ export async function saveStripeConfig(formData: FormData) {
   if (secretsError) throw new Error(secretsError.message)
   revalidatePath('/casa/tienda/configuracion')
 }
-
-async function getSkydropxCredentials() {
-  const { data: secrets } = await supabaseAdmin
-    .from('store_secrets').select('skydropx_client_id, skydropx_client_secret').single()
-  if (!secrets?.skydropx_client_id || !secrets.skydropx_client_secret)
-    throw new Error('configura las credenciales de Skydropx primero')
-  return { clientId: secrets.skydropx_client_id, clientSecret: secrets.skydropx_client_secret }
-}
-
-export async function fetchSkydropxBalance(): Promise<{ balance?: number; currency?: string; error?: string }> {
-  await requireAdmin()
-  try {
-    const { clientId, clientSecret } = await getSkydropxCredentials()
-    const data = await getBalance(clientId, clientSecret)
-    return data
-  } catch (e) { return { error: e instanceof Error ? e.message : 'error consultando saldo' } }
-}
-
-export async function fetchSkydropxPackagings(): Promise<{ codes?: SatCode[]; error?: string }> {
-  await requireAdmin()
-  try {
-    const { clientId, clientSecret } = await getSkydropxCredentials()
-    const codes = await getConsignmentNotePackagings(clientId, clientSecret)
-    return { codes }
-  } catch (e) { return { error: e instanceof Error ? e.message : 'error consultando Skydropx' } }
-}
-
-export async function fetchSkydropxClasses(): Promise<{ codes?: SatCode[]; error?: string }> {
-  await requireAdmin()
-  try {
-    const { clientId, clientSecret } = await getSkydropxCredentials()
-    const codes = await getConsignmentNoteClasses(clientId, clientSecret)
-    return { codes }
-  } catch (e) { return { error: e instanceof Error ? e.message : 'error consultando Skydropx' } }
-}
-
-export async function saveSkydropxExtra(formData: FormData) {
-  await requireAdmin()
-  const carriersRaw = (formData.get('allowed_carriers') as string ?? '')
-  const carriers = carriersRaw.split(',').map(c => c.trim()).filter(Boolean)
-  const { error } = await supabaseAdmin.from('store_settings').update({
-    skydropx_markup_pct:       parseFloat((formData.get('markup_pct') as string) || '0'),
-    skydropx_allowed_carriers: carriers,
-    updated_at: new Date().toISOString(),
-  }).eq('id', 1)
-  if (error) throw new Error(error.message)
-  revalidatePath('/casa/tienda/configuracion')
-}
-
-// ── Envíos manuales ───────────────────────────────────────────────────────────
 
 export async function saveShipping(formData: FormData) {
   await requireAdmin()

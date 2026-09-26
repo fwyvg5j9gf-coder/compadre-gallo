@@ -3,17 +3,15 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { StoreCategory, StoreSize, StoreSettings, PackagingType } from '@/lib/supabase'
-import type { ShippingRate } from '@/lib/skydropx'
+import type { ShippingRate } from '@/lib/envia'
 import {
   addCategory, updateCategory, deleteCategory, reorderCategory,
   addSize, updateSize, deleteSize, reorderSize,
   addPackaging, updatePackaging, deletePackaging, reorderPackaging,
-  saveSkydropxConfig, toggleSkydropx, testShippingQuote,
-  saveShipping, savePolicies, saveStripeConfig, saveSkydropxExtra,
-  fetchSkydropxPackagings, fetchSkydropxClasses, fetchSkydropxBalance,
+  saveEnviaConfig, toggleEnvia, testShippingQuote,
+  saveShipping, savePolicies, saveStripeConfig,
   toggleAiChat,
 } from './actions'
-import type { SatCode } from '@/lib/skydropx'
 import ZipSelector from '@/components/ZipSelector'
 import AdminShell from '../../AdminShell'
 
@@ -177,59 +175,15 @@ function EditableList({ items, onAdd, onUpdate, onDelete, onReorder, placeholder
 }
 
 // ── DimFields ─────────────────────────────────────────────────────────────────
-function DimFields({ pkg, onLoadSatCodes, satLoading, satError, packagings, classes }: {
-  pkg?: PackagingType
-  onLoadSatCodes: () => void
-  satLoading: boolean
-  satError: string | null
-  packagings: SatCode[]
-  classes: SatCode[]
-}) {
+function DimFields({ pkg }: { pkg?: PackagingType }) {
+  // Envia no pide códigos SAT de Carta Porte (Skydropx sí): solo medidas y peso.
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: 10 }}>
-        <label className="adm-lbl">nombre<input name="name" required defaultValue={pkg?.name ?? ''} className="adm-inp" /></label>
-        <label className="adm-lbl">largo cm<input name="length_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.length_cm ?? ''} className="adm-inp" /></label>
-        <label className="adm-lbl">ancho cm<input name="width_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.width_cm ?? ''} className="adm-inp" /></label>
-        <label className="adm-lbl">alto cm<input name="height_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.height_cm ?? ''} className="adm-inp" /></label>
-        <label className="adm-lbl">peso g<input name="weight_grams" type="number" min="0" required defaultValue={pkg?.weight_grams ?? ''} className="adm-inp" /></label>
-      </div>
-      <div style={{ marginBottom: 4 }}>
-        <button type="button" onClick={onLoadSatCodes} disabled={satLoading}
-          className="adm-btn-secondary" style={{ fontSize: 11, padding: '5px 10px' }}>
-          {satLoading ? 'cargando…' : 'cargar catálogos SAT de Skydropx'}
-        </button>
-        {satError && <span style={{ fontSize: 11, color: '#cc0000', marginLeft: 8 }}>{satError}</span>}
-        {(packagings.length > 0 || classes.length > 0) && (
-          <span style={{ fontSize: 11, color: '#1a6b35', marginLeft: 8 }}>
-            {packagings.length} embalajes · {classes.length} clases cargadas
-          </span>
-        )}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <label className="adm-lbl">
-          código embalaje SAT (consignment_note_packaging_code)
-          {packagings.length > 0 ? (
-            <select name="skydropx_package_type" defaultValue={pkg?.skydropx_package_type ?? ''} className="adm-inp">
-              <option value="">— selecciona —</option>
-              {packagings.map(c => <option key={c.id} value={c.id}>{c.id} — {c.name}</option>)}
-            </select>
-          ) : (
-            <input name="skydropx_package_type" defaultValue={pkg?.skydropx_package_type ?? ''} placeholder="ej. 4G" className="adm-inp" />
-          )}
-        </label>
-        <label className="adm-lbl">
-          código clase SAT (consignment_note_class_code)
-          {classes.length > 0 ? (
-            <select name="consignment_note" defaultValue={pkg?.consignment_note ?? ''} className="adm-inp">
-              <option value="">— selecciona —</option>
-              {classes.map(c => <option key={c.id} value={c.id}>{c.id} — {c.name}</option>)}
-            </select>
-          ) : (
-            <input name="consignment_note" defaultValue={pkg?.consignment_note ?? ''} placeholder="ej. 53131600" className="adm-inp" />
-          )}
-        </label>
-      </div>
+    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: 10 }}>
+      <label className="adm-lbl">nombre<input name="name" required defaultValue={pkg?.name ?? ''} className="adm-inp" /></label>
+      <label className="adm-lbl">largo cm<input name="length_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.length_cm ?? ''} className="adm-inp" /></label>
+      <label className="adm-lbl">ancho cm<input name="width_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.width_cm ?? ''} className="adm-inp" /></label>
+      <label className="adm-lbl">alto cm<input name="height_cm" type="number" step="0.1" min="0" required defaultValue={pkg?.height_cm ?? ''} className="adm-inp" /></label>
+      <label className="adm-lbl">peso g<input name="weight_grams" type="number" min="0" required defaultValue={pkg?.weight_grams ?? ''} className="adm-inp" /></label>
     </div>
   )
 }
@@ -240,10 +194,6 @@ function PackagingList({ items }: { items: PackagingType[] }) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const [packagings, setPackagings] = useState<SatCode[]>([])
-  const [classes, setClasses] = useState<SatCode[]>([])
-  const [satLoading, startSatTransition] = useTransition()
-  const [satError, setSatError] = useState<string | null>(null)
   const router = useRouter()
   const refresh = () => router.refresh()
 
@@ -252,17 +202,6 @@ function PackagingList({ items }: { items: PackagingType[] }) {
     letterSpacing: '0.07em', textTransform: 'uppercase',
   }
 
-  function handleLoadSatCodes() {
-    setSatError(null)
-    startSatTransition(async () => {
-      const [pkgRes, clsRes] = await Promise.all([fetchSkydropxPackagings(), fetchSkydropxClasses()])
-      if (pkgRes.error || clsRes.error) { setSatError(pkgRes.error ?? clsRes.error ?? 'error'); return }
-      setPackagings(pkgRes.codes ?? [])
-      setClasses(clsRes.codes ?? [])
-    })
-  }
-
-  const dimFieldsProps = { onLoadSatCodes: handleLoadSatCodes, satLoading, satError, packagings, classes }
 
   return (
     <div style={{ opacity: isPending ? 0.5 : 1, transition: 'opacity 150ms' }}>
@@ -278,7 +217,7 @@ function PackagingList({ items }: { items: PackagingType[] }) {
               {editingId === pkg.id ? (
                 <form style={{ padding: 14, background: '#fafaf8', borderBottom: `1px solid ${B}` }}
                   action={fd => startTransition(async () => { await updatePackaging(pkg.id, fd); setEditingId(null); refresh() })}>
-                  <DimFields pkg={pkg} {...dimFieldsProps} />
+                  <DimFields pkg={pkg} />
                   <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                     <button type="submit" className="adm-btn-primary" style={{ fontSize: 12, padding: '6px 14px' }}>guardar</button>
                     <button type="button" onClick={() => setEditingId(null)} className="adm-btn-secondary">cancelar</button>
@@ -297,9 +236,6 @@ function PackagingList({ items }: { items: PackagingType[] }) {
                   </div>
                   <div>
                     <span style={{ fontSize: 14, color: '#0a0a0a', fontWeight: 600 }}>{pkg.name}</span>
-                    {pkg.skydropx_package_type && (
-                      <span style={{ fontSize: 11, color: M, marginLeft: 8 }}>sky: {pkg.skydropx_package_type}</span>
-                    )}
                   </div>
                   <span style={{ fontSize: 13, color: M }}>{pkg.length_cm}</span>
                   <span style={{ fontSize: 13, color: M }}>{pkg.width_cm}</span>
@@ -327,7 +263,7 @@ function PackagingList({ items }: { items: PackagingType[] }) {
       {showAdd ? (
         <form style={{ border: `1px solid ${B}`, borderRadius: 6, padding: 16, background: '#fafaf8' }}
           action={fd => startTransition(async () => { await addPackaging(fd); setShowAdd(false); refresh() })}>
-          <DimFields {...dimFieldsProps} />
+          <DimFields />
           <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
             <button type="submit" className="adm-btn-primary" style={{ fontSize: 12, padding: '6px 14px' }}>agregar</button>
             <button type="button" onClick={() => setShowAdd(false)} className="adm-btn-secondary">cancelar</button>
@@ -342,12 +278,18 @@ function PackagingList({ items }: { items: PackagingType[] }) {
   )
 }
 
-// ── SkydropxSection ────────────────────────────────────────────────────────────
-function SkydropxSection({ settings, packaging }: { settings: StoreSettings; packaging: PackagingType[] }) {
-  const [enabled, setEnabled] = useState(settings.skydropx_enabled)
+// ── EnviaSection ───────────────────────────────────────────────────────────────
+const CARRIERS = [
+  { id: 'dhl', label: 'DHL' }, { id: 'fedex', label: 'FedEx' }, { id: 'estafeta', label: 'Estafeta' },
+  { id: 'ups', label: 'UPS' }, { id: 'redpack', label: 'Redpack' }, { id: 'paquetexpress', label: 'Paquetexpress' },
+  { id: '99minutos', label: '99minutos' },
+]
+
+function EnviaSection({ settings, packaging }: { settings: StoreSettings; packaging: PackagingType[] }) {
+  const [enabled, setEnabled] = useState(!!settings.envia_enabled)
   const [isPending, startTransition] = useTransition()
   const [saved, setSaved] = useState(false)
-  const [showSecret, setShowSecret] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [testZip, setTestZip] = useState('')
   const [testState, setTestState] = useState('')
   const [testCity, setTestCity] = useState('')
@@ -356,28 +298,25 @@ function SkydropxSection({ settings, packaging }: { settings: StoreSettings; pac
   const [testRates, setTestRates] = useState<ShippingRate[] | null>(null)
   const [testError, setTestError] = useState<string | null>(null)
   const [testPending, startTestTransition] = useTransition()
-  const [balance, setBalance] = useState<number | null>(null)
-  const [balancePending, startBalanceTransition] = useTransition()
   const router = useRouter()
-
-  function handleRefreshBalance() {
-    startBalanceTransition(async () => {
-      const res = await fetchSkydropxBalance()
-      if (res.balance !== undefined) setBalance(res.balance)
-    })
-  }
+  const mode = settings.envia_test_mode === false ? 'live' : 'test'
+  const carriers = settings.envia_carriers ?? ['dhl']
+  const markup = Number(settings.envia_markup_pct ?? 0)
 
   function handleToggle(val: boolean) {
     setEnabled(val)
-    startTransition(async () => { await toggleSkydropx(val); router.refresh() })
+    startTransition(async () => { await toggleEnvia(val); router.refresh() })
   }
 
   function handleSave(fd: FormData) {
+    setSaveError(null)
     startTransition(async () => {
-      await saveSkydropxConfig(fd)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2500)
-      router.refresh()
+      try {
+        await saveEnviaConfig(fd)
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2500)
+        router.refresh()
+      } catch (e) { setSaveError(e instanceof Error ? e.message : 'no se pudo guardar') }
     })
   }
 
@@ -385,25 +324,20 @@ function SkydropxSection({ settings, packaging }: { settings: StoreSettings; pac
     if (!testZip.trim() || !testState || !testCity || !testPkg) return
     setTestRates(null); setTestError(null)
     startTestTransition(async () => {
-      try {
-        const rates = await testShippingQuote(testZip, testState, testCity, testColonia, testPkg)
-        setTestRates(rates)
-      } catch (e: unknown) {
-        setTestError(e instanceof Error ? e.message : 'error')
-      }
+      try { setTestRates(await testShippingQuote(testZip, testState, testCity, testColonia, testPkg)) }
+      catch (e: unknown) { setTestError(e instanceof Error ? e.message : 'error') }
     })
   }
 
-  const STATUS_COLOR: Record<string, string> = {
-    pending: '#aaa', paid: '#003a87', shipped: '#00c4df',
-    delivered: '#1a6b35', refunded: '#ffd49a', failed: '#ff0100',
-  }
+  const hint = (h?: string | null) => h
+    ? <span style={{ fontSize: 10, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>guardada: ···{h}</span>
+    : <span style={{ fontSize: 10, color: '#cc4400', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>sin llave</span>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* Toggle */}
+      {/* Activar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', background: '#f6f5f1', borderRadius: 6, border: `1px solid ${B}` }}>
-        <button type="button" onClick={() => handleToggle(!enabled)} disabled={isPending} aria-label="activar skydropx" style={{
+        <button type="button" onClick={() => handleToggle(!enabled)} disabled={isPending} aria-label="activar envia" aria-pressed={enabled} style={{
           width: 44, height: 24, borderRadius: 999, border: 'none', cursor: 'pointer',
           background: enabled ? '#ff0100' : '#d4d3cd',
           position: 'relative', transition: 'background 200ms', flexShrink: 0,
@@ -415,70 +349,69 @@ function SkydropxSection({ settings, packaging }: { settings: StoreSettings; pac
           }} />
         </button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#0a0a0a' }}>{enabled ? 'skydropx activado' : 'skydropx desactivado'}</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#0a0a0a' }}>
+            {enabled ? 'envia activado' : 'envia desactivado'}
+            {enabled && mode === 'test' && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 800, color: '#b45309' }}>MODO PRUEBA</span>}
+          </div>
           <div style={{ fontSize: 12, color: M, marginTop: 2 }}>
-            {enabled ? 'cotizaciones en tiempo real en el checkout' : 'se usan las tarifas manuales de envíos'}
+            {enabled
+              ? mode === 'test' ? 'cotiza y compra guías de prueba (no cuestan ni se envían)' : 'cotiza en el checkout y compra guías reales'
+              : 'el checkout cobra la tarifa fija de "tarifas manuales"'}
           </div>
         </div>
-        {enabled && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
-            {balance !== null && (
-              <span style={{ fontSize: 13, fontWeight: 700, color: balance < 200 ? '#ff0100' : '#1a6b35', fontVariantNumeric: 'tabular-nums' }}>
-                {balance.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
-              </span>
-            )}
-            <button type="button" onClick={handleRefreshBalance} disabled={balancePending}
-              style={{ fontSize: 11, color: M, background: 'none', border: `1px solid ${B}`, borderRadius: 4, padding: '4px 10px', cursor: 'pointer' }}>
-              {balancePending ? '…' : balance === null ? 'ver saldo' : 'actualizar'}
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Credenciales */}
-      <form action={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <label className="adm-lbl">
-            api key (client id)
-            {settings.skydropx_client_id && <span style={{ fontSize: 10, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>activa: ···{settings.skydropx_client_id.slice(-6)}</span>}
-            <input name="client_id" type="text" defaultValue={settings.skydropx_client_id} placeholder="We9LlN..." className="adm-inp" autoComplete="off" />
-          </label>
-          <label className="adm-lbl">
-            api secret
-            {settings.skydropx_client_secret && <span style={{ fontSize: 10, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>activa: ···{settings.skydropx_client_secret.slice(-6)}</span>}
-            <div style={{ position: 'relative' }}>
-              <input name="client_secret" type={showSecret ? 'text' : 'password'}
-                defaultValue={settings.skydropx_client_secret} placeholder="5XcL63..."
-                className="adm-inp" style={{ paddingRight: 44 }} autoComplete="off" />
-              <button type="button" onClick={() => setShowSecret(v => !v)} style={{
-                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                background: 'none', border: 'none', cursor: 'pointer', color: M,
-                display: 'flex', alignItems: 'center', padding: 0,
-              }}>
-                {showSecret ? <IconEyeOff /> : <IconEyeOn />}
-              </button>
-            </div>
-          </label>
+      <form action={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {/* Llaves y modo */}
+        <div>
+          <div className="adm-lbl" style={{ marginBottom: 10 }}>llaves de api · envia.com → developers → api keys</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <label className="adm-lbl">
+              llave de prueba {hint(settings.envia_key_test_hint)}
+              <input name="envia_api_key_test" type="password" placeholder="pega una nueva para reemplazarla" className="adm-inp" autoComplete="off" />
+            </label>
+            <label className="adm-lbl">
+              llave de producción {hint(settings.envia_key_live_hint)}
+              <input name="envia_api_key_live" type="password" placeholder="pega una nueva para reemplazarla" className="adm-inp" autoComplete="off" />
+            </label>
+          </div>
+          <div role="radiogroup" aria-label="modo" style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 13 }}>
+            <label style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
+              <input type="radio" name="envia_mode" value="test" defaultChecked={mode === 'test'} style={{ accentColor: '#ff0100' }} />
+              prueba <span style={{ color: M }}>(api-test.envia.com)</span>
+            </label>
+            <label style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
+              <input type="radio" name="envia_mode" value="live" defaultChecked={mode === 'live'} style={{ accentColor: '#ff0100' }} />
+              producción <span style={{ color: M }}>(guías reales, se cobran)</span>
+            </label>
+          </div>
         </div>
 
+        {/* Origen */}
         <div>
           <div className="adm-lbl" style={{ marginBottom: 10 }}>remitente (origen)</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 12 }}>
+            <label className="adm-lbl">
+              calle
+              <input name="origin_street" type="text" defaultValue={settings.origin_street} placeholder="Calle Puebla" className="adm-inp" />
+            </label>
+            <label className="adm-lbl">
+              número
+              <input name="origin_number" type="text" defaultValue={settings.origin_number ?? ''} placeholder="5912" className="adm-inp" />
+            </label>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
             <label className="adm-lbl">
               nombre del remitente
               <input name="origin_name" type="text" defaultValue={settings.origin_name} placeholder="GALLO" className="adm-inp" />
             </label>
             <label className="adm-lbl">
-              calle y número
-              <input name="origin_street" type="text" defaultValue={settings.origin_street} placeholder="Av. Insurgentes 123" className="adm-inp" />
-            </label>
-            <label className="adm-lbl">
               teléfono
-              <input name="origin_phone" type="tel" defaultValue={settings.origin_phone} placeholder="5512345678" className="adm-inp" />
+              <input name="origin_phone" type="tel" defaultValue={settings.origin_phone} placeholder="2221234567" className="adm-inp" />
             </label>
             <label className="adm-lbl">
               email
-              <input name="origin_email" type="email" defaultValue={settings.origin_email} placeholder="envios@compadregallo.com" className="adm-inp" />
+              <input name="origin_email" type="email" defaultValue={settings.origin_email} placeholder="hola@compadregallo.com" className="adm-inp" />
             </label>
           </div>
           <ZipSelector
@@ -489,17 +422,41 @@ function SkydropxSection({ settings, packaging }: { settings: StoreSettings; pac
           />
         </div>
 
+        {/* Paqueterías y recargo */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, alignItems: 'start' }}>
+          <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
+            <legend className="adm-lbl" style={{ marginBottom: 8 }}>paqueterías que se ofrecen</legend>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {CARRIERS.map(c => (
+                <label key={c.id} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, padding: '6px 10px', border: `1px solid ${B}`, borderRadius: 4, background: '#fff', cursor: 'pointer' }}>
+                  <input type="checkbox" name="envia_carriers" value={c.id} defaultChecked={carriers.includes(c.id)} style={{ accentColor: '#ff0100' }} />
+                  {c.label}
+                </label>
+              ))}
+            </div>
+            <span style={{ fontSize: 11, color: M, display: 'block', marginTop: 6 }}>cada una se cotiza aparte; más paqueterías = el checkout tarda un poco más.</span>
+          </fieldset>
+          <label className="adm-lbl">
+            recargo %
+            <input name="envia_markup_pct" type="number" step="0.1" min="0" max="100" defaultValue={markup} className="adm-inp" />
+            <span style={{ fontSize: 11, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+              sobre el costo de Envia, redondeado a pesos. ej. 15 = +15%.
+            </span>
+          </label>
+        </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <button type="submit" disabled={isPending} className="adm-btn-primary">
             {isPending ? 'guardando…' : 'guardar configuración'}
           </button>
           <SavedBadge show={saved} />
+          {saveError && <span style={{ fontSize: 12, color: '#cc0000' }}>{saveError}</span>}
         </div>
       </form>
 
-      {/* Test */}
+      {/* Probar */}
       <div style={{ border: `1px solid ${B}`, borderRadius: 6, padding: 20, background: '#fafaf8' }}>
-        <div className="adm-lbl" style={{ marginBottom: 16 }}>probar cotización</div>
+        <div className="adm-lbl" style={{ marginBottom: 16 }}>probar cotización <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>· costo real de Envia, sin recargo</span></div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start', marginBottom: 14 }}>
           <ZipSelector label="cp destino" onSelect={info => {
             setTestZip(info?.zip ?? '')
@@ -515,14 +472,11 @@ function SkydropxSection({ settings, packaging }: { settings: StoreSettings; pac
             </select>
           </label>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button type="button" onClick={handleTest}
-            disabled={!testZip || !testState || !testPkg || testPending || !enabled}
-            className="adm-btn-primary" style={{ fontSize: 12, padding: '7px 14px' }}>
-            {testPending ? 'cotizando…' : 'cotizar'}
-          </button>
-          {!enabled && <span style={{ fontSize: 12, color: M }}>activa skydropx primero</span>}
-        </div>
+        <button type="button" onClick={handleTest}
+          disabled={!testZip || !testState || !testPkg || testPending}
+          className="adm-btn-primary" style={{ fontSize: 12, padding: '7px 14px' }}>
+          {testPending ? 'cotizando…' : 'cotizar'}
+        </button>
 
         {testError && (
           <div style={{ marginTop: 14, fontSize: 13, color: '#ff0100', background: 'rgba(255,1,0,0.05)', borderRadius: 4, padding: '10px 14px', border: '1px solid rgba(255,1,0,0.15)' }}>
@@ -533,19 +487,19 @@ function SkydropxSection({ settings, packaging }: { settings: StoreSettings; pac
         {testRates && (
           <div style={{ marginTop: 14, border: `1px solid ${B}`, borderRadius: 6, overflow: 'hidden' }}>
             {testRates.length === 0
-              ? <div style={{ padding: '14px', fontSize: 13, color: M }}>sin opciones disponibles para ese CP</div>
+              ? <div style={{ padding: '14px', fontSize: 13, color: M }}>sin opciones para ese CP</div>
               : testRates.map((r, i) => (
-                <div key={i} style={{
+                <div key={r.rate_id} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '10px 14px', borderBottom: i < testRates.length - 1 ? `1px solid ${B}` : 'none',
-                  background: '#fff',
+                  padding: '10px 14px', borderBottom: i < testRates.length - 1 ? `1px solid ${B}` : 'none', background: '#fff',
                 }}>
                   <div>
-                    <span style={{ fontWeight: 700, fontSize: 13, color: '#0a0a0a' }}>{r.carrier}</span>
-                    {r.service_level && <span style={{ fontSize: 12, color: M, marginLeft: 8 }}>{r.service_level}</span>}
+                    <span style={{ fontWeight: 700, fontSize: 13, color: '#0a0a0a' }}>{r.carrier_name}</span>
+                    {r.service_name && <span style={{ fontSize: 12, color: M, marginLeft: 8 }}>{r.service_name}</span>}
                   </div>
                   <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                     {r.days && <span style={{ fontSize: 12, color: M }}>{r.days}d</span>}
+                    <span style={{ fontSize: 12, color: M }}>cliente: {Math.ceil(r.total_mxn * (1 + markup / 100)).toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 })}</span>
                     <span style={{ fontWeight: 700, fontSize: 14, color: '#0a0a0a', fontVariantNumeric: 'tabular-nums' }}>
                       {r.total_mxn.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
                     </span>
@@ -555,38 +509,6 @@ function SkydropxSection({ settings, packaging }: { settings: StoreSettings; pac
           </div>
         )}
       </div>
-      {/* Markup + carriers */}
-      <form action={fd => startTransition(async () => { await saveSkydropxExtra(fd); setSaved(true); setTimeout(() => setSaved(false), 2500); router.refresh() })}
-        style={{ display: 'flex', flexDirection: 'column', gap: 16, borderTop: `1px solid ${B}`, paddingTop: 20 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: M, letterSpacing: '0.06em', textTransform: 'uppercase' }}>ajustes de tarifa</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <label className="adm-lbl">
-            markup % (comisión + diferencias)
-            <input name="markup_pct" type="number" step="0.1" min="0" max="50"
-              defaultValue={settings.skydropx_markup_pct ?? 0} className="adm-inp" />
-            <span style={{ fontSize: 11, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
-              ej. 5 = +5% sobre la tarifa de SkyDropX
-            </span>
-          </label>
-          <label className="adm-lbl">
-            paqueterías a mostrar
-            <input name="allowed_carriers" type="text"
-              defaultValue={(settings.skydropx_allowed_carriers ?? []).join(', ')}
-              placeholder="FedEx, DHL, Estafeta (vacío = todas)"
-              className="adm-inp" />
-            <span style={{ fontSize: 11, color: M, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
-              separadas por coma. vacío muestra todas.
-            </span>
-          </label>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button type="submit" disabled={isPending} className="adm-btn-primary">guardar ajustes</button>
-          <SavedBadge show={saved} />
-        </div>
-      </form>
-
-      {/* suppresses unused import warning */}
-      <span style={{ display: 'none' }}>{JSON.stringify(STATUS_COLOR)}</span>
     </div>
   )
 }
@@ -869,7 +791,7 @@ function SectionCard({ id, title, desc, children }: { id: string; title: string;
 // ── NAV ────────────────────────────────────────────────────────────────────────
 const NAV = [
   { id: 'stripe',     label: 'stripe' },
-  { id: 'skydropx',   label: 'skydropx' },
+  { id: 'envia',      label: 'envíos' },
   { id: 'ai',         label: 'asistente IA' },
   { id: 'embalajes',  label: 'embalajes' },
   { id: 'categorias', label: 'categorías' },
@@ -922,9 +844,9 @@ export default function ConfiguracionAdmin({ categories, sizes, packaging, setti
               <StripeSection settings={settings} />
             </SectionCard>
 
-            <SectionCard id="skydropx" title="skydropx"
-              desc="cotización automática. credenciales en pro.skydropx.com → api → credenciales de aplicación.">
-              <SkydropxSection settings={settings} packaging={packaging} />
+            <SectionCard id="envia" title="envíos · envia.com"
+              desc="cotiza en el checkout, compra y cancela guías desde cada orden. envío gratis desde el umbral de tarifas manuales.">
+              <EnviaSection settings={settings} packaging={packaging} />
             </SectionCard>
 
             <SectionCard id="ai" title="asistente IA"
@@ -952,7 +874,7 @@ export default function ConfiguracionAdmin({ categories, sizes, packaging, setti
             </SectionCard>
 
             <SectionCard id="tarifas" title="tarifas manuales"
-              desc="se usan cuando skydropx está desactivado.">
+              desc="la tarifa nacional se cobra cuando envia está apagado o no responde. el umbral de envío gratis aplica siempre.">
               <ShippingSection settings={settings} />
             </SectionCard>
 

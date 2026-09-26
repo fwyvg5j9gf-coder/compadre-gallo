@@ -12,6 +12,7 @@ import 'server-only'
 
 import { supabaseAdmin } from '@/lib/supabase.server'
 import { validateDiscountCode } from '@/app/casa/descuentos/actions'
+import { verifyShippingQuote, type ShippingQuote } from '@/lib/shipping.server'
 
 export type QuoteItem = { productId: string; qty: number }
 
@@ -23,6 +24,8 @@ export type OrderQuote = {
   /** What Stripe should actually charge — total plus the configured markup. */
   finalAmount: number
   discountCodeId: string | null
+  /** La opción de envío verificada ("dhl:express", "flat"). */
+  shippingId: string
   /** productId -> unit price in cents, straight from the DB. */
   prices: Map<string, number>
 }
@@ -32,16 +35,24 @@ export const MIN_CHARGE_MXN = 100
 
 export async function quoteOrder(opts: {
   items: QuoteItem[] | undefined
-  shippingMxn?: number
+  shipping: { quote: ShippingQuote | null | undefined; zip: string; allowExpired?: boolean }
   discountCode?: string | null
 }): Promise<{ quote: OrderQuote } | { error: string }> {
   const items = opts.items ?? []
   if (items.length === 0) return { error: 'carrito vacío' }
 
-  // Shipping is quoted by Skydropx on the client, so we can't recompute it here
-  // without re-quoting. We can at least refuse a negative value — a negative
-  // shipping cost is just an unbounded discount wearing a different name.
-  const shippingMxn = Math.max(0, Math.round(Number(opts.shippingMxn) || 0))
+  // El envío tampoco lo dice el navegador: tiene que ser una de las opciones
+  // que firmó getCheckoutShippingOptions para este código postal y este
+  // carrito (ver shipping.server.ts). Antes aquí se creía el número que
+  // llegaba, y un envío de $0 era cuestión de editar la petición.
+  const shipping = verifyShippingQuote(
+    opts.shipping.quote,
+    opts.shipping.zip,
+    items.map(i => ({ productId: i.productId, qty: i.qty })),
+    { allowExpired: opts.shipping.allowExpired },
+  )
+  if ('error' in shipping) return { error: shipping.error }
+  const shippingMxn = Math.max(0, shipping.priceMxn)
 
   const productIds = [...new Set(items.map(i => i.productId))]
   const { data: products } = await supabaseAdmin
@@ -90,7 +101,7 @@ export async function quoteOrder(opts: {
   const finalAmount = markupPct > 0 ? Math.round(total * (1 + markupPct / 100)) : total
 
   return {
-    quote: { subtotal, shippingMxn, discountMxn, total, finalAmount, discountCodeId, prices },
+    quote: { subtotal, shippingMxn, discountMxn, total, finalAmount, discountCodeId, prices, shippingId: shipping.id },
   }
 }
 

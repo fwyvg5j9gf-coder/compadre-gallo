@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { supabaseAdmin } from '@/lib/supabase.server'
 import { requireAdminOrThrow } from '@/lib/auth.server'
-import { getShippingRates, type ShippingRate } from '@/lib/skydropx'
+import { quoteForAdmin, type ShippingRate } from '@/lib/shipping.server'
 
 export type UserLookup = {
   email: string
@@ -26,50 +26,10 @@ export async function fetchRatesForNewOrder({
 }): Promise<{ rates?: ShippingRate[]; error?: string }> {
   try {
     await requireAdminOrThrow()
-
-    const [{ data: settings }, { data: secrets }] = await Promise.all([
-      supabaseAdmin.from('store_settings').select('origin_zip, origin_state, origin_city, origin_colonia, skydropx_enabled').single(),
-      supabaseAdmin.from('store_secrets').select('skydropx_client_id, skydropx_client_secret').single(),
-    ])
-
-    if (!settings?.skydropx_enabled) return { error: 'Skydropx no está habilitado' }
-    if (!secrets?.skydropx_client_id || !secrets?.skydropx_client_secret) return { error: 'faltan credenciales de Skydropx' }
-    if (!settings.origin_zip) return { error: 'falta código postal de origen en configuración' }
-    if (!destZip) return { error: 'agrega el código postal de destino' }
-
-    let parcel = { weight_kg: 0.5, length_cm: 30, width_cm: 20, height_cm: 10 }
-
-    if (productIds.length > 0) {
-      const { data: product } = await supabaseAdmin
-        .from('products').select('packaging_type_id, weight_grams').eq('id', productIds[0]).single()
-      if (product?.packaging_type_id) {
-        const { data: pkg } = await supabaseAdmin
-          .from('packaging_types').select('weight_grams, length_cm, width_cm, height_cm').eq('id', product.packaging_type_id).single()
-        if (pkg) {
-          parcel = {
-            weight_kg: Math.max(0.01, (product.weight_grams ?? pkg.weight_grams) / 1000),
-            length_cm: Number(pkg.length_cm),
-            width_cm: Number(pkg.width_cm),
-            height_cm: Number(pkg.height_cm),
-          }
-        }
-      }
-    }
-
-    const rates = await getShippingRates({
-      clientId: secrets!.skydropx_client_id,
-      clientSecret: secrets!.skydropx_client_secret,
-      originZip: settings.origin_zip,
-      originState: settings.origin_state ?? '',
-      originCity: settings.origin_city ?? '',
-      originColonia: settings.origin_colonia ?? '',
-      destZip,
-      destState,
-      destCity,
-      destColonia,
-      parcel,
-    })
-
+    const rates = await quoteForAdmin(
+      { zip: destZip, state: destState, city: destCity, colonia: destColonia },
+      productIds.map(productId => ({ productId, qty: 1 })),
+    )
     return { rates }
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'error al cotizar' }
@@ -185,6 +145,10 @@ export async function createManualOrder(formData: FormData): Promise<ManualOrder
     const city    = (formData.get('addr_city')    as string ?? '').trim()
     const state   = (formData.get('addr_state')   as string ?? '').trim()
     const shippingAddress = (street || zip) ? { street, colonia, zip, city, state } : null
+    // Si se cotizó con Envia, se guarda la opción elegida para comprar esa
+    // misma guía después ("dhl:express").
+    const rateId = ((formData.get('shipping_rate_id') as string) || '').trim()
+    const envia = /^[a-z0-9_-]+:[\w-]+$/i.test(rateId)
 
     const { data: order, error: orderErr } = await supabaseAdmin
       .from('orders')
@@ -195,6 +159,10 @@ export async function createManualOrder(formData: FormData): Promise<ManualOrder
         status,
         subtotal_mxn: subtotal,
         shipping_mxn: shippingMxn,
+        shipping_rate_id: envia ? rateId : null,
+        shipping_carrier: envia ? rateId.split(':')[0].toUpperCase() : null,
+        shipping_service: envia ? rateId.split(':').slice(1).join(':') : null,
+        shipping_provider: envia ? 'envia' : null,
         total_mxn: total,
         shipping_address: shippingAddress,
         notes: notes || null,

@@ -78,6 +78,17 @@ export type StoreSettings = {
   origin_state: string
   origin_city: string
   origin_colonia: string
+  origin_number?: string | null
+  // Envia.com (ver src/lib/shipping.server.ts)
+  envia_enabled?: boolean
+  envia_test_mode?: boolean
+  envia_carriers?: string[]
+  envia_markup_pct?: number
+  envia_last_balance?: number | null
+  envia_last_balance_at?: string | null
+  /** últimos 4 caracteres de cada llave; la llave completa nunca llega al navegador */
+  envia_key_test_hint?: string | null
+  envia_key_live_hint?: string | null
   stripe_test_mode: boolean
   stripe_pk_test: string
   stripe_pk_live: string
@@ -88,8 +99,9 @@ export type StoreSettings = {
   stripe_sk_test: string
   stripe_sk_live: string
   stripe_webhook_secret: string
-  skydropx_client_id: string
-  skydropx_client_secret: string
+  // Skydropx: ya no se usa (se cambió a Envia); se conserva por la historia
+  skydropx_client_id?: string
+  skydropx_client_secret?: string
 }
 
 export type StoreSecrets = {

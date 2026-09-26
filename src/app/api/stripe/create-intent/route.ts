@@ -34,7 +34,8 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json() as {
       items?: { productId: string; qty: number; size?: string; name?: string }[]
-      shippingMxn?: number
+      shippingQuote?: { id: string; price_mxn: number; token: string }
+      zip?: string
       discountCode?: string
     }
 
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
     // `discountMxn` is deliberately not read from the body — see checkout.server.ts.
     const quoted = await quoteOrder({
       items: body.items,
-      shippingMxn: body.shippingMxn,
+      shipping: { quote: body.shippingQuote, zip: String(body.zip ?? '') },
       discountCode: body.discountCode,
     })
 

@@ -9,8 +9,8 @@ const DEFAULT_SETTINGS: StoreSettings = {
   shipping_local_mxn: 8900, shipping_national_mxn: 14900,
   shipping_intl_mxn: 45000, shipping_free_threshold_mxn: 150000,
   return_policy: '', shipping_policy: '',
-  skydropx_enabled: false, skydropx_client_id: '', skydropx_client_secret: '',
-  skydropx_markup_pct: 0, skydropx_allowed_carriers: [],
+  skydropx_enabled: false, skydropx_markup_pct: 0, skydropx_allowed_carriers: [],
+  envia_enabled: false, envia_test_mode: true, envia_carriers: ['dhl'], envia_markup_pct: 0, origin_number: '',
   origin_name: 'GALLO', origin_street: '', origin_phone: '', origin_email: '',
   origin_zip: '', origin_state: '', origin_city: '', origin_colonia: '',
   stripe_test_mode: true, stripe_pk_test: '', stripe_sk_test: '',
@@ -29,10 +29,19 @@ export default async function ConfiguracionPage() {
     supabaseAdmin.from('store_sizes').select('*').order('sort_order'),
     supabaseAdmin.from('packaging_types').select('*').order('sort_order'),
     supabaseAdmin.from('store_settings').select('*').eq('id', 1).single(),
-    supabaseAdmin.from('store_secrets').select('stripe_sk_test, stripe_sk_live, stripe_webhook_secret, skydropx_client_id, skydropx_client_secret').eq('id', 1).single(),
+    supabaseAdmin.from('store_secrets').select('stripe_sk_test, stripe_sk_live, stripe_webhook_secret, envia_api_key_test, envia_api_key_live').eq('id', 1).single(),
   ])
 
-  const settings = { ...(settingsRes.data ?? DEFAULT_SETTINGS), ...(secretsRes.data ?? {}) } as StoreSettings
+  // Las llaves de Envia no viajan al navegador: solo sus últimos 4 caracteres.
+  const { envia_api_key_test, envia_api_key_live, ...stripeSecrets } = (secretsRes.data ?? {}) as Record<string, string | null>
+  const last4 = (k: string | null | undefined) => (k && k.length > 8 ? k.slice(-4) : null)
+
+  const settings = {
+    ...(settingsRes.data ?? DEFAULT_SETTINGS),
+    ...stripeSecrets,
+    envia_key_test_hint: last4(envia_api_key_test),
+    envia_key_live_hint: last4(envia_api_key_live),
+  } as StoreSettings
 
   return (
     <ConfiguracionAdmin

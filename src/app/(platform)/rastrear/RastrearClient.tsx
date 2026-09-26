@@ -18,6 +18,7 @@ type Resultado = {
   discountMxn: number
   totalMxn: number
   carrier: string | null
+  movimientos?: { fecha: string; texto: string }[]
   guia: string | null
   items: Item[]
 }
@@ -155,6 +156,16 @@ function RastrearForm() {
               <div className="eyebrow" style={{ marginBottom: 4 }}>guía {resultado.carrier ?? ''}</div>
               <span style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 700 }}>{resultado.guia}</span>
             </div>
+          )}
+          {resultado.movimientos && resultado.movimientos.length > 0 && (
+            <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', borderLeft: '2px solid var(--border)', paddingLeft: 'var(--space-4)' }}>
+              {resultado.movimientos.map((m, i) => (
+                <li key={i} style={{ fontSize: 14, color: i === 0 ? 'var(--fg)' : 'var(--fg-muted)', fontWeight: i === 0 ? 600 : 400 }}>
+                  <span style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--fg-subtle)', fontWeight: 400 }}>{m.fecha.slice(0, 16).replace('T', ' ')}</span>
+                  {m.texto}
+                </li>
+              ))}
+            </ol>
           )}
 
           <div className="eyebrow" style={{ marginBottom: 8 }}>lo que pediste</div>
