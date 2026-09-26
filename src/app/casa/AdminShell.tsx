@@ -32,9 +32,10 @@ const SECTIONS: { group: string; items: { label: string; href: string }[] }[] = 
   {
     group: 'contenido',
     items: [
-      { label: 'artistas', href: '/casa/artistas' },
-      { label: 'editor',   href: '/casa/editor' },
-      { label: 'media',    href: '/casa/media' },
+      { label: 'artistas',   href: '/casa/artistas' },
+      { label: 'editor',     href: '/casa/editor' },
+      { label: 'media',      href: '/casa/media' },
+      { label: 'biblioteca', href: '/casa/biblioteca' },
     ],
   },
   {
