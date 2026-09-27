@@ -104,7 +104,7 @@ export const PLACEHOLDER_LAMPS: Lamp[] = [
       foco: 'LED E26/E27 cálido, incluido',
       material: 'PLA blanco mate impreso en 3D, pantalla de una sola pared',
       medidas: 'alto 21 cm · ancho 21 cm',
-      horas_impresion: '7',
+      minutos_impresion: '540',
     },
   },
   {
@@ -120,7 +120,7 @@ export const PLACEHOLDER_LAMPS: Lamp[] = [
     href: '/tienda/ph-michi',
     buyable: false,
     stock: null,
-    specs: { ...PH_SPECS, medidas: 'alto 34 cm · ancho 22 cm', horas_impresion: '16' },
+    specs: { ...PH_SPECS, medidas: 'alto 34 cm · ancho 22 cm', minutos_impresion: '960' },
     weightGrams: PH_WEIGHT['ph-michi'],
   },
   {
@@ -135,7 +135,7 @@ export const PLACEHOLDER_LAMPS: Lamp[] = [
     href: '/tienda/ph-salchicha',
     buyable: false,
     stock: null,
-    specs: { ...PH_SPECS, medidas: 'alto 18 cm · largo 44 cm', horas_impresion: '19' },
+    specs: { ...PH_SPECS, medidas: 'alto 18 cm · largo 44 cm', minutos_impresion: '1140' },
     weightGrams: PH_WEIGHT['ph-salchicha'],
   },
   {
@@ -150,7 +150,7 @@ export const PLACEHOLDER_LAMPS: Lamp[] = [
     href: '/tienda/ph-bolita',
     buyable: false,
     stock: null,
-    specs: { ...PH_SPECS, medidas: 'alto 16 cm · ancho 30 cm', foco: 'LED cálido de luz bajita, incluido', horas_impresion: '11' },
+    specs: { ...PH_SPECS, medidas: 'alto 16 cm · ancho 30 cm', foco: 'LED cálido de luz bajita, incluido', minutos_impresion: '660' },
     weightGrams: PH_WEIGHT['ph-bolita'],
   },
 ]

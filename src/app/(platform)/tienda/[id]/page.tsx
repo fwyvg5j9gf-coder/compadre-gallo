@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase.server'
 import { notFound } from 'next/navigation'
 import ProductDetailClient, { type DetailProduct } from './ProductDetailClient'
 import { PLACEHOLDER_LAMPS, isPlaceholderId, productToLamp } from '@/lib/lamparas'
-import { specRows } from '@/lib/specs'
+import { makingMinutes, specRows } from '@/lib/specs'
 import type { Product } from '@/lib/supabase'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -84,7 +84,7 @@ async function loadDetail(id: string): Promise<DetailProduct | null> {
       looks: lamp.looks,
       variants: [],
       specs: specRows(lamp.specs, lamp.weightGrams),
-      printHours: Number(lamp.specs?.horas_impresion) || null,
+      makingMinutes: makingMinutes(lamp.specs),
       buyable: false,
       isPlaceholder: true,
       prototipo: !!lamp.prototipo,
@@ -112,7 +112,7 @@ async function loadDetail(id: string): Promise<DetailProduct | null> {
     looks: lamp.looks,
     variants: (p.product_variants ?? []).map(v => ({ id: v.id, size: v.size, stock: v.stock })).sort(bySize),
     specs: specRows(p.specs, p.weight_grams),
-    printHours: Number(p.specs?.horas_impresion) || null,
+    makingMinutes: makingMinutes(p.specs),
     buyable: true,
     isPlaceholder: false,
     packagingTypeId: p.packaging_type_id,

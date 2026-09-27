@@ -177,10 +177,11 @@ function ProductForm({
             </label>
           ))}
           <label style={styles.label}>
-            horas de impresión
-            <input name="spec_horas_impresion" type="number" min="0"
-              defaultValue={initial?.specs?.horas_impresion ?? ''} style={styles.input} placeholder="ej. 14" />
-            <span style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>se muestra como detalle en la página</span>
+            minutos para hacer una
+            <input name="spec_minutos_impresion" type="number" min="0"
+              defaultValue={initial?.specs?.minutos_impresion ?? (initial?.specs?.horas_impresion ? String(Number(initial.specs.horas_impresion) * 60) : '')}
+              style={styles.input} placeholder="ej. 540" />
+            <span style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>se muestra en la página: «cada una tarda N minutos en crearse»</span>
           </label>
         </div>
       </fieldset>

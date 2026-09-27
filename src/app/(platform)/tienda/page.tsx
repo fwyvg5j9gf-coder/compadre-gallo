@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'tienda — compadregallo',
-  description: 'lámparas y piezas de tiraje limitado de GALLO. envío gratis desde $1,500, sin cuenta y con 5 días para devolver.',
+  description: 'lámparas y piezas de tiraje limitado de GALLO. envío gratis express desde $1,500.',
   alternates: { canonical: 'https://compadregallo.com/tienda' },
   openGraph: { title: 'tienda — compadregallo', description: 'es solo una lamparita. piezas de tiraje limitado de GALLO.', url: 'https://compadregallo.com/tienda', locale: 'es_MX', type: 'website',
     // Al definir openGraph aquí se reemplaza el del layout completo: la imagen va explícita.

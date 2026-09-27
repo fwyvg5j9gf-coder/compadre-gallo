@@ -947,18 +947,37 @@ img { display: block; }
    prenderlas: el cuarto se apaga y aparece la luz amarilla detrás. */
 .lt { --lt-bg: var(--ink-100); --lt-night: #141412; background: var(--gallo-paper); }
 
-.lt-strip {
+.lt-marquee {
+  overflow: hidden;
+  background: var(--gallo-black);
+  color: #fff;
+  height: 33px;
   display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 4px var(--space-3);
-  margin: 0;
-  padding: var(--space-2) var(--outer-px);
+  align-items: center;
+}
+.lt-marquee-track { display: flex; width: max-content; animation: lt-marquee 38s linear infinite; }
+.lt-marquee:hover .lt-marquee-track { animation-play-state: paused; }
+.lt-marquee-run { display: flex; flex-shrink: 0; }
+.lt-marquee-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding-right: var(--space-5);
   font-size: 12px;
-  font-weight: 600;
-  color: var(--fg-muted);
-  background: var(--gallo-paper);
-  border-bottom: 1px solid var(--border);
+  font-weight: 800;
+  letter-spacing: var(--track-wide);
+  white-space: nowrap;
+}
+.lt-marquee-mark {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 17px;
+  letter-spacing: -0.06em;
+  line-height: 1;
+}
+@keyframes lt-marquee { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .lt-marquee-track { animation: none; }
 }
 
 .lt-glow {
@@ -1349,6 +1368,8 @@ img { display: block; }
   margin: 0;
 }
 .pd-hours-text { font-family: var(--font-display); font-weight: 800; font-size: var(--fs-h3); line-height: 1.15; margin: 0; }
+.pd-hours-num { font-variant-numeric: tabular-nums; }
+.pd-hours-unit { font-size: 0.32em; letter-spacing: -0.02em; margin-left: 0.12em; }
 
 .pd-specs { margin-top: var(--space-8); max-width: 760px; }
 .pd-specs-title { font-size: var(--fs-h3); margin-bottom: var(--space-4); }

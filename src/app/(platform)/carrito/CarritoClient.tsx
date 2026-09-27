@@ -63,7 +63,7 @@ export default function CarritoClient() {
           <div className="cart-row"><span>envío</span><span>se calcula al pagar</span></div>
           <div className="cart-row cart-row-total"><span>total</span><span className="cart-mono">{fmt(totalMxn)}</span></div>
           <Link href="/carrito/checkout" className="btn btn-lg btn-accent cart-pay">pagar</Link>
-          <p className="cart-note">no necesitas cuenta. con tu folio y tu correo sigues tu pedido.</p>
+          <p className="cart-note">con tu folio y tu correo sigues tu pedido cuando quieras.</p>
           <Link href="/tienda" className="cart-back">← seguir comprando</Link>
         </aside>
       </div>

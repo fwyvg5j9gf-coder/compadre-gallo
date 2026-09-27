@@ -85,6 +85,11 @@ export async function getShippingConfig(): Promise<ShippingConfig> {
 
 const ready = (c: ShippingConfig) => c.enabled && !!c.auth && !!c.origin && c.missing.length === 0
 
+// "dhl:express" / "DHL Express Domestic". Ojo: el nombre de la paquetería
+// ("DHL EXPRESS") no cuenta, solo el servicio.
+const isExpress = (id: string, serviceName: string) =>
+  /express/i.test(id.split(':').slice(1).join(':')) || /express/i.test(serviceName)
+
 // ── Paquete ──────────────────────────────────────────────────────────────────
 export type ParcelItem = { productId: string; qty: number }
 
@@ -187,7 +192,7 @@ export async function getCheckoutShippingOptions(dest: {
 
   const flat = () => ({
     options: [signed({
-      id: 'flat', carrier_name: 'envío estándar', service_name: '', days: null,
+      id: 'flat', carrier_name: free ? 'envío express' : 'envío estándar', service_name: '', days: null,
       price_mxn: free ? 0 : config.flatMxn, free,
     }, dest.zip, items)],
     source: 'flat' as const,
@@ -230,8 +235,11 @@ export async function getCheckoutShippingOptions(dest: {
     free: false,
   }))
 
-  // Con envío gratis solo se ofrece la opción más barata, en $0.
-  const options = free ? [{ ...priced[0], price_mxn: 0, free: true }] : priced
+  // Con envío gratis se regala el EXPRESS más barato (así lo anuncia la
+  // tienda: "envío gratis express"). Si la paquetería no tiene express, la
+  // opción más barata.
+  const freeOption = priced.find(o => isExpress(o.id, o.service_name)) ?? priced[0]
+  const options = free ? [{ ...freeOption, price_mxn: 0, free: true }] : priced
   return { options: options.map(o => signed(o, dest.zip, items)), source: 'envia', free }
 }
 
@@ -243,6 +251,7 @@ type OrderForShipping = {
   customer_phone: string | null
   shipping_address: Record<string, string> | null
   shipping_rate_id: string | null
+  shipping_mxn: number | null
   tracking_number: string | null
   shipping_carrier: string | null
   shipping_provider: string | null
@@ -252,7 +261,7 @@ type OrderForShipping = {
 async function loadOrder(orderId: string): Promise<OrderForShipping> {
   const { data } = await supabaseAdmin
     .from('orders')
-    .select('id, customer_name, customer_email, customer_phone, shipping_address, shipping_rate_id, tracking_number, shipping_carrier, shipping_provider, order_items(product_id, quantity)')
+    .select('id, customer_name, customer_email, customer_phone, shipping_address, shipping_rate_id, shipping_mxn, tracking_number, shipping_carrier, shipping_provider, order_items(product_id, quantity)')
     .eq('id', orderId)
     .single()
   if (!data) throw new Error('orden no encontrada')
@@ -338,7 +347,9 @@ export async function buyLabel(orderId: string, rateId?: string): Promise<Bought
   if (!chosen.includes(':')) {
     const rates = await getEnviaRates({ auth: config.auth!, origin: config.origin!, destination, parcels, carriers: config.carriers })
     if (!rates.length) throw new Error('Envia no devolvió tarifas para esta dirección')
-    chosen = rates[0].rate_id
+    // Si el cliente tuvo envío gratis, se le prometió express.
+    const pick = order.shipping_mxn === 0 ? rates.find(r => isExpress(r.rate_id, r.service_name)) : undefined
+    chosen = (pick ?? rates[0]).rate_id
   }
   const [carrier, ...rest] = chosen.split(':')
   const service = rest.join(':')

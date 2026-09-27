@@ -12,7 +12,9 @@ export const SPEC_FIELDS = [
   { key: 'voltaje',  label: 'voltaje',  placeholder: '127 V' },
 ] as const
 
-export type SpecKey = (typeof SPEC_FIELDS)[number]['key'] | 'horas_impresion'
+// minutos_impresion: cuánto tarda en hacerse una. horas_impresion es el campo
+// viejo (en horas); se sigue leyendo por si algún producto lo tiene.
+export type SpecKey = (typeof SPEC_FIELDS)[number]['key'] | 'minutos_impresion' | 'horas_impresion'
 export type Specs = Partial<Record<SpecKey, string>>
 
 /** Lee las llaves spec_* de un formulario y regresa solo las que traen texto. */
@@ -22,9 +24,17 @@ export function specsFromForm(formData: FormData): Specs {
     const v = (formData.get(`spec_${f.key}`) as string | null)?.trim()
     if (v) out[f.key] = v.slice(0, 120)
   }
-  const h = (formData.get('spec_horas_impresion') as string | null)?.trim()
-  if (h && Number(h) > 0) out.horas_impresion = String(Math.round(Number(h)))
+  const m = (formData.get('spec_minutos_impresion') as string | null)?.trim()
+  if (m && Number(m) > 0) out.minutos_impresion = String(Math.round(Number(m)))
   return out
+}
+
+/** Minutos que tarda en hacerse una pieza (acepta el campo viejo en horas). */
+export function makingMinutes(specs: Specs | null | undefined): number | null {
+  const m = Number(specs?.minutos_impresion)
+  if (m > 0) return Math.round(m)
+  const h = Number(specs?.horas_impresion)
+  return h > 0 ? Math.round(h * 60) : null
 }
 
 /** Renglones listos para pintar: [etiqueta, valor], en el orden de SPEC_FIELDS. */

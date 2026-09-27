@@ -16,6 +16,34 @@ export function StockTag({ stock, overlay }: { stock: number | null; overlay?: b
   return <span className={cls}>{b.kind === 'agotado' ? 'AGOTADO' : `QUEDAN ${b.n}`}</span>
 }
 
+// ── Marquesina: envío gratis express ─────────────────────────────────────────
+// Corre de derecha a izquierda sin fin. Entre frase y frase va el wordmark de
+// cinco colores (el único lugar donde la marca deja la paleta completa). Se
+// detiene al pasar el mouse y se queda quieta con movimiento reducido.
+function EnvioMarquee({ desde }: { desde: string }) {
+  const texto = `ENVÍO GRATIS EXPRESS DESDE ${desde}`
+  const tramo = (key: string, hidden = false) => (
+    <div className="lt-marquee-run" key={key} aria-hidden={hidden || undefined}>
+      {Array.from({ length: 6 }, (_, i) => (
+        <span className="lt-marquee-item" key={i}>
+          <span>{texto}</span>
+          <span className="lt-marquee-mark" aria-hidden="true">
+            <span style={{ color: '#003a87' }}>g</span><span style={{ color: '#00c4df' }}>a</span><span style={{ color: '#ffd49a' }}>l</span><span style={{ color: '#ff0100' }}>l</span><span style={{ color: '#ffe200' }}>o</span>
+          </span>
+        </span>
+      ))}
+    </div>
+  )
+  return (
+    <div className="lt-marquee" role="note" aria-label={`envío gratis express desde ${desde}`}>
+      <div className="lt-marquee-track">
+        {tramo('a', true)}
+        {tramo('b', true)}
+      </div>
+    </div>
+  )
+}
+
 // ── Hero ──────────────────────────────────────────────────────────────────────
 // El apagador prende la lámpara: el cuarto se oscurece y aparece la luz.
 function Hero({ lamp }: { lamp: Lamp }) {
@@ -137,12 +165,7 @@ export default function StoreLanding({
 }) {
   return (
     <div className="lt">
-      <p className="lt-strip">
-        {freeThresholdMxn > 0 && <><span>envío gratis desde {fmt(freeThresholdMxn)}</span><span aria-hidden="true">·</span></>}
-        <span>compras sin cuenta</span>
-        <span aria-hidden="true">·</span>
-        <span>5 días para devolver</span>
-      </p>
+      {freeThresholdMxn > 0 && <EnvioMarquee desde={fmt(freeThresholdMxn).replace(/\.00$/, '')} />}
       {lamps[0] && <Hero lamp={lamps[0]} />}
 
       <section className="lt-manifesto">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useCart } from '@/context/CartContext'
 import { fmt } from '@/lib/utils'
@@ -16,11 +16,43 @@ export type DetailProduct = {
   looks: LampLook[]
   variants: { id: string; size: string; stock: number }[]
   specs: [string, string][]
-  printHours: number | null
+  makingMinutes: number | null
   buyable: boolean
   isPlaceholder: boolean
   prototipo?: boolean
   packagingTypeId: string | null
+}
+
+// Número que sube de 0 a `to` cuando entra en pantalla. Se renderiza ya con
+// el valor final (sin JavaScript o con movimiento reducido se queda así).
+function CountUp({ to, duration = 1600 }: { to: number; duration?: number }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [value, setValue] = useState(to)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    let raf = 0
+    let started = false
+    setValue(0)
+    const io = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting || started) return
+      started = true
+      io.disconnect()
+      const t0 = performance.now()
+      const tick = (now: number) => {
+        const p = Math.min(1, (now - t0) / duration)
+        const eased = 1 - Math.pow(1 - p, 3)
+        setValue(Math.round(to * eased))
+        if (p < 1) raf = requestAnimationFrame(tick)
+      }
+      raf = requestAnimationFrame(tick)
+    }, { threshold: 0.4 })
+    io.observe(el)
+    return () => { io.disconnect(); cancelAnimationFrame(raf) }
+  }, [to, duration])
+
+  return <span ref={ref} aria-hidden="true">{value.toLocaleString('es-MX')}</span>
 }
 
 // Página de producto con la receta de la tienda: la pieza enorme y que se
@@ -172,10 +204,10 @@ export default function ProductDetailClient({
           <div className="pd-ship">
             {freeThresholdMxn > 0 && (
               <p className="pd-ship-free">
-                {freeShipping ? 'esta lleva envío gratis.' : `envío gratis desde ${fmt(freeThresholdMxn)}.`}
+                {freeShipping ? 'esta lleva envío gratis express.' : `envío gratis express desde ${fmt(freeThresholdMxn)}.`}
               </p>
             )}
-            <p>el costo y el tiempo de entrega exactos salen con tu código postal al pagar. no necesitas cuenta.</p>
+            <p>el costo y el tiempo de entrega exactos salen con tu código postal al pagar.</p>
           </div>
 
           {product.isPlaceholder && (
@@ -188,11 +220,11 @@ export default function ProductDetailClient({
         </div>
       </div>
 
-      {product.printHours && (
-        <section className="pd-hours">
-          <p className="pd-hours-num">{product.printHours} h</p>
-          <p className="pd-hours-text">
-            cada una tarda {product.printHours} horas en nacer,<br />capa por capa.
+      {product.makingMinutes && (
+        <section className="pd-hours" aria-label={`cada una tarda ${product.makingMinutes} minutos en crearse`}>
+          <p className="pd-hours-num"><CountUp to={product.makingMinutes} /><span className="pd-hours-unit">min</span></p>
+          <p className="pd-hours-text" aria-hidden="true">
+            cada una tarda {product.makingMinutes.toLocaleString('es-MX')} minutos en crearse.
           </p>
         </section>
       )}
