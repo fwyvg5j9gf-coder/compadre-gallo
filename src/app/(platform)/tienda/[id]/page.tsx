@@ -87,6 +87,7 @@ async function loadDetail(id: string): Promise<DetailProduct | null> {
       printHours: Number(lamp.specs?.horas_impresion) || null,
       buyable: false,
       isPlaceholder: true,
+      prototipo: !!lamp.prototipo,
       packagingTypeId: null,
     }
   }

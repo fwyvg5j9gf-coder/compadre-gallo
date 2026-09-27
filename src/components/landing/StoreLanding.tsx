@@ -43,6 +43,7 @@ function Hero({ lamp }: { lamp: Lamp }) {
       <div className="lt-hero-stage">
         <span className="lt-glow" aria-hidden="true" />
         {look && <img className="lt-hero-img" src={look.src} alt={`${lamp.name} ${look.label}`} />}
+        {look?.srcOn && <img className="lt-hero-img lt-img-on" src={look.srcOn} alt="" aria-hidden="true" />}
       </div>
     </section>
   )
@@ -75,6 +76,7 @@ function LampPanel({ lamp, index }: { lamp: Lamp; index: number }) {
             loading={index === 0 ? 'eager' : 'lazy'}
           />
         )}
+        {look?.srcOn && <img className="lt-product-img lt-img-on" src={look.srcOn} alt="" aria-hidden="true" loading="lazy" />}
       </button>
 
       <div className="lt-product-info">

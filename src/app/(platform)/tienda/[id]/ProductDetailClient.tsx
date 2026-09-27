@@ -19,6 +19,7 @@ export type DetailProduct = {
   printHours: number | null
   buyable: boolean
   isPlaceholder: boolean
+  prototipo?: boolean
   packagingTypeId: string | null
 }
 
@@ -96,6 +97,7 @@ export default function ProductDetailClient({
         >
           <span className="lt-glow" aria-hidden="true" />
           {look && <img className="lt-product-img" src={look.src} alt={`${product.name} ${look.label}`} />}
+          {look?.srcOn && <img className="lt-product-img lt-img-on" src={look.srcOn} alt="" aria-hidden="true" />}
         </button>
 
         <div className="pd-info">
@@ -177,7 +179,11 @@ export default function ProductDetailClient({
           </div>
 
           {product.isPlaceholder && (
-            <p className="lt-note">este dibujo es de relleno, y su ficha también. la lámpara de verdad viene en camino.</p>
+            <p className="lt-note">
+              {product.prototipo
+                ? 'es un prototipo: todavía no está a la venta. cuando salga, la compras aquí mismo.'
+                : 'este dibujo es de relleno, y su ficha también. la lámpara de verdad viene en camino.'}
+            </p>
           )}
         </div>
       </div>

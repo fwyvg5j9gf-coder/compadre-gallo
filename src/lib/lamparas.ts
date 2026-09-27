@@ -15,6 +15,8 @@ export type LampLook = {
   label: string        // nombre del color o acabado
   swatch: string       // color del botón selector
   src: string
+  /** misma toma, encendida: se muestra al prender (mismo encuadre exacto que src) */
+  srcOn?: string
 }
 
 export type Lamp = {
@@ -25,6 +27,7 @@ export type Lamp = {
   looks: LampLook[]
   href: string         // página de detalle
   buyable: boolean     // false = relleno, se ve pero no se compra
+  prototipo?: boolean  // lámpara real del estudio que aún no está a la venta
   stock: number | null // piezas en existencia; null = no aplica (placeholders)
   specs?: Specs
   weightGrams?: number | null
@@ -76,27 +79,33 @@ const PH_SPECS: Specs = {
   voltaje: '127 V',
 }
 const PH_WEIGHT: Record<string, number> = {
-  'ph-firulais': 850, 'ph-michi': 780, 'ph-salchicha': 920, 'ph-bolita': 640,
+  'ph-michi': 780, 'ph-salchicha': 920, 'ph-bolita': 640,
 }
 
 export const isPlaceholderId = (id: string) => id.startsWith('ph-')
 
 export const PLACEHOLDER_LAMPS: Lamp[] = [
+  // Primer prototipo real (27 sep 2026): la chaparra con pantalla «almohada baja», impresa en PLA blanco mate.
+  // Sigue sin venderse (ph-, buyable false) hasta que se publique en /casa/tienda. Imagen: render del diseño impreso.
   {
-    id: 'ph-firulais',
-    name: 'firulais',
-    blurb: 'se sienta, te mira y alumbra. no pide nada más.',
-    price_mxn: 129000,
+    id: 'ph-chaparra',
+    name: 'chaparra',
+    blurb: 'dos almohadas de luz sobre un pie chaparro.',
+    price_mxn: 180000,
     looks: [
-      { label: 'caramelo', swatch: '#d99a5b', src: ph('firulais-caramelo') },
-      { label: 'blanco',   swatch: '#f1ede4', src: ph('firulais-blanco') },
-      { label: 'negro',    swatch: '#3a3632', src: ph('firulais-negro') },
+      { label: 'blanco mate', swatch: '#eeebe4', src: '/placeholders/chaparra-blanco.png', srcOn: '/placeholders/chaparra-blanco-encendida.png' },
     ],
-    href: '/tienda/ph-firulais',
+    href: '/tienda/ph-chaparra',
     buyable: false,
+    prototipo: true,
     stock: null,
-    specs: { ...PH_SPECS, medidas: 'alto 32 cm · ancho 24 cm', horas_impresion: '14' },
-    weightGrams: PH_WEIGHT['ph-firulais'],
+    specs: {
+      ...PH_SPECS,
+      foco: 'LED E26/E27 cálido, incluido',
+      material: 'PLA blanco mate impreso en 3D, pantalla de una sola pared',
+      medidas: 'alto 21 cm · ancho 21 cm',
+      horas_impresion: '7',
+    },
   },
   {
     id: 'ph-michi',
