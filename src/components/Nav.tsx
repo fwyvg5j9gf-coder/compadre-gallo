@@ -56,16 +56,18 @@ export default function Nav({ links }: { links?: NavLink[] }) {
             </Link>
           );
         })}
+        {/* 44×44 para el dedo; el margen negativo deja el ícono donde estaba. */}
         <button onClick={openCart} aria-label="ver carrito" style={{
-          position: 'relative', display: 'flex', alignItems: 'center',
+          position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 44, height: 44, margin: '-7px -7px -7px 0',
           background: 'none', border: 'none', cursor: 'pointer',
-          color: 'var(--fg-muted)', padding: 4,
+          color: 'var(--fg-muted)', padding: 0,
           transition: 'color 140ms var(--ease-out)',
         }}>
           <IconCart />
           {totalItems > 0 && (
             <span style={{
-              position: 'absolute', top: -1, right: -5,
+              position: 'absolute', top: 6, right: 2,
               background: 'var(--gallo-red)', color: '#fff',
               fontSize: 9, fontWeight: 800, lineHeight: 1,
               borderRadius: 999, padding: '2px 4px',

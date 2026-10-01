@@ -969,6 +969,9 @@ img { display: block; }
   white-space: nowrap;
 }
 .lt-marquee-mark {
+  padding: 3px 6px 4px;
+  border-radius: var(--r-sm);
+  background: var(--gallo-paper);
   font-family: var(--font-display);
   font-weight: 900;
   font-size: 17px;
@@ -1036,7 +1039,8 @@ img { display: block; }
   height: 30px;
   border-radius: var(--r-pill);
   background: var(--ink-300);
-  transition: background var(--dur-base) var(--ease-out);
+  box-shadow: inset 0 0 0 1.5px var(--ink-500); /* apagado: el track solo daba 1.37:1 contra el fondo */
+  transition: background var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
 }
 .lt-switch-knob {
   position: absolute;
@@ -1048,7 +1052,9 @@ img { display: block; }
   background: #fff;
   transition: translate var(--dur-base) var(--ease-out);
 }
-.lt-switch[aria-pressed="true"] .lt-switch-track { background: var(--gallo-yellow); }
+.lt-switch[aria-pressed="true"] .lt-switch-track { background: var(--gallo-yellow); box-shadow: none; }
+.lt-hero-more { display: block; width: fit-content; margin-top: var(--space-5); font-size: var(--fs-small); font-weight: 700; color: inherit; }
+.lt-hero-more:hover { opacity: 0.7; }
 .lt-switch[aria-pressed="true"] .lt-switch-knob { translate: 26px 0; background: var(--gallo-black); }
 
 .lt-hero-stage {
@@ -1139,6 +1145,7 @@ img { display: block; }
 .lt-looks { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-6); }
 .lt-swatches { display: flex; gap: var(--space-2); }
 .lt-swatch {
+  position: relative;
   width: 32px;
   height: 32px;
   padding: 0;
@@ -1147,6 +1154,8 @@ img { display: block; }
   box-shadow: 0 0 0 3px #fff;
   transition: box-shadow var(--dur-fast) var(--ease-out);
 }
+/* Área de toque de 40 px sin agrandar el circulito (el gap es de 8 px). */
+.lt-swatch::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
 .lt-swatch[aria-checked="true"] { box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--gallo-black); }
 .lt-look-name { font-size: var(--fs-small); color: var(--fg-muted); }
 
@@ -1159,7 +1168,7 @@ img { display: block; }
   display: inline-block;
   padding: 4px 10px;
   border-radius: var(--r-pill);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   line-height: 1.2;
   letter-spacing: var(--track-wide);

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useCart } from '@/context/CartContext'
 import { useCartIncrement } from '@/components/useCartIncrement'
-import { fmt } from '@/lib/utils'
+import { fmtPrice as fmt } from '@/lib/utils'
 
 // Carrito completo, como el de gangstafairy: se puede revisar todo con calma
 // antes de pagar. El cajón lateral sigue existiendo para agregar rápido.

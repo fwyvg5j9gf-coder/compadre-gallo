@@ -2,7 +2,7 @@
 
 import { useState, type MouseEvent, type PointerEvent } from 'react'
 import Link from 'next/link'
-import { fmt } from '@/lib/utils'
+import { fmtPrice } from '@/lib/utils'
 import { stockBadge, type Lamp } from '@/lib/lamparas'
 import NewsletterSignup from './NewsletterSignup'
 
@@ -37,7 +37,8 @@ export function useLampLight(name: string) {
 
 // ── Marquesina: envío gratis express ─────────────────────────────────────────
 // Corre de derecha a izquierda sin fin. Entre frase y frase va el wordmark de
-// cinco colores (el único lugar donde la marca deja la paleta completa). Se
+// cinco colores sobre su placa blanca, como en el nav: en negro la g azul no se
+// ve (APCA Lc 8). Se
 // detiene al pasar el mouse y se queda quieta con movimiento reducido.
 function EnvioMarquee({ desde }: { desde: string }) {
   const texto = `ENVÍO GRATIS EXPRESS DESDE ${desde}`
@@ -85,6 +86,7 @@ function Hero({ lamp }: { lamp: Lamp }) {
           <span className="lt-switch-track" aria-hidden="true"><span className="lt-switch-knob" /></span>
           {on ? 'apágala' : 'préndela'}
         </button>
+        <Link href={lamp.href} className="lt-hero-more">{lamp.name} · {fmtPrice(lamp.price_mxn)} →</Link>
       </div>
 
       <div className="lt-hero-stage">
@@ -163,7 +165,7 @@ function LampPanel({ lamp, index }: { lamp: Lamp; index: number }) {
         )}
 
         <div className="lt-buy">
-          <span className="lt-price">{fmt(lamp.price_mxn)}</span>
+          <span className="lt-price">{fmtPrice(lamp.price_mxn)}</span>
           {soldOut ? (
             <button type="button" className="btn btn-lg btn-accent" disabled>se acabó</button>
           ) : lamp.buyable ? (
@@ -191,7 +193,7 @@ export default function StoreLanding({
 }) {
   return (
     <div className="lt">
-      {freeThresholdMxn > 0 && <EnvioMarquee desde={fmt(freeThresholdMxn).replace(/\.00$/, '')} />}
+      {freeThresholdMxn > 0 && <EnvioMarquee desde={fmtPrice(freeThresholdMxn)} />}
       {lamps[0] && <Hero lamp={lamps[0]} />}
 
       <section className="lt-manifesto">
@@ -228,7 +230,7 @@ export default function StoreLanding({
                 </span>
                 <span className="lt-other-meta">
                   <span>{o.name}</span>
-                  <span className="lt-other-price">{fmt(o.price_mxn)}</span>
+                  <span className="lt-other-price">{fmtPrice(o.price_mxn)}</span>
                 </span>
               </Link>
             ))}

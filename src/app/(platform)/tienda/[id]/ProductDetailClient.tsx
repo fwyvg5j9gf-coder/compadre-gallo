@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useCart } from '@/context/CartContext'
-import { fmt } from '@/lib/utils'
+import { fmtPrice } from '@/lib/utils'
 import type { LampLook } from '@/lib/lamparas'
 import { StockTag, useLampLight } from '@/components/landing/StoreLanding'
 
@@ -133,7 +133,7 @@ export default function ProductDetailClient({
             <StockTag stock={product.buyable ? (variant?.stock ?? totalStock) : null} />
           </div>
           <h1 className="pd-name">{product.name}</h1>
-          <p className="pd-price">{fmt(product.price_mxn)}</p>
+          <p className="pd-price">{fmtPrice(product.price_mxn)}</p>
           {product.blurb && <p className="pd-blurb">{product.blurb}</p>}
 
           {product.looks.length > 1 && (
@@ -203,7 +203,7 @@ export default function ProductDetailClient({
           <div className="pd-ship">
             {product.buyable && freeThresholdMxn > 0 && (
               <p className="pd-ship-free">
-                {freeShipping ? 'esta lleva envío gratis express.' : `envío gratis express desde ${fmt(freeThresholdMxn)}.`}
+                {freeShipping ? 'esta lleva envío gratis express.' : `envío gratis express desde ${fmtPrice(freeThresholdMxn)}.`}
               </p>
             )}
             <p>el costo y el tiempo de entrega exactos salen con tu código postal al pagar.</p>
