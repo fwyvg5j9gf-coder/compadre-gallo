@@ -104,8 +104,7 @@ export default function ProductDetailClient({
     setTimeout(() => setAdded(false), 2000)
   }
 
-  const cta = !product.buyable ? 'ya casi'
-    : soldOut ? 'se acabó'
+  const cta = soldOut ? 'se acabó'
     : size === null ? 'elige una talla'
     : remaining === 0 ? 'ya tienes todas en tu carrito'
     : added ? 'agregada a tu carrito'
@@ -193,12 +192,16 @@ export default function ProductDetailClient({
             </div>
           )}
 
-          <button type="button" className="btn btn-lg btn-accent pd-cta" onClick={handleAdd} disabled={!canAdd || added}>
-            {cta}
-          </button>
+          {product.buyable ? (
+            <button type="button" className="btn btn-lg btn-accent pd-cta" onClick={handleAdd} disabled={!canAdd || added}>
+              {cta}
+            </button>
+          ) : (
+            <Link href="/tienda#avisame" className="btn btn-lg btn-secondary pd-cta">avísame cuando salga</Link>
+          )}
 
           <div className="pd-ship">
-            {freeThresholdMxn > 0 && (
+            {product.buyable && freeThresholdMxn > 0 && (
               <p className="pd-ship-free">
                 {freeShipping ? 'esta lleva envío gratis express.' : `envío gratis express desde ${fmt(freeThresholdMxn)}.`}
               </p>

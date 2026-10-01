@@ -1081,7 +1081,7 @@ img { display: block; }
   margin: 0;
 }
 .lt-hl { background: var(--gallo-yellow); padding: 0 0.12em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
-.lt-note { margin: var(--space-6) 0 0; font-size: var(--fs-small); color: var(--fg-subtle); font-style: italic; }
+.lt-note { margin: var(--space-6) 0 0; font-size: var(--fs-small); color: var(--fg-muted); font-style: italic; }
 
 /* Productos: cada uno ocupa casi toda la pantalla y alterna de lado */
 .lt-products { display: flex; flex-direction: column; gap: var(--space-9); padding: 0 var(--outer-px) var(--space-10); }
@@ -1408,6 +1408,7 @@ img { display: block; }
   padding: var(--space-8);
   border-radius: var(--r-md);
   background: var(--ink-100);
+  scroll-margin-top: calc(60px + var(--space-5)); /* que el nav no tape el título al llegar con #avisame */
 }
 .nl-title {
   font-family: var(--font-display);
@@ -1434,7 +1435,7 @@ img { display: block; }
 .nl-input:focus-visible { outline: 2px solid var(--gallo-yellow); outline-offset: 4px; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--gallo-black); }
 .nl-trap { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 .nl-error { font-size: var(--fs-small); font-weight: 600; color: var(--gallo-red); margin: 0; }
-.nl-fine { font-size: 12px; color: var(--fg-subtle); margin: var(--space-1) 0 0; }
+.nl-fine { font-size: 12px; color: var(--fg-muted); margin: var(--space-1) 0 0; }
 .nl-fine a { text-decoration: underline; text-underline-offset: 2px; }
 .nl-done { font-family: var(--font-display); font-weight: 800; font-size: var(--fs-h3); line-height: 1.15; margin: 0; }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type PointerEvent } from 'react'
+import { useState, type MouseEvent, type PointerEvent } from 'react'
 import Link from 'next/link'
 import { fmt } from '@/lib/utils'
 import { stockBadge, type Lamp } from '@/lib/lamparas'
@@ -96,6 +96,17 @@ function Hero({ lamp }: { lamp: Lamp }) {
   )
 }
 
+// "avísame cuando salga": baja al correo y deja el cursor listo para escribir.
+// Sin JavaScript, el ancla #avisame hace lo mismo menos el foco.
+function goToSignup(e: MouseEvent<HTMLAnchorElement>) {
+  const input = document.getElementById('nl-email')
+  if (!input) return
+  e.preventDefault()
+  const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  input.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'center' })
+  input.focus({ preventScroll: true })
+}
+
 // ── Producto ──────────────────────────────────────────────────────────────────
 function LampPanel({ lamp, index }: { lamp: Lamp; index: number }) {
   const [lookIdx, setLookIdx] = useState(0)
@@ -158,7 +169,7 @@ function LampPanel({ lamp, index }: { lamp: Lamp; index: number }) {
           ) : lamp.buyable ? (
             <Link href={lamp.href} className="btn btn-lg btn-accent">la quiero</Link>
           ) : (
-            <button type="button" className="btn btn-lg btn-accent" disabled>ya casi</button>
+            <a href="#avisame" className="btn btn-lg btn-secondary" onClick={goToSignup}>avísame cuando salga</a>
           )}
         </div>
       </div>
