@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useCart } from '@/context/CartContext'
 import { fmt } from '@/lib/utils'
 import type { LampLook } from '@/lib/lamparas'
-import { StockTag } from '@/components/landing/StoreLanding'
+import { StockTag, useLampLight } from '@/components/landing/StoreLanding'
 
 export type DetailProduct = {
   id: string
@@ -71,7 +71,7 @@ export default function ProductDetailClient({
   const isUnica = variants.length === 0 || (variants.length === 1 && variants[0].size === 'única')
   const [size, setSize] = useState<string | null>(isUnica ? 'única' : null)
   const [lookIdx, setLookIdx] = useState(0)
-  const [on, setOn] = useState(false)
+  const { on, stageProps } = useLampLight(product.name)
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
 
@@ -121,11 +121,7 @@ export default function ProductDetailClient({
         <button
           type="button"
           className="lt-product-stage pd-stage"
-          aria-pressed={on}
-          aria-label={on ? `apagar ${product.name}` : `prender ${product.name}`}
-          onMouseEnter={() => setOn(true)}
-          onMouseLeave={() => setOn(false)}
-          onClick={() => setOn(v => !v)}
+          {...stageProps}
         >
           <span className="lt-glow" aria-hidden="true" />
           {look && <img className="lt-product-img" src={look.src} alt={`${product.name} ${look.label}`} />}

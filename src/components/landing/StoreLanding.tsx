@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type PointerEvent } from 'react'
 import Link from 'next/link'
 import { fmt } from '@/lib/utils'
 import { stockBadge, type Lamp } from '@/lib/lamparas'
@@ -14,6 +14,25 @@ export function StockTag({ stock, overlay }: { stock: number | null; overlay?: b
   if (!b) return null
   const cls = `lt-stock${b.kind === 'agotado' ? ' is-out' : ' is-low'}${overlay ? ' is-overlay' : ''}`
   return <span className={cls}>{b.kind === 'agotado' ? 'AGOTADO' : `QUEDAN ${b.n}`}</span>
+}
+
+// ── Prender la lámpara ────────────────────────────────────────────────────────
+// Con mouse, pasar encima la prende de muestra y el clic la deja prendida.
+// En touch no hay hover: el tap dispara hover y clic juntos y se cancelaban,
+// así que el hover solo cuenta con mouse y el tap prende/apaga directo.
+export function useLampLight(name: string) {
+  const [pinned, setPinned] = useState(false)
+  const [hover, setHover] = useState(false)
+  const stageProps = {
+    'aria-pressed': pinned,
+    'aria-label': pinned ? `apagar ${name}` : `prender ${name}`,
+    onPointerEnter: (e: PointerEvent) => { if (e.pointerType === 'mouse') setHover(true) },
+    onPointerLeave: (e: PointerEvent) => { if (e.pointerType === 'mouse') setHover(false) },
+    onClick: () => {
+      if (pinned) { setPinned(false); setHover(false) } else setPinned(true)
+    },
+  }
+  return { on: pinned || hover, stageProps }
 }
 
 // ── Marquesina: envío gratis express ─────────────────────────────────────────
@@ -80,7 +99,7 @@ function Hero({ lamp }: { lamp: Lamp }) {
 // ── Producto ──────────────────────────────────────────────────────────────────
 function LampPanel({ lamp, index }: { lamp: Lamp; index: number }) {
   const [lookIdx, setLookIdx] = useState(0)
-  const [on, setOn] = useState(false)
+  const { on, stageProps } = useLampLight(lamp.name)
   const look = lamp.looks[lookIdx]
   const soldOut = stockBadge(lamp.stock)?.kind === 'agotado'
 
@@ -89,11 +108,7 @@ function LampPanel({ lamp, index }: { lamp: Lamp; index: number }) {
       <button
         type="button"
         className="lt-product-stage"
-        aria-pressed={on}
-        aria-label={on ? `apagar ${lamp.name}` : `prender ${lamp.name}`}
-        onMouseEnter={() => setOn(true)}
-        onMouseLeave={() => setOn(false)}
-        onClick={() => setOn(v => !v)}
+        {...stageProps}
       >
         <span className="lt-glow" aria-hidden="true" />
         {look && (
