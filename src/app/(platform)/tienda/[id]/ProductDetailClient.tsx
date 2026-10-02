@@ -223,7 +223,7 @@ export default function ProductDetailClient({
         <section className="pd-hours" aria-label={`cada una tarda ${product.makingMinutes} minutos en crearse`}>
           <p className="pd-hours-num"><CountUp to={product.makingMinutes} /><span className="pd-hours-unit">min</span></p>
           <p className="pd-hours-text" aria-hidden="true">
-            cada una tarda {product.makingMinutes.toLocaleString('es-MX')} minutos en crearse.
+            es lo que tarda cada una en crearse.
           </p>
         </section>
       )}
