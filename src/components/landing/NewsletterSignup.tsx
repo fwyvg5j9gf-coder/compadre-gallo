@@ -11,7 +11,7 @@ export default function NewsletterSignup() {
   const [state, action, pending] = useActionState<SubscribeState, FormData>(subscribe, null)
 
   return (
-    <section className="nl" aria-labelledby="nl-title">
+    <section className="nl" id="avisame" aria-labelledby="nl-title">
       <div className="nl-copy">
         <h2 id="nl-title" className="nl-title">
           {WELCOME_PERCENT}% en<br /><span className="lt-hl">tu primera.</span>

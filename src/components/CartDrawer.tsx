@@ -3,9 +3,7 @@
 import Link from 'next/link'
 import { useCart } from '@/context/CartContext'
 import { useCartIncrement } from './useCartIncrement'
-
-const fmt = (cents: number) =>
-  (cents / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
+import { fmtPrice as fmt } from '@/lib/utils'
 
 const IconX = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -3,6 +3,16 @@
 export const fmt = (cents: number) =>
   (cents / 100).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })
 
+// Precio para la tienda: sin ".00" cuando son pesos cerrados ($1,800, no
+// $1,800.00). Si hay centavos, se muestran. Correos y reportes siguen con fmt.
+export const fmtPrice = (cents: number) =>
+  (cents / 100).toLocaleString('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  })
+
 export function folio(n: number) {
   return `GALLO-${String(n).padStart(5, '0')}`
 }

@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type MouseEvent, type PointerEvent } from 'react'
 import Link from 'next/link'
-import { fmt } from '@/lib/utils'
+import { fmtPrice } from '@/lib/utils'
 import { stockBadge, type Lamp } from '@/lib/lamparas'
 import NewsletterSignup from './NewsletterSignup'
 
@@ -16,9 +16,29 @@ export function StockTag({ stock, overlay }: { stock: number | null; overlay?: b
   return <span className={cls}>{b.kind === 'agotado' ? 'AGOTADO' : `QUEDAN ${b.n}`}</span>
 }
 
+// ── Prender la lámpara ────────────────────────────────────────────────────────
+// Con mouse, pasar encima la prende de muestra y el clic la deja prendida.
+// En touch no hay hover: el tap dispara hover y clic juntos y se cancelaban,
+// así que el hover solo cuenta con mouse y el tap prende/apaga directo.
+export function useLampLight(name: string) {
+  const [pinned, setPinned] = useState(false)
+  const [hover, setHover] = useState(false)
+  const stageProps = {
+    'aria-pressed': pinned,
+    'aria-label': pinned ? `apagar ${name}` : `prender ${name}`,
+    onPointerEnter: (e: PointerEvent) => { if (e.pointerType === 'mouse') setHover(true) },
+    onPointerLeave: (e: PointerEvent) => { if (e.pointerType === 'mouse') setHover(false) },
+    onClick: () => {
+      if (pinned) { setPinned(false); setHover(false) } else setPinned(true)
+    },
+  }
+  return { on: pinned || hover, stageProps }
+}
+
 // ── Marquesina: envío gratis express ─────────────────────────────────────────
 // Corre de derecha a izquierda sin fin. Entre frase y frase va el wordmark de
-// cinco colores (el único lugar donde la marca deja la paleta completa). Se
+// cinco colores sobre su placa blanca, como en el nav: en negro la g azul no se
+// ve (APCA Lc 8). Se
 // detiene al pasar el mouse y se queda quieta con movimiento reducido.
 function EnvioMarquee({ desde }: { desde: string }) {
   const texto = `ENVÍO GRATIS EXPRESS DESDE ${desde}`
@@ -66,6 +86,7 @@ function Hero({ lamp }: { lamp: Lamp }) {
           <span className="lt-switch-track" aria-hidden="true"><span className="lt-switch-knob" /></span>
           {on ? 'apágala' : 'préndela'}
         </button>
+        <Link href={lamp.href} className="lt-hero-more">{lamp.name} · {fmtPrice(lamp.price_mxn)} →</Link>
       </div>
 
       <div className="lt-hero-stage">
@@ -77,10 +98,21 @@ function Hero({ lamp }: { lamp: Lamp }) {
   )
 }
 
+// "avísame cuando salga": baja al correo y deja el cursor listo para escribir.
+// Sin JavaScript, el ancla #avisame hace lo mismo menos el foco.
+function goToSignup(e: MouseEvent<HTMLAnchorElement>) {
+  const input = document.getElementById('nl-email')
+  if (!input) return
+  e.preventDefault()
+  const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  input.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'center' })
+  input.focus({ preventScroll: true })
+}
+
 // ── Producto ──────────────────────────────────────────────────────────────────
 function LampPanel({ lamp, index }: { lamp: Lamp; index: number }) {
   const [lookIdx, setLookIdx] = useState(0)
-  const [on, setOn] = useState(false)
+  const { on, stageProps } = useLampLight(lamp.name)
   const look = lamp.looks[lookIdx]
   const soldOut = stockBadge(lamp.stock)?.kind === 'agotado'
 
@@ -89,11 +121,7 @@ function LampPanel({ lamp, index }: { lamp: Lamp; index: number }) {
       <button
         type="button"
         className="lt-product-stage"
-        aria-pressed={on}
-        aria-label={on ? `apagar ${lamp.name}` : `prender ${lamp.name}`}
-        onMouseEnter={() => setOn(true)}
-        onMouseLeave={() => setOn(false)}
-        onClick={() => setOn(v => !v)}
+        {...stageProps}
       >
         <span className="lt-glow" aria-hidden="true" />
         {look && (
@@ -137,13 +165,13 @@ function LampPanel({ lamp, index }: { lamp: Lamp; index: number }) {
         )}
 
         <div className="lt-buy">
-          <span className="lt-price">{fmt(lamp.price_mxn)}</span>
+          <span className="lt-price">{fmtPrice(lamp.price_mxn)}</span>
           {soldOut ? (
             <button type="button" className="btn btn-lg btn-accent" disabled>se acabó</button>
           ) : lamp.buyable ? (
             <Link href={lamp.href} className="btn btn-lg btn-accent">la quiero</Link>
           ) : (
-            <button type="button" className="btn btn-lg btn-accent" disabled>ya casi</button>
+            <a href="#avisame" className="btn btn-lg btn-secondary" onClick={goToSignup}>avísame cuando salga</a>
           )}
         </div>
       </div>
@@ -165,7 +193,7 @@ export default function StoreLanding({
 }) {
   return (
     <div className="lt">
-      {freeThresholdMxn > 0 && <EnvioMarquee desde={fmt(freeThresholdMxn).replace(/\.00$/, '')} />}
+      {freeThresholdMxn > 0 && <EnvioMarquee desde={fmtPrice(freeThresholdMxn)} />}
       {lamps[0] && <Hero lamp={lamps[0]} />}
 
       <section className="lt-manifesto">
@@ -202,7 +230,7 @@ export default function StoreLanding({
                 </span>
                 <span className="lt-other-meta">
                   <span>{o.name}</span>
-                  <span className="lt-other-price">{fmt(o.price_mxn)}</span>
+                  <span className="lt-other-price">{fmtPrice(o.price_mxn)}</span>
                 </span>
               </Link>
             ))}

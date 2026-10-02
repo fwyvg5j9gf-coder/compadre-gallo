@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useCart } from '@/context/CartContext'
-import { fmt } from '@/lib/utils'
+import { fmtPrice } from '@/lib/utils'
 import type { LampLook } from '@/lib/lamparas'
-import { StockTag } from '@/components/landing/StoreLanding'
+import { StockTag, useLampLight } from '@/components/landing/StoreLanding'
 
 export type DetailProduct = {
   id: string
@@ -71,7 +71,7 @@ export default function ProductDetailClient({
   const isUnica = variants.length === 0 || (variants.length === 1 && variants[0].size === 'única')
   const [size, setSize] = useState<string | null>(isUnica ? 'única' : null)
   const [lookIdx, setLookIdx] = useState(0)
-  const [on, setOn] = useState(false)
+  const { on, stageProps } = useLampLight(product.name)
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
 
@@ -104,8 +104,7 @@ export default function ProductDetailClient({
     setTimeout(() => setAdded(false), 2000)
   }
 
-  const cta = !product.buyable ? 'ya casi'
-    : soldOut ? 'se acabó'
+  const cta = soldOut ? 'se acabó'
     : size === null ? 'elige una talla'
     : remaining === 0 ? 'ya tienes todas en tu carrito'
     : added ? 'agregada a tu carrito'
@@ -121,11 +120,7 @@ export default function ProductDetailClient({
         <button
           type="button"
           className="lt-product-stage pd-stage"
-          aria-pressed={on}
-          aria-label={on ? `apagar ${product.name}` : `prender ${product.name}`}
-          onMouseEnter={() => setOn(true)}
-          onMouseLeave={() => setOn(false)}
-          onClick={() => setOn(v => !v)}
+          {...stageProps}
         >
           <span className="lt-glow" aria-hidden="true" />
           {look && <img className="lt-product-img" src={look.src} alt={`${product.name} ${look.label}`} />}
@@ -138,7 +133,7 @@ export default function ProductDetailClient({
             <StockTag stock={product.buyable ? (variant?.stock ?? totalStock) : null} />
           </div>
           <h1 className="pd-name">{product.name}</h1>
-          <p className="pd-price">{fmt(product.price_mxn)}</p>
+          <p className="pd-price">{fmtPrice(product.price_mxn)}</p>
           {product.blurb && <p className="pd-blurb">{product.blurb}</p>}
 
           {product.looks.length > 1 && (
@@ -197,14 +192,18 @@ export default function ProductDetailClient({
             </div>
           )}
 
-          <button type="button" className="btn btn-lg btn-accent pd-cta" onClick={handleAdd} disabled={!canAdd || added}>
-            {cta}
-          </button>
+          {product.buyable ? (
+            <button type="button" className="btn btn-lg btn-accent pd-cta" onClick={handleAdd} disabled={!canAdd || added}>
+              {cta}
+            </button>
+          ) : (
+            <Link href="/tienda#avisame" className="btn btn-lg btn-secondary pd-cta">avísame cuando salga</Link>
+          )}
 
           <div className="pd-ship">
-            {freeThresholdMxn > 0 && (
+            {product.buyable && freeThresholdMxn > 0 && (
               <p className="pd-ship-free">
-                {freeShipping ? 'esta lleva envío gratis express.' : `envío gratis express desde ${fmt(freeThresholdMxn)}.`}
+                {freeShipping ? 'esta lleva envío gratis express.' : `envío gratis express desde ${fmtPrice(freeThresholdMxn)}.`}
               </p>
             )}
             <p>el costo y el tiempo de entrega exactos salen con tu código postal al pagar.</p>
@@ -224,7 +223,7 @@ export default function ProductDetailClient({
         <section className="pd-hours" aria-label={`cada una tarda ${product.makingMinutes} minutos en crearse`}>
           <p className="pd-hours-num"><CountUp to={product.makingMinutes} /><span className="pd-hours-unit">min</span></p>
           <p className="pd-hours-text" aria-hidden="true">
-            cada una tarda {product.makingMinutes.toLocaleString('es-MX')} minutos en crearse.
+            es lo que tarda cada una en crearse.
           </p>
         </section>
       )}
