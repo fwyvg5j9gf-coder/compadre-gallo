@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 280" preserveAspectRatio="xMidYMid meet" role="img" aria-label="gallo (color)">
+  
+  <g class="l" font-size="220" letter-spacing="-9">
+    <text x="0" y="260" fill="#003a87">g</text>
+    <text x="146" y="260" fill="#00c4df">a</text>
+  </g>
+  <g class="l" font-size="408" letter-spacing="-18">
+    <text x="266" y="260" fill="#ffd49a">l</text>
+    <text x="358" y="260" fill="#ff0100">l</text>
+  </g>
+  <text class="l" x="450" y="260" font-size="220" letter-spacing="-9" fill="#ffe200">o</text>
+</svg>

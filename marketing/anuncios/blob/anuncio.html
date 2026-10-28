@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<title>compadre gallo · lámparas</title>
+<style>
+@font-face{font-family:Newake;src:url('src/NewakeFont-Demo.otf') format('opentype');font-display:block}
+*{box-sizing:border-box}html,body{margin:0;width:1080px;height:1350px;overflow:hidden}body{font-family:Inter,"Helvetica Neue",Arial,sans-serif;background:#13110f;color:white}.canvas{position:relative;width:1080px;height:1350px;isolation:isolate}.render{position:absolute;left:20px;top:75px;width:1040px;height:1144px;z-index:-1;mask-image:linear-gradient(to right,transparent,#000 8%,#000 92%,transparent),linear-gradient(to bottom,transparent,#000 6%,#000 85%,transparent);mask-composite:intersect}h1{position:absolute;top:64px;left:72px;margin:0;font-family:Newake;font-weight:400;font-size:150px;line-height:1.02;word-spacing:.16em;white-space:nowrap;transform-origin:left top;color:#ffd49a}.pitaya h1{transform:scaleX(.748)}.chicle h1{color:#ffe200}.subtitle{position:absolute;top:1082px;left:72px;width:936px;margin:0;font-size:36px;line-height:1.22;color:rgb(255 255 255 / .85)}.footer{position:absolute;top:1222px;left:72px;right:72px;height:56px;display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:center;gap:18px;font-size:28px;white-space:nowrap}.brand img{height:56px;width:auto}.chip{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;background:#ffe200;color:#000;font-size:24px;font-weight:800;letter-spacing:.06em;padding:16px 24px;white-space:nowrap}.day{background:#cecbc6}.day .render{top:-45px;left:90px;width:900px;height:990px}.band{display:none}.day .band{display:block;position:absolute;top:918px;bottom:0;width:100%;background:#00c4df;z-index:-1}.day.chicle .band{background:#003a87}.day h1{top:942px;color:#003a87}.day.chicle h1{color:#ffe200}.day .subtitle{top:1114px;font-size:34px;color:#003a87}.day.chicle .subtitle{color:white}.day .footer{top:1222px}.day .footer .chip{position:fixed;top:72px;left:72px}.day.pitaya .brand{color:#003a87}.story,.story .canvas{height:1920px}.story h1{top:266px;font-size:190px}.story.pitaya h1{transform:scaleX(.59)}.story.chicle h1{transform:scaleX(.94)}.story .render{width:1180px;height:1298px;left:-50px;top:328px}.story .subtitle{top:1440px;font-size:36px}.story .footer{top:1558px}
+</style>
+<main class="canvas">
+<img class="render" alt="">
+<div class="band"></div>
+<h1></h1>
+<p class="subtitle"></p>
+<div class="footer"><div class="brand"><img alt="compadre gallo"><span>compadregallo.com/tienda</span></div><span class="chip">EN EL TALLER</span></div>
+</main>
+<script>
+const q=new URLSearchParams(location.search);
+const lamp=q.get('lampara')==='chicle'?'chicle':'pitaya';
+const day=q.get('variante')==='dia';
+const story=q.get('formato')==='story';
+document.body.className=[lamp,day?'day':'night',story?'story':'feed'].join(' ');
+const name=lamp==='chicle'?'chicle-e26':'pitaya';
+document.querySelector('.render').src=`src/${name}-${day?'dia':'noche'}.png`;
+document.querySelector('h1').textContent=lamp==='pitaya'?'prende la pitaya':'masca luz';
+document.querySelector('.subtitle').textContent=lamp==='pitaya'?'un globo de vinil con cinco picos que suben girando. impresa en 3d y pintada a mano en cdmx.':'una gota de cuatro gajos gordos que se tuerce al subir. impresa en 3d y pintada a mano en cdmx.';
+document.querySelector('.brand img').src=`src/rooster-${day&&lamp==='pitaya'?'black':'white'}-on-transparent.png`;
+document.fonts.ready.then(()=>{document.documentElement.dataset.fontReady=document.fonts.check('150px Newake');});
+</script>
+</html>
